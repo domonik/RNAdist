@@ -82,7 +82,6 @@ class LabelDict:
             yield key, value
 
 
-
 def create_random_fasta(outpath: str, nr_sequences: int, seqrange, seed):
     random.seed(seed)
     with open(outpath, "w") as handle:
@@ -91,78 +90,15 @@ def create_random_fasta(outpath: str, nr_sequences: int, seqrange, seed):
             handle.write(f">{x}\n{seq}\n")
 
 
+def generation_executable_wrapper(args, md_config):
+    training_set_from_fasta(
+        args.input,
+        args.output,
+        md_config,
+        num_threads=args.num_threads,
+        bin_size=args.bin_size,
+        nr_samples=args.nr_samples)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate DISTAttenCionE training set'
-    )
-    group1 = parser.add_argument_group("Dataset Generation")
-    group2 = parser.add_argument_group("Model Details")
-    group1.add_argument(
-        '--input',
-        metavar='i',
-        type=str,
-        help="FASTA input file",
-        required=True
-    )
-    group1.add_argument(
-        '--output',
-        metavar='o',
-        required=True,
-        type=str,
-        help="Output Directory. It is created automatically "
-             "if it does not exist yet"
-    )
-    group1.add_argument(
-        '--num_threads',
-        metavar='t',
-        type=int,
-        help="Number of parallel threads to use (Default: 1)",
-        default=1
-    )
-    group1.add_argument(
-        '--bin_size',
-        metavar='b',
-        type=int,
-        help="Number of sequences stored in a single file. (Default: 1000)",
-        default=1000
-    )
-    group1.add_argument(
-        '--nr_samples',
-        metavar='s',
-        type=int,
-        help="Number of samples used for expected distance calculation. (Default: 1000)",
-        default=1000
-    )
-    group2.add_argument(
-        '--temperature',
-        metavar='s',
-        type=float,
-        help="Temperature for RNA secondary structure prediction (Default: 37)",
-        default=37.0
-    )
-    group2.add_argument(
-        '--min_loop_size',
-        metavar='s',
-        type=float,
-        help="Minimum Loop size of RNA. (Default: 3)",
-        default=3
-    )
-    group2.add_argument(
-        '--noGU',
-        metavar='s',
-        type=int,
-        help="If set to 1 prevents GU pairs (Default: 0)",
-        default=0,
-        choices=range(0, 2)
-    )
-    args = parser.parse_args()
-    config = {
-        "temperature": args.temperature,
-        "min_loop_size": args.min_loop_size,
-        "noGU": args.noGU,
-    }
-
-    p = 0
-    training_set_from_fasta(args.input, args.output, config, num_threads=args.num_threads, bin_size=args.bin_size, nr_samples=args.nr_samples)
+    pass

@@ -83,7 +83,7 @@ def print_incumbent_from_dir(directory):
     print(rh.get_cost(incumbent))
 
 if __name__ == '__main__':
-    dir = "SMAC_OUTPUT/run_1608637542/"
+    dir = "../SMAC_OUTPUT/run_1608637542/"
     #plot_pareto(dir)
     print_incumbent_from_dir(dir)
 

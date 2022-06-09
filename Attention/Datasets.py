@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import os
 from Attention.training_set_generation import LabelDict
 from functools import cached_property
-from typing import List
+from typing import List, Union
 from Bio import SeqIO
 from torch.multiprocessing import Pool
 import RNA
@@ -70,8 +70,12 @@ class RNADATA():
 
 
 class RNAPairDataset(Dataset):
-    def __init__(self, data: str, label_dir: str, dataset_path: str = "./",
-                 num_threads: int = 1, max_length: int = 200, md_config=None):
+    def __init__(self, data: str,
+                 label_dir: Union[str, os.PathLike, None],
+                 dataset_path: str = "./",
+                 num_threads: int = 1,
+                 max_length: int = 200,
+                 md_config=None):
         super().__init__()
         if not os.path.exists(dataset_path):
             os.makedirs(dataset_path, exist_ok=True)

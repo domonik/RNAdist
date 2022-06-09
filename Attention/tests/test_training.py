@@ -1,5 +1,6 @@
 import Attention.training
 from tempfile import TemporaryDirectory
+import executables
 import os
 import torch
 import subprocess
@@ -26,21 +27,4 @@ def test_main(random_fasta, train_config, expected_labels):
         assert os.path.exists(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
 
-
-def test_cmd_training(random_fasta, expected_labels, tmp_path):
-    model_file = os.path.join(tmp_path, "cmd_model.pt")
-    training_file = os.path.abspath(Attention.training.__file__)
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
-
-        process = ["python", training_file,
-                   "--input", random_fasta,
-                   "--label_dir", expected_labels,
-                   "--output", model_file,
-                   "--data_path", tmpdir,
-                   "--max_length", "20",
-                   "--max_epochs", "1"
-                   ]
-        data = subprocess.run(process, stderr=subprocess.PIPE)
-        assert data.stderr.decode() == ""
-        assert os.path.exists(model_file)
 
