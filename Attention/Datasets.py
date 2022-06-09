@@ -71,24 +71,23 @@ class RNADATA():
 
 class RNAPairDataset(Dataset):
     def __init__(self, data: str, label_dir: str, dataset_path: str = "./",
-                 num_threads: int = 1, max_length: int = 200, md=None):
+                 num_threads: int = 1, max_length: int = 200, md_config=None):
         super().__init__()
         if not os.path.exists(dataset_path):
-            os.mkdir(dataset_path)
+            os.makedirs(dataset_path, exist_ok=True)
         self.dataset_path = dataset_path
         self.data = data
         self.extension = "_data.pt"
         self.num_threads = num_threads
         self.max_length = max_length
         self.label_file = label_dir
-        self.md = md
+        self.md_config = md_config if md_config is not None else {}
         if label_dir is not None:
             self.label_dict = LabelDict(label_dir)
             md_config_file = os.path.join(label_dir, "config.pt")
             if os.path.exists(md_config_file):
                 md_config = torch.load(md_config_file)
-                md = RNA.md()
-                set_md_from_config(md, md_config)
+                self.md_config = md_config
                 print("setting model details from training configuration")
             else:
                 print("Not able to infer model details from set generation "
@@ -131,7 +130,8 @@ class RNAPairDataset(Dataset):
     def generate_dataset(self):
         l = [self.label_dict for _ in range(len(self._files))]
         ml = [self.max_length for _ in range(len(self._files))]
-        calls = list(zip(self._files, self.rna_graphs, ml, l))
+        mds = [self.md_config for _ in range(len(self._files))]
+        calls = list(zip(self._files, self.rna_graphs, ml, l, mds))
         if self.num_threads == 1:
             for call in calls:
                 self.mp_create_wrapper(*call)
@@ -140,9 +140,11 @@ class RNAPairDataset(Dataset):
                 pool.starmap(self.mp_create_wrapper, calls)
 
     @staticmethod
-    def mp_create_wrapper(file, seq_data, max_length, label_dict):
+    def mp_create_wrapper(file, seq_data, max_length, label_dict, md_config):
         description, seq = seq_data
-        rna_data = RNADATA(seq, description)
+        md = RNA.md()
+        set_md_from_config(md, md_config)
+        rna_data = RNADATA(seq, description, md)
         pair_matrix, seq_embedding = rna_data.to_tensor(
             max_length,
             positional_encoding=True
