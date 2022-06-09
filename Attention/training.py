@@ -40,14 +40,16 @@ def dataset_generation(
         data_storage: str,
         num_threads: int = 1,
         max_length: int = 200,
-        train_val_ratio: float = 0.2
+        train_val_ratio: float = 0.2,
+        md_config: Dict = None
 ):
     dataset = RNAPairDataset(
         data=fasta,
         label_dir=label_dir,
         dataset_path=data_storage,
         num_threads=num_threads,
-        max_length=max_length
+        max_length=max_length,
+        md_config=md_config
     )
     t = int(len(dataset) * train_val_ratio)
     v = len(dataset) - t
@@ -63,6 +65,7 @@ def setup(
         num_threads: int = 1,
         max_length: int = 200,
         train_val_ratio: float = 0.2,
+        md_config: Dict = None,
         seed: int = 0
 ):
     torch.manual_seed(seed)
@@ -72,7 +75,8 @@ def setup(
         data_storage=data_storage,
         num_threads=num_threads,
         max_length=max_length,
-        train_val_ratio=train_val_ratio
+        train_val_ratio=train_val_ratio,
+        md_config=md_config
     )
     train_loader, val_loader = loader_generation(
         train_set,
@@ -194,7 +198,7 @@ def train_model(
 
 def main(fasta, data_path, label_dir, config, num_threads: int = 1,
          epochs: int = 400, device=None, max_length: int = 200,
-         train_val_ratio: float = 0.2, seed: int = 0):
+         train_val_ratio: float = 0.2, md_config: Dict = None, seed: int = 0):
     train_loader, val_loader = setup(
         fasta=fasta,
         label_dir=label_dir,
@@ -203,6 +207,7 @@ def main(fasta, data_path, label_dir, config, num_threads: int = 1,
         num_threads=num_threads,
         max_length=max_length,
         train_val_ratio=train_val_ratio,
+        md_config=md_config,
         seed=seed
     )
     best_val_mae = train_model(
@@ -405,5 +410,6 @@ if __name__ == '__main__':
         max_length=args.max_length,
         config=config,
         seed=args.seed,
-        epochs=args.max_epochs
+        epochs=args.max_epochs,
+        md_config=md_config
     )
