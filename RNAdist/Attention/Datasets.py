@@ -1,8 +1,8 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import torch.nn.functional as F
 import os
-from Attention.training_set_generation import LabelDict
+from RNAdist.Attention.training_set_generation import LabelDict
 from functools import cached_property
 from typing import List, Union
 from Bio import SeqIO
@@ -10,7 +10,7 @@ from torch.multiprocessing import Pool
 import RNA
 import math
 import torch.multiprocessing
-from DPModels.viennarna_helpers import fold_bppm, set_md_from_config
+from RNAdist.DPModels.viennarna_helpers import fold_bppm, set_md_from_config
 
 
 NUCLEOTIDE_MAPPING = {

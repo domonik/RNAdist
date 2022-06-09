@@ -1,8 +1,11 @@
 import argparse
 import sys
-from Attention.training import training_executable_wrapper
-from Attention.training_set_generation import generation_executable_wrapper
-from Attention.prediction import prediction_executable_wrapper
+
+from RNAdist.Attention.prediction import prediction_executable_wrapper
+from RNAdist.Attention.training import training_executable_wrapper
+from RNAdist.Attention.training_set_generation import (
+    generation_executable_wrapper
+)
 
 
 def training_parser():

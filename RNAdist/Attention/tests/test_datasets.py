@@ -1,6 +1,6 @@
-from Attention.Datasets import RNAPairDataset
+from RNAdist.Attention.Datasets import RNAPairDataset
 from tempfile import TemporaryDirectory
-from Attention.tests.data_fixtures import (
+from RNAdist.Attention.tests.data_fixtures import (
     random_fasta,
     expected_labels,
     PREFIX

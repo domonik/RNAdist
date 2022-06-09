@@ -1,10 +1,10 @@
-import Attention.training
+from RNAdist.Attention.training import main
 from tempfile import TemporaryDirectory
 import executables
 import os
 import torch
 import subprocess
-from Attention.tests.data_fixtures import (
+from RNAdist.Attention.tests.data_fixtures import (
     random_fasta,
     expected_labels,
     train_config,
@@ -14,7 +14,7 @@ from Attention.tests.data_fixtures import (
 
 def test_main(random_fasta, train_config, expected_labels):
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
-        Attention.training.main(
+        main(
             fasta=random_fasta,
             label_dir=expected_labels,
             data_path=tmpdir,

@@ -9,7 +9,11 @@ import torch
 from smac.facade.smac_mf_facade import SMAC4MF
 from smac.scenario.scenario import Scenario
 from smac.utils.constants import MAXINT
-from Attention. training import train_model, dataset_generation, loader_generation
+from RNAdist.Attention.training import (
+    train_model,
+    dataset_generation,
+    loader_generation
+)
 import numpy as np
 from smac.optimizer.multi_objective.parego import ParEGO
 from torch.utils.data import random_split

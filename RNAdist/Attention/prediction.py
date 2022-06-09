@@ -1,15 +1,12 @@
-import argparse
 import os
 import pickle
 from tempfile import TemporaryDirectory
 from typing import Dict, Union
-import sys
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from Attention.DISTAtteNCionE import DISTAtteNCionE2
-from Attention.Datasets import RNAPairDataset
+from RNAdist.Attention.DISTAtteNCionE import DISTAtteNCionE2
+from RNAdist.Attention.Datasets import RNAPairDataset
 
 
 def model_predict(

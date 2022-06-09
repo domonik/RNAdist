@@ -1,8 +1,8 @@
-from Attention.tests.data_fixtures import (
+from RNAdist.Attention.prediction import model_predict
+from RNAdist.Attention.tests.data_fixtures import (
     saved_model,
     random_fasta
 )
-from Attention.prediction import model_predict
 import os
 
 

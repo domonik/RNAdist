@@ -1,9 +1,8 @@
-from Attention.Datasets import RNAPairDataset
-from Attention.DISTAtteNCionE import (
+from RNAdist.Attention.Datasets import RNAPairDataset
+from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionE2,
     CovarianceLoss
 )
-import argparse
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 import torch

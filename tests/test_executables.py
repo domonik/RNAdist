@@ -1,7 +1,7 @@
 import os
 import pytest
-from Attention.training_set_generation import LabelDict
-from Attention.tests.data_fixtures import (
+from RNAdist.Attention.training_set_generation import LabelDict
+from RNAdist.Attention.tests.data_fixtures import (
     random_fasta,
     expected_labels,
     PREFIX,

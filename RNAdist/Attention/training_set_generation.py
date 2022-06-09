@@ -1,12 +1,11 @@
 import RNA
-from sampling.expected_length_sampling import sample_distance
+from RNAdist.sampling.expected_length_sampling import sample_distance
 from torch.multiprocessing import Pool
 from Bio import SeqIO
 import os
 import torch
-import argparse
 import random
-from DPModels.viennarna_helpers import set_md_from_config
+from RNAdist.DPModels.viennarna_helpers import set_md_from_config
 
 
 def chunks(lst, n):
