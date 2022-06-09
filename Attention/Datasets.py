@@ -10,6 +10,7 @@ from torch.multiprocessing import Pool
 import RNA
 import math
 import torch.multiprocessing
+from DPModels.viennarna_helpers import fold_bppm
 
 
 NUCLEOTIDE_MAPPING = {
@@ -20,47 +21,11 @@ NUCLEOTIDE_MAPPING = {
 }
 
 
-def fold_bppm(sequence):
-    md = RNA.md()
-    md.uniq_ML = 1
-    # create fold compound object
-    fc = RNA.fold_compound(sequence, md)
-
-    # compute MFE
-    ss, mfe = fc.mfe()
-
-    # rescale Boltzmann factors according to MFE
-    fc.exp_params_rescale(mfe)
-
-    # compute partition function to fill DP matrices
-    fc.pf()
-    bppm = fc.bpp()
-    bppm = torch.tensor(bppm)
-    return bppm[1:, 1:]
-
-
 class RNADATA():
-    def __init__(self, sequence, description=None):
+    def __init__(self, sequence, description=None, md=None):
         self.sequence = sequence.replace("T", "U")
         self.description = description
-
-    def fold_bppm(self):
-        md = RNA.md()
-        md.uniq_ML = 1
-        # create fold compound object
-        fc = RNA.fold_compound(self.sequence, md)
-
-        # compute MFE
-        ss, mfe = fc.mfe()
-
-        # rescale Boltzmann factors according to MFE
-        fc.exp_params_rescale(mfe)
-
-        # compute partition function to fill DP matrices
-        fc.pf()
-        bppm = fc.bpp()
-        bppm = torch.tensor(bppm)
-        return bppm[1:, 1:]
+        self.md = md
 
     @staticmethod
     def pos_encoding(idx, dimension):
@@ -73,7 +38,8 @@ class RNADATA():
         return enc
 
     def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4):
-        bppm = self.fold_bppm()
+        bppm = fold_bppm(self.sequence, self.md)
+        bppm = torch.tensor(bppm, dtype=torch.float)
         bppm = self._add_upprob(bppm)
         n = bppm.shape[0]
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
@@ -103,9 +69,9 @@ class RNADATA():
         return bppm
 
 
-class RNADataset(Dataset):
+class RNAPairDataset(Dataset):
     def __init__(self, data: str, label_dir: str, dataset_path: str = "./",
-                 num_threads: int = 1, max_length: int = 200):
+                 num_threads: int = 1, max_length: int = 200, md=None):
         super().__init__()
         if not os.path.exists(dataset_path):
             os.mkdir(dataset_path)
@@ -115,6 +81,7 @@ class RNADataset(Dataset):
         self.num_threads = num_threads
         self.max_length = max_length
         self.label_file = label_dir
+        self.md = md
         if label_dir is not None:
             self.label_dict = LabelDict(label_dir)
         else:
@@ -174,45 +141,6 @@ class RNADataset(Dataset):
     def mp_create_wrapper(file, seq_data, max_length, label_dict):
         description, seq = seq_data
         rna_data = RNADATA(seq, description)
-        bppm, seq_encoding = rna_data.to_tensor(max_length=max_length,
-                                                positional_encoding=True)
-        label = label_dict[description]
-        label = label.float()
-        data = {"bppm": bppm, "x": seq_encoding, "y": label}
-        torch.save(data, file)
-
-    def __len__(self):
-        return len(self._files)
-
-    def __getitem__(self, item):
-        file = self._files[item]
-        data = torch.load(file)
-        return data
-
-
-class ConDataset(RNADataset):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @staticmethod
-    def mp_create_wrapper(file, seq_data, max_length, label_dict):
-        description, seq = seq_data
-        rna_data = RNADATA(seq, description)
-        data = rna_data.to_matrix()
-        label = label_dict[description]
-        label = label.float()
-        data = {"x": data, "y": label}
-        torch.save(data, file)
-
-
-class RNAPairDataset(RNADataset):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @staticmethod
-    def mp_create_wrapper(file, seq_data, max_length, label_dict):
-        description, seq = seq_data
-        rna_data = RNADATA(seq, description)
         pair_matrix, seq_embedding = rna_data.to_tensor(
             max_length,
             positional_encoding=True
@@ -224,6 +152,9 @@ class RNAPairDataset(RNADataset):
             label = 1
         data = {"x": seq_embedding, "y": label, "bppm": pair_matrix}
         torch.save(data, file)
+
+    def __len__(self):
+        return len(self._files)
 
     def __getitem__(self, item):
         file = self._files[item]
