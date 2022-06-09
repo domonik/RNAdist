@@ -11,6 +11,8 @@ __pycache__/
 eclip/
 papers/
 *best_models/
+/dist
+/build
 
 
 # C extensions
