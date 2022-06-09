@@ -330,9 +330,10 @@ class DISTAtteNCioNEParser:
 
 
 
-
+def main():
+    DISTAtteNCioNEParser()
 
 
 
 if __name__ == '__main__':
-    DISTAtteNCioNEParser()
+    main()
