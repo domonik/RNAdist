@@ -284,13 +284,25 @@ class DISTAtteNCioNEParser:
             usage="DISTAtteNCioNE <command> [<args>]"
 
         )
-        parser.add_argument("command", help="runs different modes")
+        self.__object_methods = self.__get_modes()
+
+        help_methods = ", ".join(self.__object_methods)
+        help_msg = f"one of: {help_methods}"
+        parser.add_argument("command", help=help_msg)
         args = parser.parse_args(sys.argv[1:2])
-        if not hasattr(self, args.command):
+        if args.command not in self.__object_methods:
             print('Unrecognized command')
             parser.print_help()
             exit(1)
         getattr(self, args.command)()
+
+    def __get_modes(self):
+        object_methods = []
+        for method_name in dir(DISTAtteNCioNEParser):
+            if callable(getattr(DISTAtteNCioNEParser, method_name)):
+                if not method_name.startswith("_"):
+                    object_methods.append(method_name)
+        return object_methods
 
     def train(self):
         parser = training_parser()
