@@ -14,19 +14,20 @@ def loader_generation(
         training_set,
         validation_set,
         batch_size: int,
+        num_threads: int = 1
 ):
     train_loader = DataLoader(
         training_set,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=1,
+        num_workers=num_threads,
         pin_memory=True,
     )
     val_loader = DataLoader(
         validation_set,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=12,
+        num_workers=num_threads,
         pin_memory=True,
     )
     return train_loader, val_loader
@@ -75,7 +76,8 @@ def setup(
     train_loader, val_loader = loader_generation(
         train_set,
         val_set,
-        batch_size=batch_size
+        batch_size=batch_size,
+        num_threads=num_threads
     )
 
     return train_loader, val_loader
