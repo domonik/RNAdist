@@ -10,7 +10,7 @@ from torch.multiprocessing import Pool
 import RNA
 import math
 import torch.multiprocessing
-from DPModels.viennarna_helpers import fold_bppm
+from DPModels.viennarna_helpers import fold_bppm, set_md_from_config
 
 
 NUCLEOTIDE_MAPPING = {
@@ -84,6 +84,15 @@ class RNAPairDataset(Dataset):
         self.md = md
         if label_dir is not None:
             self.label_dict = LabelDict(label_dir)
+            md_config_file = os.path.join(label_dir, "config.pt")
+            if os.path.exists(md_config_file):
+                md_config = torch.load(md_config_file)
+                md = RNA.md()
+                set_md_from_config(md, md_config)
+                print("setting model details from training configuration")
+            else:
+                print("Not able to infer model details from set generation "
+                      "output. Make sure to set them correctly by hand")
         else:
             self.label_dict = None
         if not self._dataset_generated(self._files):
@@ -110,13 +119,6 @@ class RNAPairDataset(Dataset):
             data.append((seq_record.description, str(seq_record.seq)))
             descriptions.add(seq_record.description)
         return data
-
-    @cached_property
-    def binned_data(self):
-        binned_data = [self.rna_graphs[x:x + self.bin_size] for idx, x in
-                       enumerate(
-                           range(0, len(self.rna_graphs), self.bin_size))]
-        return binned_data
 
     @cached_property
     def _files(self):

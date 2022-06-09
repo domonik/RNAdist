@@ -20,3 +20,8 @@ def fold_bppm(sequence, md=None):
     bppm = fc.bpp()
     bppm = np.asarray(bppm)
     return bppm[1:, 1:]
+
+
+def set_md_from_config(md, config):
+    for key, value in config.items():
+        setattr(md, key, value)

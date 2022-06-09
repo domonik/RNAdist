@@ -6,6 +6,7 @@ import os
 import torch
 import argparse
 import random
+from DPModels.viennarna_helpers import set_md_from_config
 
 
 def chunks(lst, n):
@@ -13,9 +14,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def set_md(md, config):
-    for key, value in config.items():
-        setattr(md, key, value)
+
 
 
 def training_set_from_fasta(fasta, output_dir, config, num_threads: int = 1, nr_samples: int = 1000, bin_size: int = 100):
@@ -36,13 +35,15 @@ def training_set_from_fasta(fasta, output_dir, config, num_threads: int = 1, nr_
             indices = pool.starmap(mp_wrapper, to_process)
     index = dict(pair for d in indices for pair in d.items())
     index_file = os.path.join(output_dir, "index.pt")
+    config_file = os.path.join(output_dir, "config.pt")
     torch.save(index, index_file)
+    torch.save(config, config_file)
     return index_file
 
 
 def mp_wrapper(sequences, file, nr_samples, config):
     md = RNA.md()
-    set_md(md, config)
+    set_md_from_config(md, config)
     out = {}
     index = {}
     for description, seq in sequences:
