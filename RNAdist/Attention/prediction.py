@@ -29,7 +29,7 @@ def model_predict(
         )
         data_loader = DataLoader(
             dataset,
-            batch_size=1,
+            batch_size=2,
             shuffle=False,
             num_workers=1,
             pin_memory=False,
@@ -42,8 +42,8 @@ def model_predict(
         output = {}
         for idx, element in enumerate(iter(data_loader)):
             with torch.no_grad():
-                x, bppm, y, _ = element
-                pred = model(bppm)
+                x, bppm, y, mask, indices = element
+                pred = model(bppm, mask=mask)
                 pred = pred.numpy()
                 description, _ = dataset.rna_graphs[idx]
                 output[description] = pred

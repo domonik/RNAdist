@@ -176,15 +176,16 @@ class RNAPairDataset(Dataset):
         bppm = data["bppm"]
         pair_matrix = torch.cat((bppm, new), dim=-1)
         y = data["y"]
-        mask = 1
+        seq_len = len(self.rna_graphs[item][1])
+        pad_val = self.max_length - seq_len
         if not isinstance(y, int):
             if y.shape[0] < self.max_length:
-                pad_val = self.max_length - y.shape[0]
                 y = F.pad(y, (0, pad_val, 0, pad_val),
                                     "constant", 0)
-            mask = (y > 0).float()
-            # y = y.triu()
-        return x, pair_matrix, y, mask
+
+        mask = torch.zeros(self.max_length, self.max_length)
+        mask[:seq_len, :seq_len] = 1
+        return x, pair_matrix, y, mask, item
 
 
 if __name__ == '__main__':

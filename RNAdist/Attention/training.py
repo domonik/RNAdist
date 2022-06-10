@@ -89,11 +89,11 @@ def setup(
 
 def unpack_batch(batch, device, config):
     if config["masking"]:
-        _, pair_rep, y, mask = batch
+        _, pair_rep, y, mask, _ = batch
         mask = mask.to(device)
         numel = torch.count_nonzero(mask)
     else:
-        _, pair_rep, y, _ = batch
+        _, pair_rep, y, _, _ = batch
         numel = y.numel()
         mask = None
     y = y.to(device)
