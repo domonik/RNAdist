@@ -247,7 +247,8 @@ def training_executable_wrapper(args, md_config):
         config=config,
         seed=args.seed,
         epochs=args.max_epochs,
-        md_config=md_config
+        md_config=md_config,
+        device=args.device
     )
 
 
