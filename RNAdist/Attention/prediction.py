@@ -47,6 +47,9 @@ def model_predict(
                 pred = pred.numpy()
                 description, _ = dataset.rna_graphs[idx]
                 output[description] = pred
+    out_dir = os.path.dirname(outfile)
+    if out_dir != "":
+        os.makedirs(out_dir, exist_ok=True)
     with open(outfile, "wb") as handle:
         pickle.dump(output, handle)
 

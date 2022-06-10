@@ -153,7 +153,9 @@ def train_model(
     learning_rate = config["learning_rate"]
     patience = config["patience"]
     torch.manual_seed(seed)
-    os.makedirs(os.path.dirname(config["model_checkpoint"]), exist_ok=True)
+    out_dir = os.path.dirname(config["model_checkpoint"])
+    if out_dir != "":
+        os.makedirs(out_dir, exist_ok=True)
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
