@@ -10,6 +10,8 @@ from RNAdist.Attention.tests.data_fixtures import (
 import executables
 from tempfile import TemporaryDirectory
 import subprocess
+import pickle
+from Bio import SeqIO
 
 EXECUTABLES_FILE = os.path.abspath(executables.__file__)
 
@@ -33,11 +35,13 @@ def test_cmd_training(random_fasta, expected_labels, tmp_path):
 
 
 def test_cmd_prediction(saved_model, random_fasta, tmp_path):
+    desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
     prediction_out = os.path.join(tmp_path, "cmd_prediction.pckl")
     process = ["python", EXECUTABLES_FILE,
                "predict",
                "--input", random_fasta,
                "--output", prediction_out,
+               "--batch_size", "4",
                "--model_file", saved_model,
                "--num_threads", str(os.cpu_count()),
                "--max_length", "20"
@@ -45,6 +49,10 @@ def test_cmd_prediction(saved_model, random_fasta, tmp_path):
     data = subprocess.run(process, stderr=subprocess.PIPE)
     assert data.stderr.decode() == ""
     assert os.path.exists(prediction_out)
+    with open(prediction_out, "rb") as handle:
+        data = pickle.load(handle)
+    for key in desc:
+        assert key in data
 
 
 def test_cmd_data_generation(tmp_path, random_fasta):

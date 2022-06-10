@@ -29,9 +29,9 @@ def model_predict(
         )
         data_loader = DataLoader(
             dataset,
-            batch_size=2,
+            batch_size=batch_size,
             shuffle=False,
-            num_workers=1,
+            num_workers=num_threads,
             pin_memory=False,
         )
         state_dict, config = torch.load(saved_model, map_location="cpu")
@@ -40,13 +40,15 @@ def model_predict(
         model.to(device)
         model.eval()
         output = {}
-        for idx, element in enumerate(iter(data_loader)):
+        for element in iter(data_loader):
             with torch.no_grad():
                 x, bppm, y, mask, indices = element
                 pred = model(bppm, mask=mask)
                 pred = pred.numpy()
-                description, _ = dataset.rna_graphs[idx]
-                output[description] = pred
+                for e_idx, idx in enumerate(indices):
+                    description, seq = dataset.rna_graphs[idx]
+                    e_pred = pred[e_idx][:len(seq), :len(seq)]
+                    output[description] = e_pred
     out_dir = os.path.dirname(outfile)
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
@@ -58,13 +60,12 @@ def prediction_executable_wrapper(args, md_config):
     model_predict(args.input,
                   args.model_file,
                   args.output,
-                  batch_size=1,
-                  num_threads=1,
-                  device="cpu",
-                  max_length=200,
+                  batch_size=args.batch_size,
+                  num_threads=args.num_threads,
+                  device=args.device,
+                  max_length=args.max_length,
                   md_config=md_config
                   )
-
 
 
 if __name__ == '__main__':
