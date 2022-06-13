@@ -329,6 +329,44 @@ class CovarianceLoss(nn.Module):
         return bcov
 
 
+class WeightedDiagonalMSELoss(nn.Module):
+    def __init__(self, alpha: float, device: str, offset: int = 0, reduction: str = "sum"):
+        super().__init__()
+        self.loss = nn.MSELoss(reduction=reduction)
+        self.alpha = alpha
+        self.offset = offset
+        self.device = device
+        self.__dummy = torch.tensor(1, device=device)
+        if reduction == "sum":
+            self.accum_fct = torch.sum
+        elif reduction == "mean":
+            self.accum_fct = torch.mean
+        else:
+            raise ValueError("No valid reduction")
+
+    def forward(self, x, y, mask=None):
+        size = y.shape[-1]
+        weights = torch.zeros((size, size),  device=self.device)
+        triu_indices = torch.triu_indices(size, size, offset=self.offset+1)
+        # weights is the weights for non diagonal
+        weights[triu_indices[0], triu_indices[1]] = self.alpha
+        weights[triu_indices[1], triu_indices[0]] = self.alpha
+        # weights2 is the weights for diagonal
+        weights2 = torch.full((size, size), 1-self.alpha, device=self.device)
+        weights2[triu_indices[0], triu_indices[1]] = 0
+        weights2[triu_indices[1], triu_indices[0]] = 0
+        if mask is not None:
+            weights = weights * mask
+            weights2 = weights2 * mask
+        n_el_weights = torch.max(weights.count_nonzero(), self.__dummy)
+        n_el_weights2 = torch.max(weights2.count_nonzero(), self.__dummy)
+        loss = torch.sum((x - y) ** 2 * weights)
+        loss = loss / n_el_weights
+        loss2 = torch.sum((((x - y) ** 2) * weights2)) / n_el_weights2
+        return loss + loss2
+
+
+
 if __name__ == '__main__':
     seq = "AAUGUGAACA" * 20
     m = [GraphDistance.NUCLEOTIDE_MAPPING[m] for m in seq]

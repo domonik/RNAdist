@@ -1,7 +1,7 @@
 from RNAdist.Attention.Datasets import RNAPairDataset
 from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionE2,
-    CovarianceLoss
+    WeightedDiagonalMSELoss
 )
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
@@ -111,7 +111,7 @@ def train(model, data_loader, optimizer, device,
         pred = model(pair_rep, mask=mask)
         multi_loss = 0
         for criterion, weight in losses:
-            loss = criterion(y, pred) / numel
+            loss = criterion(y, pred, mask)
             multi_loss = multi_loss + loss * weight
         multi_loss.backward()
         optimizer.step()
@@ -131,7 +131,7 @@ def validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
             pred = model(pair_rep, mask=mask)
             multi_loss = 0
             for criterion, weight in losses:
-                loss = criterion(y, pred) / numel
+                loss = criterion(y, pred, mask)
                 multi_loss = multi_loss + loss * weight
             total_loss += multi_loss.item() * y.shape[0]
             error = torch.abs(pred - y).sum() / y.numel()
@@ -166,9 +166,15 @@ def train_model(
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer, step_size=config["lr_step_size"], gamma=0.1
     )
-    criterion = torch.nn.MSELoss(reduction="sum")
-    criterion2 = CovarianceLoss(reduction="sum")
-    losses = [(criterion, config["alpha"]), (criterion2, 1 - config["alpha"])]
+    criterion = WeightedDiagonalMSELoss(
+        alpha=config["alpha"],
+        device=device,
+        offset=2,
+        # Todo: adjust offset for different min_loop_length
+        #  formula: torch.round(mll / 2)
+        reduction="sum"
+    )
+    losses = [(criterion, 1)]
     best_epoch = 0
     best_val_mae = torch.tensor((float("inf")))
     epoch = 0
