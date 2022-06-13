@@ -134,7 +134,14 @@ def validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
                 loss = criterion(y, pred, mask)
                 multi_loss = multi_loss + loss * weight
             total_loss += multi_loss.item() * y.shape[0]
-            error = torch.abs(pred - y).sum() / y.numel()
+            size = y.shape[-1]
+            weights = torch.zeros((size, size), device=device)
+            triu_i = torch.triu_indices(size, size, offset=2 + 1)
+            weights[triu_i[0], triu_i[1]] = 1
+            weights[triu_i[1], triu_i[0]] = 1
+            if mask is not None:
+                numel = (mask * weights).count_nonzero()
+            error = torch.abs((pred - y) * weights).sum() / numel
             error *= y.shape[0]
             total_mae += error
     total_loss /= len(data_loader.dataset)
@@ -176,6 +183,7 @@ def train_model(
     )
     losses = [(criterion, 1)]
     best_epoch = 0
+    best_val_loss = torch.tensor((float("inf")))
     best_val_mae = torch.tensor((float("inf")))
     epoch = 0
     for epoch in range(epochs):
@@ -187,7 +195,8 @@ def train_model(
             val_loss, val_mae = validate(
                 model, val_loader, device, losses, config
             )
-            if val_mae <= best_val_mae:
+            if val_loss <= best_val_loss:
+                best_val_loss = val_loss
                 best_val_mae = val_mae
                 best_epoch = epoch
                 torch.save((model.state_dict(), config), config["model_checkpoint"])
