@@ -17,41 +17,23 @@ from RNAdist.Attention.training import (
 import numpy as np
 from smac.optimizer.multi_objective.parego import ParEGO
 from torch.utils.data import random_split
+from tempfile import TemporaryDirectory
+import os
 
 
-def train_api(config, seed, budget):
-    max_epochs = 250
-    device = "cuda"
-    fasta = "/scratch/ubuntu/RBPdist/Attention/Datasets/generation/unfinished.fasta"
-    label_dir = "/scratch/ubuntu/RBPdist/Attention/Datasets/generation/labels/random_80_200"
-    dataset_path = "/scratch/pytorch_datasets/rbpdist_cnn_test"
-    num_threads = 1
-    max_length = 200
-    train_val_ratio = 0.2
-    total_maes = 0
-    total_epochs = 0
-    config = dict(config)
-    config["validation_interval"] = 5
-    config["patience"] = 15 if budget <= 35 else 20
-    if "nr_cv" not in config:
-        nr_cv = 1 if budget <= 35 else 3
-    else:
-        nr_cv = config["nr_cv"]
+class TrainingWorker:
+    def __init__(self, fasta, label_dir, dataset_path, num_threads, max_length,
+                 train_val_ratio, max_epochs, device):
+        self.fasta = fasta
+        self.label_dir = label_dir
+        self.dataset_path = dataset_path
+        self.num_threads = num_threads
+        self.max_length = max_length
+        self.device = device
+        self.train_val_ratio = train_val_ratio
+        self.max_epochs = max_epochs
 
-    if "model_checkpoint" not in config:
-        config["model_checkpoint"] = "best_models/foo2.pckl"
-    config["optimizer"] = torch.optim.Adam if config["optimizer"] == "adam" else torch.optim.SGD
-    budget = budget / 100
-    torch.manual_seed(seed)
-    for _ in range(nr_cv):
-        train_set, val_set = dataset_generation(
-            fasta=fasta,
-            label_dir=label_dir,
-            data_storage=dataset_path,
-            num_threads=num_threads,
-            max_length=max_length,
-            train_val_ratio=train_val_ratio
-        )
+    def partial_set(self, train_set, val_set, budget):
         keep_t = int(len(train_set) * budget)
         keep_val = int(len(val_set) * budget)
         train_set, _ = random_split(
@@ -60,41 +42,80 @@ def train_api(config, seed, budget):
         val_set, _ = random_split(
             val_set, [keep_val, len(val_set) - keep_val]
         )
+        return train_set, val_set
+
+    def train_api(self, config, seed, budget):
+        config = dict(config)
+        config["validation_interval"] = 5
+        config["patience"] = 15 if budget <= 35 else 20
+        if "model_checkpoint" not in config:
+            tmpdir = TemporaryDirectory(prefix="SMAC_RNAdist_")
+            checkpoint = os.path.join(tmpdir.name, "model.pckl")
+            config["model_checkpoint"] = checkpoint
+        else:
+            tmpdir = None
+        if config["optimizer"].lower() == "adam":
+            config["optimizer"] = torch.optim.Adam
+        elif config["optimizer"].lower() == "sgd":
+            config["optimizer"] = torch.optim.SGD
+        else:
+            raise ValueError("No valid optimizer selected")
+        budget = budget / 100
+        torch.manual_seed(seed)
+        train_set, val_set = dataset_generation(
+            fasta=self.fasta,
+            label_dir=self.label_dir,
+            data_storage=self.dataset_path,
+            num_threads=self.num_threads,
+            max_length=self.max_length,
+            train_val_ratio=self.train_val_ratio
+        )
+        train_set, val_set = self.partial_set(train_set, val_set, budget)
+
         train_loader, val_loader = loader_generation(
             train_set, val_set, config["batch_size"]
         )
         costs = train_model(
             train_loader,
             val_loader,
-            max_epochs,
+            self.max_epochs,
             config,
-            device=device,
+            device=self.device,
             seed=seed
         )
-        total_maes += costs["cost"]
-        total_epochs += costs["epoch"]
-    total_maes /= nr_cv
-    total_epochs /= nr_cv
-    return total_maes
+        if tmpdir:
+            tmpdir.cleanup()
+
+        return costs["cost"]
 
 
-if __name__ == '__main__':
-    best_model = "best_models/hpo_model_run1.pckl"
+def smac_that(
+        fasta,
+        output,
+        label_dir,
+        dataset_path,
+        max_length,
+        train_val_ratio: float = 0.2,
+        device: str = "cuda",
+        max_epochs: int = 200,
+        num_threads: int = 1,
+        run_default: bool = False
+):
     cs = ConfigurationSpace()
-    alpha = UniformFloatHyperparameter("alpha", 0.5, 1.0, default_value=0.95)
+    alpha = UniformFloatHyperparameter("alpha", 0, 1.0, default_value=0.7)
     masking = CategoricalHyperparameter(
-        "masking", [True, False], default_value=True
+        "masking", [True, False]
     )
     learning_rate = UniformFloatHyperparameter(
         "learning_rate", lower=1e-4, upper=1e-2, log=True, default_value=1e-2
     )
-    batch_size = CategoricalHyperparameter("batch_size", [8, 16], default_value=16)
+    batch_size = CategoricalHyperparameter("batch_size", [16, 8])
     nr_layers = CategoricalHyperparameter("nr_layers", [1, 2])
     optimizer = CategoricalHyperparameter(
-        "optimizer",
-        ["adam", "sgd"],
-        default_value="adam"
-    )
+            "optimizer",
+            ["adam", "sgd"],
+            default_value="adam"
+        )
     lr_step_size = UniformIntegerHyperparameter(
         "lr_step_size", 10, 100
     )
@@ -107,14 +128,12 @@ if __name__ == '__main__':
          optimizer,
          lr_step_size]
     )
-
     forbidden_batch_size = CS.ForbiddenEqualsClause(batch_size, 16)
     forbidden_nr_layers = CS.ForbiddenEqualsClause(nr_layers, 2)
     forbidden = CS.ForbiddenAndConjunction(
         forbidden_batch_size, forbidden_nr_layers
     )
     cs.add_forbidden_clause(forbidden)
-
     scenario = Scenario(
         {
             "run_obj": "quality",
@@ -128,11 +147,25 @@ if __name__ == '__main__':
         }
     )
     max_budget = 100
-    intensifier_kwargs = {"initial_budget": 10, "max_budget": max_budget, "eta": 3}
+    intensifier_kwargs = {
+        "initial_budget": 10,
+        "max_budget": max_budget,
+        "eta": 3
+    }
+    worker = TrainingWorker(
+        fasta=fasta,
+        label_dir=label_dir,
+        dataset_path=dataset_path,
+        num_threads=num_threads,
+        max_length=max_length,
+        train_val_ratio=train_val_ratio,
+        device=device,
+        max_epochs=max_epochs
+    )
     smac = SMAC4MF(
         scenario=scenario,
         rng=np.random.RandomState(42),
-        tae_runner=train_api,
+        tae_runner=worker.train_api,
         multi_objective_algorithm=ParEGO,
         multi_objective_kwargs={
             "rho": 0.05,
@@ -140,19 +173,40 @@ if __name__ == '__main__':
         intensifier_kwargs=intensifier_kwargs
     )
     tae = smac.get_tae_runner()
-
+    if run_default:
+        def_value = tae.run(
+            config=cs.get_default_configuration(),
+            budget=10, seed=0
+        )[1]
     try:
         incumbent = smac.optimize()
     finally:
         incumbent = smac.solver.incumbent
 
     incumbent = dict(incumbent)
-    incumbent["model"] = best_model
-    incumbent["nr_cv"] = 1
+    incumbent["model_checkpoint"] = output
     inc_value = tae.run(config=incumbent, budget=max_budget, seed=0)[
         1
     ]
 
     print("Optimized Value: %.4f" % inc_value)
+    print(f"Saved optimized model in: {output}")
 
 
+def smac_executable_wrapper(args):
+    smac_that(
+        fasta=args.fasta,
+        output=args.output,
+        label_dir=args.label_dir,
+        dataset_path=args.dataset_path,
+        max_length=args.max_length,
+        train_val_ratio=args.train_val_ratio,
+        device=args.device,
+        max_epochs=args.max_epochs,
+        num_threads=args.num_threads,
+        run_default=args.run_default
+    )
+
+
+if __name__ == '__main__':
+    pass
