@@ -141,6 +141,9 @@ def smac_that(
     cs.add_condition(
         InCondition(child=momentum, parent=optimizer, values=["sgd"])
     )
+    cs.add_condition(
+        InCondition(child=lr_step_size, parent=optimizer, values=["sgd"])
+    )
     scenario = Scenario(
         {
             "run_obj": "quality",

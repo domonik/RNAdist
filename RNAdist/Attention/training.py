@@ -186,7 +186,8 @@ def train_model(
     else:
         raise ValueError("No valid optimizer provided")
     scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=config["lr_step_size"],
+        optimizer,
+        step_size=config["lr_step_size"] if isinstance(optimizer, torch.optim.SGD) else 1000,
         gamma=0.1 if isinstance(optimizer, torch.optim.SGD) else 1
         # prevents using scheduling if adaptive optimization is used
     )
