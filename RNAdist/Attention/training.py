@@ -169,9 +169,26 @@ def train_model(
         assert device.startswith("cuda") or device.startswith("cpu")
     model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
     model.to(device)
-    optimizer = config["optimizer"](model.parameters(), lr=learning_rate)
+    opt = config["optimizer"].lower()
+    if opt == "sgd":
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=learning_rate,
+            momentum=config["momentum"],
+            weight_decay=config["weight_decay"]
+        )
+    elif opt == "adamw":
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=learning_rate,
+            weight_decay=config["weight_decay"]
+        )
+    else:
+        raise ValueError("No valid optimizer provided")
     scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=config["lr_step_size"], gamma=0.1
+        optimizer, step_size=config["lr_step_size"],
+        gamma=0.1 if isinstance(optimizer, torch.optim.SGD) else 1
+        # prevents using scheduling if adaptive optimization is used
     )
     criterion = WeightedDiagonalMSELoss(
         alpha=config["alpha"],
@@ -237,10 +254,8 @@ def main(fasta, data_path, label_dir, config, num_threads: int = 1,
 
 
 def training_executable_wrapper(args, md_config):
-    if args.optimizer.lower() == "sgd":
-        opt = torch.optim.SGD
-    else:
-        opt = torch.optim.Adam
+
+
     config = {
         "alpha": args.alpha,
         "masking": args.masking,
@@ -249,9 +264,11 @@ def training_executable_wrapper(args, md_config):
         "validation_interval": args.validation_interval,
         "nr_layers": args.nr_layers,
         "patience": args.patience,
-        "optimizer": opt,
+        "optimizer": args.optimizer,
         "model_checkpoint": args.output,
-        "lr_step_size": args.learning_rate_step_size
+        "lr_step_size": args.learning_rate_step_size,
+        "momentum": args.momentum,
+        "weight_decay": args.weight_decay
 
     }
 

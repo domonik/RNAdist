@@ -38,9 +38,10 @@ def train_config(tmp_path):
         "validation_interval": 5,
         "nr_layers": 1,
         "patience": 20,
-        "optimizer": torch.optim.Adam,
+        "optimizer": "adamw",
         "model_checkpoint": os.path.join(tmp_path, "test_model.pt"),
-        "lr_step_size": 1
+        "lr_step_size": 1,
+        "weight_decay": 0
     }
     return config
 

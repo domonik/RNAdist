@@ -1,11 +1,12 @@
 import argparse
 import sys
-
+import os
 from RNAdist.Attention.prediction import prediction_executable_wrapper
 from RNAdist.Attention.training import training_executable_wrapper
 from RNAdist.Attention.training_set_generation import (
     generation_executable_wrapper
 )
+from RNAdist.Attention.smac_optimize import smac_executable_wrapper
 
 
 def training_parser():
@@ -61,8 +62,10 @@ def training_parser():
     group2.add_argument(
         '--alpha',
         type=float,
-        help="weight for the MSE part of the combined loss."
-             "The Covariance Part will be weighted 1 - alpha (Default: 1)",
+        help="weight for the first part of the combined loss."
+             "The weight for the loss of elements i,j"
+             "where j > i + round(min_loop_length/2). The other part"
+             "will be weighted 1 - alpha (Default: 1)",
         default=1
     )
     group2.add_argument(
@@ -111,15 +114,27 @@ def training_parser():
     group2.add_argument(
         '--optimizer',
         type=str,
-        help="Optimizer that should be used. Can be either adam or sgd."
-             "(Default: adam)",
-        default="adam"
+        help="Optimizer that should be used. Can be either AdamW or SGD."
+             "(Default: AdamW)",
+        default="AdamW"
+    )
+    group2.add_argument(
+        '--momentum',
+        type=float,
+        help="Momentum for sgd is ignored if optimizer is adamw (Default: 0).",
+        default=0
+    )
+    group2.add_argument(
+        '--weight_decay',
+        type=float,
+        help="Weight decay (Default: 0)",
+        default=0
     )
     group2.add_argument(
         '--learning_rate_step_size',
         type=int,
         help="Decreases learning rate by 0.1 * current lr after the specified"
-             "nr of epochs (Default: 50)",
+             "nr of epochs. Only used if optimizer is SGD (Default: 50)",
         default=50
     )
     group2.add_argument(
@@ -177,7 +192,6 @@ def prediction_parser():
         description="Predicts Expected Distances using DISTAtteNCionE model"
     )
     group1 = parser.add_argument_group("Prediction")
-    group2 = parser.add_argument_group("Model Details")
     group1.add_argument(
         '--input',
         type=str,
@@ -247,6 +261,7 @@ def add_md_parser(parser):
     )
     return parser
 
+
 def md_config_from_args(args):
     md_config = {
         "temperature": args.temperature,
@@ -304,10 +319,90 @@ class DISTAtteNCioNEParser:
         md_config = md_config_from_args(args)
         prediction_executable_wrapper(args, md_config)
 
+    def optimize(self):
+        parser = smac_parser()
+        args = parser.parse_args(sys.argv[2:])
+        smac_executable_wrapper(args)
+
+
+
+def smac_parser():
+    parser = argparse.ArgumentParser()
+    group1 = parser.add_argument_group("Trainig Data")
+    group2 = parser.add_argument_group("Training Settings")
+    group1.add_argument(
+        '--fasta',
+        type=str,
+        help="FASTA File used for training set generation",
+        required=True
+    )
+    group1.add_argument(
+        '--output',
+        type=str,
+        help="Path where the optimized model will be saved",
+        required=True
+    )
+    group1.add_argument(
+        '--label_dir',
+        type=str,
+        help="Output directory of training data generation",
+        required=True
+    )
+    group1.add_argument(
+        '--dataset_path',
+        type=str,
+        help="Path where the Pytorch Dataset will be stored",
+        required=True
+    )
+    group2.add_argument(
+        '--max_length',
+        type=int,
+        help="Maximum Length of the RNA in the FASTA File (Default: 200)",
+        default=200
+    )
+    group2.add_argument(
+        '--train_val_ratio',
+        type=float,
+        help="Split ratio for Training, Validation split (Default: 0.2)",
+        default=0.2
+    )
+    group2.add_argument(
+        '--device',
+        type=str,
+        help="Device to train on (Default: cuda) "
+             "It is not recommended to use CPU for HPO",
+        default="cuda"
+    )
+    group2.add_argument(
+        '--max_epochs',
+        type=int,
+        help="Maximum nr of epochs to train (Default: 200)",
+        default=200
+    )
+    group2.add_argument(
+        '--num_threads',
+        type=int,
+        help="Maximum nr of cores used for training (Default: 1)",
+        default=1
+    )
+    group2.add_argument(
+        '--run_default',
+        type=bool,
+        help="Whether to run default HPO settings before optimization"
+             " (Default: False)",
+        default=False
+    )
+    return parser
+
+
+
 
 
 def main():
     DISTAtteNCioNEParser()
+
+def smac_main():
+    pass
 
 
 

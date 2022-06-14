@@ -18,6 +18,7 @@ import numpy as np
 from smac.optimizer.multi_objective.parego import ParEGO
 from torch.utils.data import random_split
 from tempfile import TemporaryDirectory
+from ConfigSpace.conditions import InCondition
 import os
 
 
@@ -54,12 +55,6 @@ class TrainingWorker:
             config["model_checkpoint"] = checkpoint
         else:
             tmpdir = None
-        if config["optimizer"].lower() == "adam":
-            config["optimizer"] = torch.optim.Adam
-        elif config["optimizer"].lower() == "sgd":
-            config["optimizer"] = torch.optim.SGD
-        else:
-            raise ValueError("No valid optimizer selected")
         budget = budget / 100
         torch.manual_seed(seed)
         train_set, val_set = dataset_generation(
@@ -113,11 +108,16 @@ def smac_that(
     nr_layers = CategoricalHyperparameter("nr_layers", [1, 2])
     optimizer = CategoricalHyperparameter(
             "optimizer",
-            ["adam", "sgd"],
-            default_value="adam"
+            ["adamw", "sgd"],
         )
     lr_step_size = UniformIntegerHyperparameter(
         "lr_step_size", 10, 100
+    )
+    momentum = UniformFloatHyperparameter(
+        "momentum", 0.5, 0.99
+    )
+    weight_decay = UniformFloatHyperparameter(
+        "weight_decay", 0.0001, 0.1,  log=True
     )
     cs.add_hyperparameters(
         [alpha,
@@ -126,7 +126,10 @@ def smac_that(
          batch_size,
          nr_layers,
          optimizer,
-         lr_step_size]
+         lr_step_size,
+         momentum,
+         weight_decay
+         ]
     )
     forbidden_batch_size = CS.ForbiddenEqualsClause(batch_size, 16)
     forbidden_nr_layers = CS.ForbiddenEqualsClause(nr_layers, 2)
@@ -134,6 +137,9 @@ def smac_that(
         forbidden_batch_size, forbidden_nr_layers
     )
     cs.add_forbidden_clause(forbidden)
+    cs.add_condition(
+        InCondition(child=momentum, parent=optimizer, values=["sgd"])
+    )
     scenario = Scenario(
         {
             "run_obj": "quality",
@@ -166,10 +172,6 @@ def smac_that(
         scenario=scenario,
         rng=np.random.RandomState(42),
         tae_runner=worker.train_api,
-        multi_objective_algorithm=ParEGO,
-        multi_objective_kwargs={
-            "rho": 0.05,
-        },
         intensifier_kwargs=intensifier_kwargs
     )
     tae = smac.get_tae_runner()
