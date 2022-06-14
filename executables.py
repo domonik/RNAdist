@@ -337,7 +337,7 @@ def smac_parser():
         required=True
     )
     group1.add_argument(
-        '--output',
+        '--model_output',
         type=str,
         help="Path where the optimized model will be saved",
         required=True
@@ -353,6 +353,13 @@ def smac_parser():
         type=str,
         help="Path where the Pytorch Dataset will be stored",
         required=True
+    )
+    group2.add_argument(
+        '--smac_dir',
+        type=str,
+        help="Path where the smac optimization data is stored"
+             " (Default: SMAC_OUTPUT)",
+        default="SMAC_OUTPUT"
     )
     group2.add_argument(
         '--max_length',

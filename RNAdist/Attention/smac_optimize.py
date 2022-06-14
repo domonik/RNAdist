@@ -86,7 +86,8 @@ class TrainingWorker:
 
 def smac_that(
         fasta,
-        output,
+        model_output,
+        smac_dir,
         label_dir,
         dataset_path,
         max_length,
@@ -147,7 +148,7 @@ def smac_that(
             "cs": cs,  # configuration space
             "deterministic": True,
             "cost_for_crash": [float(MAXINT)],
-            "output_dir": "SMAC_OUTPUT",
+            "output_dir": smac_dir,
             "ta_run_limit": 100
 
         }
@@ -186,19 +187,19 @@ def smac_that(
         incumbent = smac.solver.incumbent
 
     incumbent = dict(incumbent)
-    incumbent["model_checkpoint"] = output
+    incumbent["model_checkpoint"] = model_output
     inc_value = tae.run(config=incumbent, budget=max_budget, seed=0)[
         1
     ]
 
     print("Optimized Value: %.4f" % inc_value)
-    print(f"Saved optimized model in: {output}")
+    print(f"Saved optimized model in: {model_output}")
 
 
 def smac_executable_wrapper(args):
     smac_that(
         fasta=args.fasta,
-        output=args.output,
+        model_output=args.model_output,
         label_dir=args.label_dir,
         dataset_path=args.dataset_path,
         max_length=args.max_length,
@@ -206,7 +207,8 @@ def smac_executable_wrapper(args):
         device=args.device,
         max_epochs=args.max_epochs,
         num_threads=args.num_threads,
-        run_default=args.run_default
+        run_default=args.run_default,
+        smac_dir=args.smac_dir
     )
 
 
