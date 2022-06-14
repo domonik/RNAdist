@@ -43,6 +43,8 @@ def model_predict(
         for element in iter(data_loader):
             with torch.no_grad():
                 x, bppm, y, mask, indices = element
+                if not config["masking"]:
+                    mask = None
                 pred = model(bppm, mask=mask)
                 pred = pred.numpy()
                 for e_idx, idx in enumerate(indices):
