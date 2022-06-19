@@ -9,6 +9,7 @@ from Bio import SeqIO
 import pytest
 import torch
 
+
 def test_model_predict(saved_model, random_fasta, tmp_path):
     desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
     outfile = os.path.join(tmp_path, "predictions")
@@ -27,10 +28,9 @@ def test_model_predict(saved_model, random_fasta, tmp_path):
         assert key in data
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="Setup does not support a cuda enabled graphics card")
 def test_cuda_predict(saved_model, random_fasta, tmp_path):
-    if not torch.cuda.is_available():
-        pytest.skip("The current setup does not support a cuda enabled graphics card")
-
     desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
     outfile = os.path.join(tmp_path, "predictions")
     model_predict(

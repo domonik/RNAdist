@@ -10,9 +10,10 @@ from RNAdist.Attention.tests.data_fixtures import (
     train_config,
     PREFIX
 )
+import pytest
 
 
-def test_main(random_fasta, train_config, expected_labels):
+def test_training(random_fasta, train_config, expected_labels):
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         main(
             fasta=random_fasta,
@@ -22,9 +23,29 @@ def test_main(random_fasta, train_config, expected_labels):
             num_threads=os.cpu_count(),
             epochs=1,
             max_length=20,
-            train_val_ratio=0.2
+            train_val_ratio=0.2,
+            device="cpu"
         )
         assert os.path.exists(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
 
+
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="Setup does not support a cuda enabled graphics card")
+def test_cuda_training(random_fasta, train_config, expected_labels):
+
+    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+        main(
+            fasta=random_fasta,
+            label_dir=expected_labels,
+            data_path=tmpdir,
+            config=train_config,
+            num_threads=os.cpu_count(),
+            epochs=1,
+            max_length=20,
+            train_val_ratio=0.2,
+            device="cuda"
+        )
+        assert os.path.exists(train_config["model_checkpoint"])
+        assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
 
