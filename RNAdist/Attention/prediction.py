@@ -43,9 +43,11 @@ def model_predict(
         for element in iter(data_loader):
             with torch.no_grad():
                 x, bppm, y, mask, indices = element
+                bppm = bppm.to(device)
+                mask = mask.to(device)
                 if not config["masking"]:
                     mask = None
-                pred = model(bppm, mask=mask)
+                pred = model(bppm, mask=mask).cpu()
                 pred = pred.numpy()
                 for e_idx, idx in enumerate(indices):
                     description, seq = dataset.rna_graphs[idx]
