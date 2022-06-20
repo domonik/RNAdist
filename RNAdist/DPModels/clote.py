@@ -6,8 +6,9 @@ import RNA
 
 # below is the Clote & Ponty DP algorithm
 
-def cp_expected_distance(sequence):
-    md = RNA.md()
+def cp_expected_distance(sequence, md=None):
+    if md is None:
+        md = RNA.md()
     md.uniq_ML = 1
     fc = RNA.fold_compound(sequence, md)
     (ss, mfe) = fc.mfe()

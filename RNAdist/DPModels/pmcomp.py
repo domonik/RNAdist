@@ -1,5 +1,5 @@
 import numpy as np
-from viennarna_helpers import fold_bppm
+import RNA
 
 
 # def upprob_and_bppm(seq):
@@ -30,13 +30,20 @@ def init(bppm, min_len: int = 3):
     return m
 
 
-def pmcomp_distance(seq, min_len: int = 3):
-    bppm = fold_bppm(seq)
-    expected_d = pmcomp_dist_from_bppm(bppm, min_len)
+def pmcomp_distance(sequence, md=None):
+    if md is None:
+        md = RNA.md()
+    md.uniq_ML = 1
+    fc = RNA.fold_compound(sequence, md)
+    (ss, mfe) = fc.mfe()
+    fc.exp_params_rescale(mfe)
+    fc.pf()
+    expected_d = pmcomp_dist_from_fc(fc, md.min_loop_size)
     return expected_d
 
 
-def pmcomp_dist_from_bppm(bppm, min_len):
+def pmcomp_dist_from_fc(fc, min_len):
+    bppm = fc.bpp()
     up_in = up_in_ij(bppm)
     expected_d = init(bppm, min_len)
     n = bppm.shape[0]
