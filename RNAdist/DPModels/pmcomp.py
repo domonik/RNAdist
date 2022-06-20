@@ -43,7 +43,7 @@ def pmcomp_distance(sequence, md=None):
 
 
 def pmcomp_dist_from_fc(fc, min_len):
-    bppm = fc.bpp()
+    bppm = np.asarray(fc.bpp())[1:, 1:]
     up_in = up_in_ij(bppm)
     expected_d = init(bppm, min_len)
     n = bppm.shape[0]
