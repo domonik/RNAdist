@@ -10,7 +10,8 @@ from torch.multiprocessing import Pool
 import RNA
 import math
 import torch.multiprocessing
-from RNAdist.DPModels.viennarna_helpers import fold_bppm, set_md_from_config
+from RNAdist.DPModels.viennarna_helpers import (
+    fold_bppm, set_md_from_config, plfold_bppm)
 
 
 NUCLEOTIDE_MAPPING = {
@@ -37,25 +38,76 @@ class RNADATA():
             enc += [sin, cos]
         return enc
 
+    def positional_encode_seq(self, seq_embedding, pos_encoding_dim: int = 4):
+        pos_enc = []
+        for idx, letter in enumerate(seq_embedding):
+            enc = self.pos_encoding(idx, pos_encoding_dim)
+            pos_enc.append(enc)
+        pos_enc = torch.tensor(pos_enc, dtype=torch.float)
+        seq_embedding = torch.cat((seq_embedding, pos_enc), dim=1)
+        return seq_embedding
+
     def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4):
         bppm = fold_bppm(self.sequence, self.md)
         bppm = torch.tensor(bppm, dtype=torch.float)
         bppm = self._add_upprob(bppm)
-        n = bppm.shape[0]
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
-        if positional_encoding:
-            for idx, letter in enumerate(seq_embedding):
-                enc = self.pos_encoding(idx, pos_encoding_dim)
-                seq_embedding[idx] += enc
-        pair_matrix = bppm[:, :, None]
         seq_embedding = torch.tensor(seq_embedding, dtype=torch.float)
-        if seq_embedding.shape[0] < max_length:
-            pad_val = max_length - seq_embedding.shape[0]
+        if positional_encoding:
+            seq_embedding = self.positional_encode_seq(
+                seq_embedding, pos_encoding_dim
+            )
+        pair_matrix = bppm[:, :, None]
+        seq_embedding, pair_matrix = self._pad_stuff(
+            seq_embedding, pair_matrix, max_length
+        )
+        return pair_matrix, seq_embedding
+
+    @staticmethod
+    def _pad_stuff(seq_embedding, pair_matrix, up_to):
+        if seq_embedding.shape[0] < up_to:
+
+            pad_val = up_to - seq_embedding.shape[0]
             seq_embedding = F.pad(seq_embedding, (0, 0, 0, pad_val),
                                   "constant", 0)
             pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
                                 "constant", 0)
-        return pair_matrix, seq_embedding
+        return seq_embedding, pair_matrix
+
+    def to_split_tensor(
+            self, max_length, positional_encoding, split_indices, pos_encoding_dim=4
+    ):
+        seq_len = len(self.sequence)
+        window = max_length if max_length < seq_len else seq_len
+        bppm = plfold_bppm(self.sequence, window, window, self.md)
+        bppm = self._add_upprob(bppm)
+        bppm = torch.tensor(bppm, dtype=torch.float)
+        bppm = bppm[:, :, None]
+
+        full_seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
+        full_seq_embedding = torch.tensor(
+            full_seq_embedding, dtype=torch.float
+        )
+        to_return = {}
+        for idx in split_indices:
+            seq_embedding = full_seq_embedding[idx:idx+max_length]
+            if positional_encoding:
+                seq_embedding = self.positional_encode_seq(
+                    seq_embedding,
+                    pos_encoding_dim
+                )
+            sub_bppm = bppm[idx:idx+max_length, idx:idx+max_length, :]
+
+            seq_embedding, pair_matrix = self._pad_stuff(
+                seq_embedding, sub_bppm, up_to=max_length
+            )
+            to_return[idx] = seq_embedding, pair_matrix
+        return to_return
+
+
+
+
+
 
     @staticmethod
     def _add_upprob(bppm):
@@ -69,24 +121,59 @@ class RNADATA():
         return bppm
 
 
-class RNAPairDataset(Dataset):
-    def __init__(self, data: str,
+class RNADataset(Dataset):
+    def __init__(self,
+                 data: str,
                  label_dir: Union[str, os.PathLike, None],
                  dataset_path: str = "./",
                  num_threads: int = 1,
                  max_length: int = 200,
-                 md_config=None):
-        super().__init__()
-        if not os.path.exists(dataset_path):
-            os.makedirs(dataset_path, exist_ok=True)
+                 md_config=None
+                 ):
         self.dataset_path = dataset_path
         self.data = data
         self.extension = "_data.pt"
         self.num_threads = num_threads
         self.max_length = max_length
-        self.label_file = label_dir
         self.md_config = md_config if md_config is not None else {}
-        if label_dir is not None:
+        self.label_dir = label_dir
+        if not os.path.exists(self.dataset_path):
+            os.makedirs(dataset_path, exist_ok=True)
+
+    @staticmethod
+    def _check_input_files_exist(files: List[str]):
+        for file in files:
+            assert os.path.exists(file)
+
+    @staticmethod
+    def _dataset_generated(files: List[str]):
+        for element in files:
+            if not os.path.exists(element):
+                return False
+        return True
+
+    @staticmethod
+    def pair_rep_from_single(x):
+        n = x.shape[0]
+        e = x.shape[1]
+        x_x = x.repeat(n, 1)
+        x_y = x.repeat(1, n).reshape(-1, e)
+        pair_rep = torch.cat((x_x, x_y), dim=1).reshape(n, n, -1)
+        return pair_rep
+
+
+class RNAPairDataset(RNADataset):
+    def __init__(self,
+                 data: str,
+                 label_dir: Union[str, os.PathLike, None],
+                 dataset_path: str = "./",
+                 num_threads: int = 1,
+                 max_length: int = 200,
+                 md_config=None):
+        super().__init__(
+            data, label_dir, dataset_path, num_threads, max_length, md_config
+        )
+        if self.label_dir is not None:
             self.label_dict = LabelDict(label_dir)
             md_config_file = os.path.join(label_dir, "config.pt")
             if os.path.exists(md_config_file):
@@ -100,18 +187,6 @@ class RNAPairDataset(Dataset):
             self.label_dict = None
         if not self._dataset_generated(self._files):
             self.generate_dataset()
-
-    @staticmethod
-    def _check_input_files_exist(files: List[str]):
-        for file in files:
-            assert os.path.exists(file)
-
-    @staticmethod
-    def _dataset_generated(files: List[str]):
-        for element in files:
-            if not os.path.exists(element):
-                return False
-        return True
 
     @cached_property
     def rna_graphs(self):
@@ -168,13 +243,9 @@ class RNAPairDataset(Dataset):
         file = self._files[item]
         data = torch.load(file)
         x = data["x"]
-        n = x.shape[0]
-        e = x.shape[1]
-        x_x = x.repeat(n, 1)
-        x_y = x.repeat(1, n).reshape(-1, e)
-        new = torch.cat((x_x, x_y), dim=1).reshape(n, n, -1)
+        pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
-        pair_matrix = torch.cat((bppm, new), dim=-1)
+        pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
         y = data["y"]
         seq_len = len(self.rna_graphs[item][1])
         pad_val = self.max_length - seq_len
@@ -182,10 +253,113 @@ class RNAPairDataset(Dataset):
             if y.shape[0] < self.max_length:
                 y = F.pad(y, (0, pad_val, 0, pad_val),
                                     "constant", 0)
-
         mask = torch.zeros(self.max_length, self.max_length)
         mask[:seq_len, :seq_len] = 1
         return x, pair_matrix, y, mask, item
+
+
+class RNAWindowDataset(RNADataset):
+
+    def __init__(self, data: str,
+                 label_dir: Union[str, os.PathLike, None],
+                 dataset_path: str = "./",
+                 num_threads: int = 1,
+                 max_length: int = 200,
+                 md_config=None,
+                 step_size: int = 1
+                 ):
+        if label_dir is not None:
+            raise ValueError("Window Dataset can only be used for "
+                             "prediction. Please use None as label_dir value")
+        super().__init__(
+            data, label_dir, dataset_path, num_threads, max_length, md_config)
+        self.step_size = step_size
+        if not self._dataset_generated(self._files[0]):
+            self.generate_dataset()
+
+    def seq_indices(self, seq):
+        return range(
+            0, len(seq) - self.max_length + self.step_size, self.step_size
+        )
+
+    @cached_property
+    def rna_graphs(self):
+        data = []
+        descriptions = set()
+        for seq_record in SeqIO.parse(self.data, "fasta"):
+            assert seq_record.description not in descriptions, "Fasta headers must be unique"
+            indices = self.seq_indices(seq_record.seq)
+            indices = indices if indices else [0]
+            data.append((seq_record.description, indices, str(seq_record.seq)))
+            descriptions.add(seq_record.description)
+        return data
+
+    def generate_dataset(self):
+        calls = []
+        for idx, seq_data in enumerate(self.rna_graphs):
+            files = self._files[1][seq_data[0]]
+            call = [files, seq_data, self.max_length, self.md_config]
+            calls.append(call)
+        if self.num_threads == 1:
+            for call in calls:
+                self.mp_create_wrapper(*call)
+        else:
+            with Pool(self.num_threads) as pool:
+                pool.starmap(self.mp_create_wrapper, calls)
+
+    @staticmethod
+    def mp_create_wrapper(files, seq_data, max_length, md_config):
+        description, indices, seq = seq_data
+        md = RNA.md()
+        set_md_from_config(md, md_config)
+        rna_data = RNADATA(seq, description, md)
+        embeddings = rna_data.to_split_tensor(
+            max_length,
+            positional_encoding=True,
+            split_indices=indices
+        )
+        for index, (seq_embedding,  pair_matrix) in embeddings.items():
+            file = files[index]
+            data = {"x": seq_embedding, "bppm": pair_matrix}
+            torch.save(data, file)
+
+    @cached_property
+    def _files(self):
+        files = []
+        file_mapping = {}
+        rev_mapping = {}
+        for desc, indices, seq_data in self.rna_graphs:
+            file_mapping[desc] = {}
+            for x in indices:
+                file = os.path.join(
+                    self.dataset_path, f"{desc}_{x}_{self.extension}"
+                )
+                files.append(file)
+                file_mapping[desc][x] = file
+                rev_mapping[file] = (desc, x)
+        return files, file_mapping, rev_mapping
+
+    @cached_property
+    def file_mapping(self):
+        return self._files[1]
+
+    @cached_property
+    def reverse_file_mapping(self):
+        return self._files[2]
+
+    def __getitem__(self, item):
+        file = self._files[0][item]
+        description, index = self.reverse_file_mapping[file]
+        data = torch.load(file)
+        x = data["x"]
+        pair_rep = self.pair_rep_from_single(x)
+        bppm = data["bppm"]
+        pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
+        mask = torch.zeros(self.max_length, self.max_length)
+
+        # TODO: find a way to fix this mask
+        mask[:self.max_length, :self.max_length] = 1
+        return x, pair_matrix, mask, description, index
 
 
 if __name__ == '__main__':
