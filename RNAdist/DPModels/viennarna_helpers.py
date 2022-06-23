@@ -22,6 +22,26 @@ def fold_bppm(sequence, md=None):
     return bppm[1:, 1:]
 
 
+def plfold_bppm(sequence, window, span, md=None):
+    if md is None:
+        md = RNA.md()
+    md.max_bp_span = span
+    md.window_size = window
+    md.uniq_ML = 1
+    bppm = np.zeros((len(sequence)+1, len(sequence)+1))
+    fc = RNA.fold_compound(sequence, md, RNA.OPTION_WINDOW)
+    fc.probs_window(1, RNA.PROBS_WINDOW_BPP, bpp_callback, bppm)
+    bppm = np.asarray(bppm)
+    return bppm[1:, 1:]
+
+
+def bpp_callback(v, v_size, i, maxsize, what, data):
+    if what:
+        for j, p in enumerate(v):
+            data[i, j] = p if p is not None else np.nan
+
+
+
 def set_md_from_config(md, config):
     for key, value in config.items():
         setattr(md, key, value)
