@@ -49,3 +49,9 @@ def train_config(tmp_path):
 @pytest.fixture()
 def saved_model():
     return os.path.join(TESTDATA_DIR, "test_model.pt")
+
+
+@pytest.fixture()
+def expected_rna_data():
+    data = torch.load(os.path.join(TESTDATA_DIR, "rna_tensor.pt"))
+    return data
