@@ -1,6 +1,7 @@
 from RNAdist.Attention.Datasets import RNAPairDataset
 from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionE2,
+    DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
 from torch.utils.data import random_split
@@ -167,7 +168,10 @@ def train_model(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         assert device.startswith("cuda") or device.startswith("cpu")
-    model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+    if config["model"] == "normal":
+        model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+    elif config["model"] == "small":
+        model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
     model.to(device)
     opt = config["optimizer"].lower()
     if opt == "sgd":
@@ -255,8 +259,6 @@ def main(fasta, data_path, label_dir, config, num_threads: int = 1,
 
 
 def training_executable_wrapper(args, md_config):
-
-
     config = {
         "alpha": args.alpha,
         "masking": args.masking,
@@ -269,7 +271,8 @@ def training_executable_wrapper(args, md_config):
         "model_checkpoint": args.output,
         "lr_step_size": args.learning_rate_step_size,
         "momentum": args.momentum,
-        "weight_decay": args.weight_decay
+        "weight_decay": args.weight_decay,
+        "model": args.model
 
     }
 

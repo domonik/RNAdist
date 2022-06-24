@@ -54,6 +54,12 @@ def training_parser():
         default=0
     )
     group2.add_argument(
+        '--model',
+        type=str,
+        help="Model to train: choose between normal, small",
+        default="normal"
+    )
+    group2.add_argument(
         '--max_length',
         type=int,
         help="Maximum length of RNAs. (Default: 200)",

@@ -260,6 +260,48 @@ class PairUpdate(nn.Module):
         return pair_rep
 
 
+class PairUpdateSmall(nn.Module):
+    def __init__(self, embedding_dim, fw: int = 4):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.fw = fw
+        self.triangular_update_in = TriangularUpdate(self.embedding_dim)
+        self.triangular_update_out = TriangularUpdate(
+            self.embedding_dim,
+            mode="out"
+        )
+        self.transition = nn.Sequential(
+            nn.Linear(self.embedding_dim, self.fw * self.embedding_dim),
+            nn.ReLU(),
+            nn.Linear(self.embedding_dim * self.fw, self.embedding_dim)
+        )
+
+    def forward(self, pair_rep, mask=None):
+        pair_rep = self.triangular_update_in(pair_rep, mask) + pair_rep
+        pair_rep = self.triangular_update_out(pair_rep, mask) + pair_rep
+        pair_rep = self.transition(pair_rep) + pair_rep
+        return pair_rep
+
+
+class DISTAtteNCionESmall(nn.Module):
+    def __init__(self, embedding_dim, nr_updates: int = 1, fw: int = 4):
+        super().__init__()
+        self.nr_updates = nr_updates
+        self.pair_updates = nn.ModuleList(
+            PairUpdateSmall(embedding_dim, fw) for _ in range(self.nr_updates)
+        )
+        self.output = nn.Linear(embedding_dim, 1)
+
+    def forward(self, pair_rep, mask=None):
+        for idx in range(self.nr_updates):
+            pair_rep = self.pair_updates[idx](pair_rep, mask)
+        out = self.output(pair_rep)
+        out = torch.squeeze(out)
+        out = torch.relu(out)
+        if mask is not None:
+            out = out * mask
+        return out
+
 
 class DISTAtteNCionE2(nn.Module):
     def __init__(self, embedding_dim, nr_updates: int = 1, fw: int = 4):
