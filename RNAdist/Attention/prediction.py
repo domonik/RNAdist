@@ -108,7 +108,7 @@ def model_window_predict(
             batched_pred = model(pair_matrix, mask=mask).cpu()
             batched_pred = batched_pred.numpy()
             for batch_index, index in enumerate(indices):
-                description, idx = dataset.reverse_file_mapping[int(index)]
+                _, idx, description = dataset.data_array[int(index)]
                 pred = batched_pred[batch_index]
                 if description not in output:
                     output[description] = {}

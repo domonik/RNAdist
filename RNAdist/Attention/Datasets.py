@@ -22,30 +22,43 @@ NUCLEOTIDE_MAPPING = {
 }
 
 
+def pos_encoding(idx, dimension):
+    enc = []
+    for dim in range(int(dimension / 2)):
+        w = 1 / (10000 ** (2 * dim / dimension))
+        sin = math.sin(w * idx)
+        cos = math.cos(w * idx)
+        enc += [sin, cos]
+    return enc
+
+
+def positional_encode_seq(seq_embedding, pos_encoding_dim: int = 4):
+    pos_enc = []
+    for idx, letter in enumerate(seq_embedding):
+        enc = pos_encoding(idx, pos_encoding_dim)
+        pos_enc.append(enc)
+    pos_enc = torch.tensor(pos_enc, dtype=torch.float)
+    seq_embedding = torch.cat((seq_embedding, pos_enc), dim=1)
+    return seq_embedding
+
+
+def _pad_stuff(seq_embedding, pair_matrix, up_to):
+    if seq_embedding.shape[0] < up_to:
+
+        pad_val = up_to - seq_embedding.shape[0]
+        seq_embedding = F.pad(seq_embedding, (0, 0, 0, pad_val),
+                              "constant", 0)
+        pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
+                            "constant", 0)
+    return seq_embedding, pair_matrix
+
+
 class RNADATA():
     def __init__(self, sequence, description=None, md=None):
         self.sequence = sequence.replace("T", "U")
         self.description = description
         self.md = md
 
-    @staticmethod
-    def pos_encoding(idx, dimension):
-        enc = []
-        for dim in range(int(dimension / 2)):
-            w = 1 / (10000 ** (2 * dim / dimension))
-            sin = math.sin(w * idx)
-            cos = math.cos(w * idx)
-            enc += [sin, cos]
-        return enc
-
-    def positional_encode_seq(self, seq_embedding, pos_encoding_dim: int = 4):
-        pos_enc = []
-        for idx, letter in enumerate(seq_embedding):
-            enc = self.pos_encoding(idx, pos_encoding_dim)
-            pos_enc.append(enc)
-        pos_enc = torch.tensor(pos_enc, dtype=torch.float)
-        seq_embedding = torch.cat((seq_embedding, pos_enc), dim=1)
-        return seq_embedding
 
     def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4):
         bppm = fold_bppm(self.sequence, self.md)
@@ -54,25 +67,15 @@ class RNADATA():
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
         seq_embedding = torch.tensor(seq_embedding, dtype=torch.float)
         if positional_encoding:
-            seq_embedding = self.positional_encode_seq(
+            seq_embedding = positional_encode_seq(
                 seq_embedding, pos_encoding_dim
             )
         pair_matrix = bppm[:, :, None]
-        seq_embedding, pair_matrix = self._pad_stuff(
+        seq_embedding, pair_matrix = _pad_stuff(
             seq_embedding, pair_matrix, max_length
         )
         return pair_matrix, seq_embedding
 
-    @staticmethod
-    def _pad_stuff(seq_embedding, pair_matrix, up_to):
-        if seq_embedding.shape[0] < up_to:
-
-            pad_val = up_to - seq_embedding.shape[0]
-            seq_embedding = F.pad(seq_embedding, (0, 0, 0, pad_val),
-                                  "constant", 0)
-            pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
-                                "constant", 0)
-        return seq_embedding, pair_matrix
 
     def to_split_tensor(
             self, max_length, positional_encoding, split_indices, pos_encoding_dim=4
@@ -92,22 +95,17 @@ class RNADATA():
         for idx in split_indices:
             seq_embedding = full_seq_embedding[idx:idx+max_length]
             if positional_encoding:
-                seq_embedding = self.positional_encode_seq(
+                seq_embedding = positional_encode_seq(
                     seq_embedding,
                     pos_encoding_dim
                 )
             sub_bppm = bppm[idx:idx+max_length, idx:idx+max_length, :]
 
-            seq_embedding, pair_matrix = self._pad_stuff(
+            seq_embedding, pair_matrix = _pad_stuff(
                 seq_embedding, sub_bppm, up_to=max_length
             )
             to_return[idx] = seq_embedding, pair_matrix
         return to_return
-
-
-
-
-
 
     @staticmethod
     def _add_upprob(bppm):
@@ -274,7 +272,7 @@ class RNAWindowDataset(RNADataset):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
         self.step_size = step_size
-        if not self._dataset_generated(self._files[0]):
+        if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
 
     def seq_indices(self, seq):
@@ -297,8 +295,8 @@ class RNAWindowDataset(RNADataset):
     def generate_dataset(self):
         calls = []
         for idx, seq_data in enumerate(self.rna_graphs):
-            files = self._files[1][seq_data[0]]
-            call = [files, seq_data, self.max_length, self.md_config]
+            file = self.files[seq_data[0]]
+            call = [file, seq_data, self.max_length, self.md_config]
             calls.append(call)
         if self.num_threads == 1:
             for call in calls:
@@ -308,60 +306,62 @@ class RNAWindowDataset(RNADataset):
                 pool.starmap(self.mp_create_wrapper, calls)
 
     @staticmethod
-    def mp_create_wrapper(files, seq_data, max_length, md_config):
+    def mp_create_wrapper(file, seq_data, max_length, md_config):
         description, indices, seq = seq_data
         md = RNA.md()
         set_md_from_config(md, md_config)
         rna_data = RNADATA(seq, description, md)
-        embeddings = rna_data.to_split_tensor(
+        bppm, seq_embedding = rna_data.to_tensor(
             max_length,
-            positional_encoding=True,
-            split_indices=indices
+            positional_encoding=False,
         )
-        for index, (seq_embedding,  pair_matrix) in embeddings.items():
-            file = files[index]
-            data = {"x": seq_embedding, "bppm": pair_matrix}
-            torch.save(data, file)
+        data = {"x": seq_embedding, "bppm": bppm}
+        torch.save(data, file)
 
     @cached_property
     def _files(self):
-        files = []
-        file_mapping = {}
-        rev_mapping = {}
+        actual_files = {}
+        data_array = []
         for desc, indices, seq_data in self.rna_graphs:
-            file_mapping[desc] = {}
+            file = os.path.join(
+                self.dataset_path, f"{desc}_{self.extension}"
+            )
+            actual_files[desc] = file
             for index in indices:
-                file = os.path.join(
-                    self.dataset_path, f"{desc}_{index}_{self.extension}"
-                )
-                x = len(files)
-                files.append(file)
-                file_mapping[desc][index] = file
-                rev_mapping[x] = (desc, index)
-        return files, file_mapping, rev_mapping
+                data_array.append((file, index, desc))
+        return data_array, actual_files
 
     @cached_property
-    def file_mapping(self):
+    def data_array(self):
+        return self._files[0]
+
+    @cached_property
+    def files(self):
         return self._files[1]
 
-    @cached_property
-    def reverse_file_mapping(self):
-        return self._files[2]
-
     def __len__(self):
-        return len(self._files[0])
+        return len(self.data_array)
 
     def __getitem__(self, item):
-        file = self._files[0][item]
+        file, index, _ = self.data_array[item]
         data = torch.load(file)
+        ml = self.max_length
         x = data["x"]
+        x = x[index:index+ml]
+        x = positional_encode_seq(
+            x,
+            pos_encoding_dim=4
+        )
         pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
-        pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
-        mask = torch.zeros(self.max_length, self.max_length)
-
-        # TODO: find a way to fix this mask
-        mask[:self.max_length, :self.max_length] = 1
+        sub_bppm = bppm[index:index + ml, index:index + ml, :]
+        pair_matrix = torch.cat((sub_bppm, pair_rep), dim=-1)
+        mask = torch.zeros(ml, ml)
+        cur_len = x.shape[0]
+        mask[:cur_len, :cur_len] = 1
+        x, pair_matrix = _pad_stuff(seq_embedding=x,
+                                    pair_matrix=pair_matrix,
+                                    up_to=ml)
         return x, pair_matrix, mask, item
 
 
