@@ -18,43 +18,51 @@ def model_predict(
         num_threads: int = 1,
         device: str = "cpu",
         max_length: int = 200,
-        md_config: Dict = None):
-    with TemporaryDirectory() as tmpdir:
-        dataset = RNAPairDataset(
-            data=fasta,
-            label_dir=None,
-            dataset_path=tmpdir,
-            num_threads=num_threads,
-            max_length=max_length,
-            md_config=md_config
-        )
-        data_loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=num_threads,
-            pin_memory=False,
-        )
-        model, config = load_model(saved_model, device)
-        output = {}
-        for element in iter(data_loader):
-            with torch.no_grad():
-                x, bppm, y, mask, indices = element
-                bppm = bppm.to(device)
-                mask = mask.to(device)
-                if not config["masking"]:
-                    mask = None
-                pred = model(bppm, mask=mask).cpu()
-                pred = pred.numpy()
-                for e_idx, idx in enumerate(indices):
-                    description, seq = dataset.rna_graphs[idx]
-                    e_pred = pred[e_idx][:len(seq), :len(seq)]
-                    output[description] = e_pred
+        md_config: Dict = None,
+        dataset_dir: str = None
+):
+    if dataset_dir is None:
+        tmpdir = TemporaryDirectory()
+        workdir = tmpdir.name
+    else:
+        workdir = dataset_dir
+    dataset = RNAPairDataset(
+        data=fasta,
+        label_dir=None,
+        dataset_path=workdir,
+        num_threads=num_threads,
+        max_length=max_length,
+        md_config=md_config
+    )
+    data_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_threads,
+        pin_memory=False,
+    )
+    model, config = load_model(saved_model, device)
+    output = {}
+    for element in iter(data_loader):
+        with torch.no_grad():
+            x, bppm, y, mask, indices = element
+            bppm = bppm.to(device)
+            mask = mask.to(device)
+            if not config["masking"]:
+                mask = None
+            pred = model(bppm, mask=mask).cpu()
+            pred = pred.numpy()
+            for e_idx, idx in enumerate(indices):
+                description, seq = dataset.rna_graphs[idx]
+                e_pred = pred[e_idx][:len(seq), :len(seq)]
+                output[description] = e_pred
     out_dir = os.path.dirname(outfile)
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
     with open(outfile, "wb") as handle:
         pickle.dump(output, handle)
+    if dataset_dir is None:
+        tmpdir.cleanup()
 
 
 def model_window_predict(
@@ -66,41 +74,48 @@ def model_window_predict(
         device: str = "cpu",
         max_length: int = 200,
         md_config: Dict = None,
-        step_size: int = 1
+        step_size: int = 1,
+        dataset_dir: str = None
 ):
-    with TemporaryDirectory() as tmpdir:
-        dataset = RNAWindowDataset(
-            data=fasta,
-            label_dir=None,
-            dataset_path=tmpdir,
-            num_threads=num_threads,
-            max_length=max_length,
-            md_config=md_config,
-            step_size=step_size
-        )
-        data_loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=num_threads,
-            pin_memory=False,
-        )
-        model, config = load_model(saved_model, device)
-        output = {}
-        for element in iter(data_loader):
-            with torch.no_grad():
-                x, pair_matrix, mask, indices = element
-                if not config["masking"]:
-                    mask = None
-                batched_pred = model(pair_matrix, mask=mask).cpu()
-                batched_pred = batched_pred.numpy()
-                for batch_index, index in enumerate(indices):
-                    description, idx = dataset.reverse_file_mapping[int(index)]
-                    pred = batched_pred[batch_index]
-                    if description not in output:
-                        output[description] = {}
-                    output[description][idx] = pred
-        puzzle_output(output, fasta, max_length)
+    if dataset_dir is None:
+        tmpdir = TemporaryDirectory()
+        workdir = tmpdir.name
+    else:
+        workdir = dataset_dir
+    dataset = RNAWindowDataset(
+        data=fasta,
+        label_dir=None,
+        dataset_path=workdir,
+        num_threads=num_threads,
+        max_length=max_length,
+        md_config=md_config,
+        step_size=step_size
+    )
+    data_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_threads,
+        pin_memory=False,
+    )
+    model, config = load_model(saved_model, device)
+    output = {}
+    for element in iter(data_loader):
+        with torch.no_grad():
+            x, pair_matrix, mask, indices = element
+            if not config["masking"]:
+                mask = None
+            batched_pred = model(pair_matrix, mask=mask).cpu()
+            batched_pred = batched_pred.numpy()
+            for batch_index, index in enumerate(indices):
+                description, idx = dataset.reverse_file_mapping[int(index)]
+                pred = batched_pred[batch_index]
+                if description not in output:
+                    output[description] = {}
+                output[description][idx] = pred
+    if dataset_dir is None:
+        tmpdir.cleanup()
+    puzzle_output(output, fasta, max_length)
     out_dir = os.path.dirname(outfile)
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
