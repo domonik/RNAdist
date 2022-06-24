@@ -32,7 +32,10 @@ def plfold_bppm(sequence, window, span, md=None):
     fc = RNA.fold_compound(sequence, md, RNA.OPTION_WINDOW)
     fc.probs_window(1, RNA.PROBS_WINDOW_BPP, bpp_callback, bppm)
     bppm = np.asarray(bppm)
-    return bppm[1:, 1:]
+    bppm = bppm[1:, 1:]
+    bppm[np.isnan(bppm)] = 0
+    bppm = bppm + bppm.T
+    return bppm
 
 
 def bpp_callback(v, v_size, i, maxsize, what, data):
