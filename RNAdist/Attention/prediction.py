@@ -103,6 +103,8 @@ def model_window_predict(
     for element in iter(data_loader):
         with torch.no_grad():
             x, pair_matrix, mask, indices = element
+            pair_matrix = pair_matrix.to(device)
+            mask = mask.to(device)
             if not config["masking"]:
                 mask = None
             batched_pred = model(pair_matrix, mask=mask).cpu()
