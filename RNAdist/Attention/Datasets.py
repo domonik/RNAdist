@@ -330,13 +330,14 @@ class RNAWindowDataset(RNADataset):
         rev_mapping = {}
         for desc, indices, seq_data in self.rna_graphs:
             file_mapping[desc] = {}
-            for x in indices:
+            for index in indices:
                 file = os.path.join(
-                    self.dataset_path, f"{desc}_{x}_{self.extension}"
+                    self.dataset_path, f"{desc}_{index}_{self.extension}"
                 )
+                x = len(files)
                 files.append(file)
-                file_mapping[desc][x] = file
-                rev_mapping[file] = (desc, x)
+                file_mapping[desc][index] = file
+                rev_mapping[x] = (desc, index)
         return files, file_mapping, rev_mapping
 
     @cached_property
@@ -347,9 +348,11 @@ class RNAWindowDataset(RNADataset):
     def reverse_file_mapping(self):
         return self._files[2]
 
+    def __len__(self):
+        return len(self._files[0])
+
     def __getitem__(self, item):
         file = self._files[0][item]
-        description, index = self.reverse_file_mapping[file]
         data = torch.load(file)
         x = data["x"]
         pair_rep = self.pair_rep_from_single(x)
@@ -359,7 +362,7 @@ class RNAWindowDataset(RNADataset):
 
         # TODO: find a way to fix this mask
         mask[:self.max_length, :self.max_length] = 1
-        return x, pair_matrix, mask, description, index
+        return x, pair_matrix, mask, item
 
 
 if __name__ == '__main__':

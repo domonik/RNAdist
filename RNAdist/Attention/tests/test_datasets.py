@@ -25,7 +25,7 @@ def test_rna_pair_dataset(random_fasta, expected_labels):
 
 def test_rna_window_dataset(random_fasta, expected_labels):
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
-        _ = RNAWindowDataset(
+        dataset = RNAWindowDataset(
             data=random_fasta,
             label_dir=None,
             dataset_path=tmpdir,
@@ -33,6 +33,10 @@ def test_rna_window_dataset(random_fasta, expected_labels):
             max_length=10,
             step_size=1
         )
+        x, pair_matrix, mask, indices = dataset[0]
+        assert not torch.any(torch.isnan(pair_matrix))
+
+
 
 def test_rna_data_to_tensor(seq4test, expected_rna_data):
     rna_data = RNADATA(seq4test, "foo")
