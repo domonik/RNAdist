@@ -322,14 +322,20 @@ class RNAWindowDataset(RNADataset):
     def _files(self):
         actual_files = {}
         data_array = []
+        idx_mapping = {}
         for desc, indices, seq_data in self.rna_graphs:
             file = os.path.join(
                 self.dataset_path, f"{desc}_{self.extension}"
             )
             actual_files[desc] = file
+            idx_mapping[desc] = indices
             for index in indices:
                 data_array.append((file, index, desc))
-        return data_array, actual_files
+        return data_array, actual_files, idx_mapping
+
+    @cached_property
+    def index_mapping(self):
+        return self._files[2]
 
     @cached_property
     def data_array(self):

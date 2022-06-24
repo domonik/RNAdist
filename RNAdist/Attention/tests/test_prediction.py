@@ -72,7 +72,7 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
 
 
 def test_window_predict(saved_model, random_fasta, tmp_path):
-    desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
+    desc = [ sr for sr in SeqIO.parse(random_fasta, "fasta")]
     outfile = os.path.join(tmp_path, "predictions")
     model_window_predict(
         fasta=random_fasta,
@@ -87,5 +87,7 @@ def test_window_predict(saved_model, random_fasta, tmp_path):
     assert os.path.exists(outfile)
     with open(outfile, "rb") as handle:
         data = pickle.load(handle)
-    for key in desc:
-        assert key in data
+    for seq_record in desc:
+        assert seq_record.description in data
+        pred = data[seq_record.description]
+        assert pred.shape[0] == len(seq_record.seq)
