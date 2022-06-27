@@ -93,6 +93,12 @@ def training_parser():
         default=16
     )
     group2.add_argument(
+        '--gradient_accumulation',
+        type=int,
+        help="Update weights after n mini batches. (Default: 1)",
+        default=1
+    )
+    group2.add_argument(
         '--max_epochs',
         type=int,
         help="Maximum number of epochs to train (Default: 400)",

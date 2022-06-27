@@ -1,14 +1,16 @@
-from RNAdist.Attention.Datasets import RNAPairDataset
+import os
+from typing import Dict, List, Tuple, Callable
+
+import torch
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+
 from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionE2,
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from torch.utils.data import random_split
-from torch.utils.data import DataLoader
-import torch
-from typing import Dict, List, Tuple, Callable
-import os
+from RNAdist.Attention.Datasets import RNAPairDataset
 
 
 def loader_generation(
@@ -106,16 +108,20 @@ def train(model, data_loader, optimizer, device,
           losses: List[Tuple[Callable, float]], config: Dict):
     total_loss = 0
     model.train()
-    for idx, batch in enumerate(iter(data_loader)):
-        optimizer.zero_grad()
+    optimizer.zero_grad()
+    for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
             multi_loss = multi_loss + loss * weight
+            multi_loss = multi_loss / config["gradient_accumulation"]
         multi_loss.backward()
-        optimizer.step()
+        if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (
+                batch_idx + 1 == len(data_loader)):
+            optimizer.step()
+            optimizer.zero_grad()
         total_loss += multi_loss.item() * y.shape[0]
     total_loss /= len(data_loader.dataset)
     return total_loss
@@ -272,7 +278,8 @@ def training_executable_wrapper(args, md_config):
         "lr_step_size": args.learning_rate_step_size,
         "momentum": args.momentum,
         "weight_decay": args.weight_decay,
-        "model": args.model
+        "model": args.model,
+        "gradient_accumulation": args.gradient_accumulation
 
     }
 
