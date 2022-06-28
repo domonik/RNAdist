@@ -122,7 +122,7 @@ def train(model, data_loader, optimizer, device,
                 batch_idx + 1 == len(data_loader)):
             optimizer.step()
             optimizer.zero_grad()
-        total_loss += multi_loss.item() * y.shape[0]
+        total_loss += multi_loss.item() * y.shape[0] * config["gradient_accumulation"]
     total_loss /= len(data_loader.dataset)
     return total_loss
 
