@@ -42,7 +42,7 @@ def dataset_generation(
         data_storage: str,
         num_threads: int = 1,
         max_length: int = 200,
-        train_val_ratio: float = 0.2,
+        train_val_ratio: float = 0.8,
         md_config: Dict = None
 ):
     dataset = RNAPairDataset(
@@ -56,6 +56,8 @@ def dataset_generation(
     t = int(len(dataset) * train_val_ratio)
     v = len(dataset) - t
     training_set, validation_set = random_split(dataset, [t, v])
+    print(f"training set size: {len(training_set)}")
+    print(f"validation set size: {len(validation_set)}")
     return training_set, validation_set
 
 
@@ -242,7 +244,7 @@ def train_model(
 
 def main(fasta, data_path, label_dir, config, num_threads: int = 1,
          epochs: int = 400, device=None, max_length: int = 200,
-         train_val_ratio: float = 0.2, md_config: Dict = None, seed: int = 0):
+         train_val_ratio: float = 0.8, md_config: Dict = None, seed: int = 0):
     train_loader, val_loader = setup(
         fasta=fasta,
         label_dir=label_dir,
