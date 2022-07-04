@@ -310,6 +310,8 @@ class RNAWindowDataset(RNADataset):
         description, indices, seq = seq_data
         md = RNA.md()
         set_md_from_config(md, md_config)
+        md.max_bp_span = max_length
+        md.window_size = max_length
         rna_data = RNADATA(seq, description, md)
         bppm, seq_embedding = rna_data.to_tensor(
             max_length,
