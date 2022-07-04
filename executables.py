@@ -54,6 +54,12 @@ def training_parser():
         default=0
     )
     group2.add_argument(
+        '--model',
+        type=str,
+        help="Model to train: choose between normal, small",
+        default="normal"
+    )
+    group2.add_argument(
         '--max_length',
         type=int,
         help="Maximum length of RNAs. (Default: 200)",
@@ -85,6 +91,12 @@ def training_parser():
         type=int,
         help="Batch Size (Default: 16)",
         default=16
+    )
+    group2.add_argument(
+        '--gradient_accumulation',
+        type=int,
+        help="Update weights after n mini batches. (Default: 1)",
+        default=1
     )
     group2.add_argument(
         '--max_epochs',

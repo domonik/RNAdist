@@ -1,13 +1,16 @@
-from RNAdist.Attention.Datasets import RNAPairDataset
+import os
+from typing import Dict, List, Tuple, Callable
+
+import torch
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+
 from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionE2,
+    DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from torch.utils.data import random_split
-from torch.utils.data import DataLoader
-import torch
-from typing import Dict, List, Tuple, Callable
-import os
+from RNAdist.Attention.Datasets import RNAPairDataset
 
 
 def loader_generation(
@@ -39,7 +42,7 @@ def dataset_generation(
         data_storage: str,
         num_threads: int = 1,
         max_length: int = 200,
-        train_val_ratio: float = 0.2,
+        train_val_ratio: float = 0.8,
         md_config: Dict = None
 ):
     dataset = RNAPairDataset(
@@ -53,6 +56,8 @@ def dataset_generation(
     t = int(len(dataset) * train_val_ratio)
     v = len(dataset) - t
     training_set, validation_set = random_split(dataset, [t, v])
+    print(f"training set size: {len(training_set)}")
+    print(f"validation set size: {len(validation_set)}")
     return training_set, validation_set
 
 
@@ -105,17 +110,21 @@ def train(model, data_loader, optimizer, device,
           losses: List[Tuple[Callable, float]], config: Dict):
     total_loss = 0
     model.train()
-    for idx, batch in enumerate(iter(data_loader)):
-        optimizer.zero_grad()
+    optimizer.zero_grad()
+    for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
             multi_loss = multi_loss + loss * weight
+            multi_loss = multi_loss / config["gradient_accumulation"]
         multi_loss.backward()
-        optimizer.step()
-        total_loss += multi_loss.item() * y.shape[0]
+        if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (
+                batch_idx + 1 == len(data_loader)):
+            optimizer.step()
+            optimizer.zero_grad()
+        total_loss += multi_loss.item() * y.shape[0] * config["gradient_accumulation"]
     total_loss /= len(data_loader.dataset)
     return total_loss
 
@@ -167,7 +176,10 @@ def train_model(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         assert device.startswith("cuda") or device.startswith("cpu")
-    model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+    if config["model"] == "normal":
+        model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+    elif config["model"] == "small":
+        model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
     model.to(device)
     opt = config["optimizer"].lower()
     if opt == "sgd":
@@ -232,7 +244,7 @@ def train_model(
 
 def main(fasta, data_path, label_dir, config, num_threads: int = 1,
          epochs: int = 400, device=None, max_length: int = 200,
-         train_val_ratio: float = 0.2, md_config: Dict = None, seed: int = 0):
+         train_val_ratio: float = 0.8, md_config: Dict = None, seed: int = 0):
     train_loader, val_loader = setup(
         fasta=fasta,
         label_dir=label_dir,
@@ -255,8 +267,6 @@ def main(fasta, data_path, label_dir, config, num_threads: int = 1,
 
 
 def training_executable_wrapper(args, md_config):
-
-
     config = {
         "alpha": args.alpha,
         "masking": args.masking,
@@ -269,7 +279,9 @@ def training_executable_wrapper(args, md_config):
         "model_checkpoint": args.output,
         "lr_step_size": args.learning_rate_step_size,
         "momentum": args.momentum,
-        "weight_decay": args.weight_decay
+        "weight_decay": args.weight_decay,
+        "model": args.model,
+        "gradient_accumulation": args.gradient_accumulation
 
     }
 

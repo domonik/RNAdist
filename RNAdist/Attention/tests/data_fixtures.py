@@ -41,7 +41,9 @@ def train_config(tmp_path):
         "optimizer": "adamw",
         "model_checkpoint": os.path.join(tmp_path, "test_model.pt"),
         "lr_step_size": 1,
-        "weight_decay": 0
+        "weight_decay": 0,
+        "model": "normal",
+        "gradient_accumulation": 2
     }
     return config
 

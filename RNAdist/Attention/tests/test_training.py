@@ -13,7 +13,9 @@ from RNAdist.Attention.tests.data_fixtures import (
 import pytest
 
 
-def test_training(random_fasta, train_config, expected_labels):
+@pytest.mark.parametrize("model_type", ["normal", "small"])
+def test_training(random_fasta, train_config, expected_labels, model_type):
+    train_config["model"] = model_type
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         main(
             fasta=random_fasta,

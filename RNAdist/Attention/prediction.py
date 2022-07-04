@@ -5,9 +5,11 @@ from typing import Dict, Union
 import torch
 from torch.utils.data import DataLoader
 from Bio import SeqIO
-from RNAdist.Attention.DISTAtteNCionE import DISTAtteNCionE2
-from RNAdist.Attention.Datasets import RNAPairDataset, RNAWindowDataset
 import numpy as np
+from RNAdist.Attention.DISTAtteNCionE import (
+    DISTAtteNCionE2, DISTAtteNCionESmall
+)
+from RNAdist.Attention.Datasets import RNAPairDataset, RNAWindowDataset
 
 
 def model_predict(
@@ -135,6 +137,7 @@ def model_window_predict(
         os.makedirs(out_dir, exist_ok=True)
     with open(outfile, "wb") as handle:
         pickle.dump(output, handle)
+
 
 def handle_current_data(current_data, dataset, sr_data, max_length, output):
     keys = []
