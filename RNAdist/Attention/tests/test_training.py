@@ -14,19 +14,27 @@ import pytest
 
 
 @pytest.mark.parametrize("model_type", ["normal", "small"])
-def test_training(random_fasta, train_config, expected_labels, model_type):
+@pytest.mark.parametrize("mode", ["normal", "window"])
+def test_training(random_fasta, train_config, expected_labels, model_type, expected_window_labels, mode):
     train_config["model"] = model_type
+    if mode == "normal":
+        expected_labels = expected_labels
+        ml = 20
+    else:
+        expected_labels = expected_window_labels
+        ml = 10
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         main(
             fasta=random_fasta,
             label_dir=expected_labels,
             data_path=tmpdir,
             config=train_config,
-            num_threads=os.cpu_count(),
+            num_threads=1,
             epochs=1,
-            max_length=20,
+            max_length=ml,
             train_val_ratio=0.2,
-            device="cpu"
+            device="cpu",
+            mode=mode
         )
         assert os.path.exists(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)

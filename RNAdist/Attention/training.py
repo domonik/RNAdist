@@ -10,7 +10,7 @@ from RNAdist.Attention.DISTAtteNCionE import (
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from RNAdist.Attention.Datasets import RNAPairDataset
+from RNAdist.Attention.Datasets import RNAPairDataset, RNAWindowDataset
 
 
 def loader_generation(
@@ -43,16 +43,29 @@ def dataset_generation(
         num_threads: int = 1,
         max_length: int = 200,
         train_val_ratio: float = 0.8,
-        md_config: Dict = None
+        md_config: Dict = None,
+        mode: str = "normal"
 ):
-    dataset = RNAPairDataset(
-        data=fasta,
-        label_dir=label_dir,
-        dataset_path=data_storage,
-        num_threads=num_threads,
-        max_length=max_length,
-        md_config=md_config
-    )
+    if mode == "normal":
+        dataset = RNAPairDataset(
+            data=fasta,
+            label_dir=label_dir,
+            dataset_path=data_storage,
+            num_threads=num_threads,
+            max_length=max_length,
+            md_config=md_config
+        )
+    elif mode == "window":
+        dataset = RNAWindowDataset(
+            data=fasta,
+            label_dir=label_dir,
+            dataset_path=data_storage,
+            num_threads=num_threads,
+            max_length=max_length,
+            step_size=1
+        )
+    else:
+        raise ValueError("Unsupported mode")
     t = int(len(dataset) * train_val_ratio)
     v = len(dataset) - t
     training_set, validation_set = random_split(dataset, [t, v])
@@ -70,7 +83,8 @@ def setup(
         max_length: int = 200,
         train_val_ratio: float = 0.2,
         md_config: Dict = None,
-        seed: int = 0
+        seed: int = 0,
+        mode: str = "normal"
 ):
     torch.manual_seed(seed)
     train_set, val_set = dataset_generation(
@@ -80,7 +94,8 @@ def setup(
         num_threads=num_threads,
         max_length=max_length,
         train_val_ratio=train_val_ratio,
-        md_config=md_config
+        md_config=md_config,
+        mode=mode
     )
     train_loader, val_loader = loader_generation(
         train_set,
@@ -244,7 +259,7 @@ def train_model(
 
 def main(fasta, data_path, label_dir, config, num_threads: int = 1,
          epochs: int = 400, device=None, max_length: int = 200,
-         train_val_ratio: float = 0.8, md_config: Dict = None, seed: int = 0):
+         train_val_ratio: float = 0.8, md_config: Dict = None, mode: str = "normal", seed: int = 0):
     train_loader, val_loader = setup(
         fasta=fasta,
         label_dir=label_dir,
@@ -254,7 +269,8 @@ def main(fasta, data_path, label_dir, config, num_threads: int = 1,
         max_length=max_length,
         train_val_ratio=train_val_ratio,
         md_config=md_config,
-        seed=seed
+        seed=seed,
+        mode=mode
     )
     best_val_mae = train_model(
         train_loader,

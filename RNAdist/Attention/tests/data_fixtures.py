@@ -18,9 +18,25 @@ def generation_config():
     return config
 
 
+@pytest.fixture()
+def window_config():
+    config = {
+        "temperature": 37,
+        "min_loop_size": 3,
+        "noGU": 0,
+        "max_bp_span": 10,
+        "window_size":10
+    }
+    return config
+
+
 @pytest.fixture
 def expected_labels():
     return os.path.join(TESTDATA_DIR, "expected_labels")
+
+@pytest.fixture
+def expected_window_labels():
+    return os.path.join(TESTDATA_DIR, "expected_window_labels")
 
 
 @pytest.fixture

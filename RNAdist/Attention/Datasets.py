@@ -246,6 +246,7 @@ class RNAWindowDataset(RNADataset):
         if self.label_dir is not None:
             assert "window_size" in self.md_config
             assert "max_bp_span" in self.md_config
+            assert self.md_config["window_size"] == self.max_length
         self.step_size = step_size
         if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
@@ -358,15 +359,5 @@ class RNAWindowDataset(RNADataset):
             if y.shape[0] < self.max_length:
                 y = F.pad(y, (0, pad_val, 0, pad_val),
                                     "constant", 0)
-        return x, pair_matrix, mask, item, y
+        return x, pair_matrix, y, mask, item
 
-
-if __name__ == '__main__':
-    rna_dataset = RNAPairDataset(
-        data="Datasets/generation/random_40_200.fasta",
-        label_dir="Datasets/generation/labels/new_random_s40_e200_tmp37/",
-        dataset_path="/home/rabsch/Documents/foo/",
-        num_threads=1,
-        max_length=200
-    )
-    p = rna_dataset[2]
