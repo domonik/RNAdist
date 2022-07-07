@@ -18,8 +18,9 @@ def fold_bppm(sequence, md=None):
     # compute partition function to fill DP matrices
     fc.pf()
     bppm = fc.bpp()
-    bppm = np.asarray(bppm)
-    return bppm[1:, 1:]
+    bppm = np.asarray(bppm)[1:, 1:]
+    bppm = bppm + bppm.T
+    return bppm
 
 
 def plfold_bppm(sequence, window, span, md=None):
