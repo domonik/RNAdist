@@ -43,7 +43,16 @@ def model_predict(
         num_workers=num_threads,
         pin_memory=False,
     )
-    model, config = load_model(saved_model, device)
+    state_dict, config = torch.load(saved_model, map_location="cpu")
+    if config["model"] == "normal":
+        model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+    elif config["model"] == "small":
+        model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
+    else:
+        raise ValueError("Not able to infer model")
+    model.load_state_dict(state_dict)
+    model.to(device)
+    model.eval()
     output = {}
     for element in iter(data_loader):
         with torch.no_grad():
