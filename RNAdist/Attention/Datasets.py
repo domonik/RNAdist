@@ -59,9 +59,14 @@ class RNADATA():
         self.description = description
         self.md = md
 
-
-    def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4):
-        bppm = fold_bppm(self.sequence, self.md)
+    def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4, mode: str = "fold"):
+        if mode == "fold":
+            bppm = fold_bppm(self.sequence, self.md)
+        elif mode == "plfold":
+            assert self.md.max_bp_span > 0 and self.md.window_size > 0
+            bppm = plfold_bppm(self.sequence, self.md.window_size, self.md.max_bp_span)
+        else:
+            raise ValueError(f"mode must be one of [fold, plfold] but is {mode}")
         bppm = torch.tensor(bppm, dtype=torch.float)
         bppm = self._add_upprob(bppm)
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
@@ -75,37 +80,6 @@ class RNADATA():
             seq_embedding, pair_matrix, max_length
         )
         return pair_matrix, seq_embedding
-
-
-    def to_split_tensor(
-            self, max_length, positional_encoding, split_indices, pos_encoding_dim=4
-    ):
-        seq_len = len(self.sequence)
-        window = max_length if max_length < seq_len else seq_len
-        bppm = plfold_bppm(self.sequence, window, window, self.md)
-        bppm = self._add_upprob(bppm)
-        bppm = torch.tensor(bppm, dtype=torch.float)
-        bppm = bppm[:, :, None]
-
-        full_seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
-        full_seq_embedding = torch.tensor(
-            full_seq_embedding, dtype=torch.float
-        )
-        to_return = {}
-        for idx in split_indices:
-            seq_embedding = full_seq_embedding[idx:idx+max_length]
-            if positional_encoding:
-                seq_embedding = positional_encode_seq(
-                    seq_embedding,
-                    pos_encoding_dim
-                )
-            sub_bppm = bppm[idx:idx+max_length, idx:idx+max_length, :]
-
-            seq_embedding, pair_matrix = _pad_stuff(
-                seq_embedding, sub_bppm, up_to=max_length
-            )
-            to_return[idx] = seq_embedding, pair_matrix
-        return to_return
 
     @staticmethod
     def _add_upprob(bppm):
@@ -135,6 +109,18 @@ class RNADataset(Dataset):
         self.max_length = max_length
         self.md_config = md_config if md_config is not None else {}
         self.label_dir = label_dir
+        if self.label_dir is not None:
+            self.label_dict = LabelDict(label_dir)
+            md_config_file = os.path.join(label_dir, "config.pt")
+            if os.path.exists(md_config_file):
+                md_config = torch.load(md_config_file)
+                self.md_config = md_config
+                print("setting model details from training configuration")
+            else:
+                print("Not able to infer model details from set generation "
+                      "output. Make sure to set them correctly by hand")
+        else:
+            self.label_dict = None
         if not os.path.exists(self.dataset_path):
             os.makedirs(dataset_path, exist_ok=True)
 
@@ -171,18 +157,7 @@ class RNAPairDataset(RNADataset):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config
         )
-        if self.label_dir is not None:
-            self.label_dict = LabelDict(label_dir)
-            md_config_file = os.path.join(label_dir, "config.pt")
-            if os.path.exists(md_config_file):
-                md_config = torch.load(md_config_file)
-                self.md_config = md_config
-                print("setting model details from training configuration")
-            else:
-                print("Not able to infer model details from set generation "
-                      "output. Make sure to set them correctly by hand")
-        else:
-            self.label_dict = None
+
         if not self._dataset_generated(self._files):
             self.generate_dataset()
 
@@ -266,11 +241,11 @@ class RNAWindowDataset(RNADataset):
                  md_config=None,
                  step_size: int = 1
                  ):
-        if label_dir is not None:
-            raise ValueError("Window Dataset can only be used for "
-                             "prediction. Please use None as label_dir value")
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
+        if self.label_dir is not None:
+            assert "window_size" in self.md_config
+            assert "max_bp_span" in self.md_config
         self.step_size = step_size
         if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
@@ -296,7 +271,7 @@ class RNAWindowDataset(RNADataset):
         calls = []
         for idx, seq_data in enumerate(self.rna_graphs):
             file = self.files[seq_data[0]]
-            call = [file, seq_data, self.max_length, self.md_config]
+            call = [file, seq_data, self.max_length, self.md_config, self.label_dict]
             calls.append(call)
         if self.num_threads == 1:
             for call in calls:
@@ -306,7 +281,7 @@ class RNAWindowDataset(RNADataset):
                 pool.starmap(self.mp_create_wrapper, calls)
 
     @staticmethod
-    def mp_create_wrapper(file, seq_data, max_length, md_config):
+    def mp_create_wrapper(file, seq_data, max_length, md_config, label_dict):
         description, indices, seq = seq_data
         md = RNA.md()
         set_md_from_config(md, md_config)
@@ -316,8 +291,14 @@ class RNAWindowDataset(RNADataset):
         bppm, seq_embedding = rna_data.to_tensor(
             max_length,
             positional_encoding=False,
+            mode="plfold"
         )
-        data = {"x": seq_embedding, "bppm": bppm}
+        if label_dict is not None:
+            label = label_dict[description][0]
+            label = label.float()
+        else:
+            label = 1
+        data = {"x": seq_embedding, "bppm": bppm, "y": label}
         torch.save(data, file)
 
     @cached_property
@@ -362,6 +343,7 @@ class RNAWindowDataset(RNADataset):
         )
         pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
+        y = data["y"]
         sub_bppm = bppm[index:index + ml, index:index + ml, :]
         pair_matrix = torch.cat((sub_bppm, pair_rep), dim=-1)
         mask = torch.zeros(ml, ml)
@@ -370,7 +352,13 @@ class RNAWindowDataset(RNADataset):
         x, pair_matrix = _pad_stuff(seq_embedding=x,
                                     pair_matrix=pair_matrix,
                                     up_to=ml)
-        return x, pair_matrix, mask, item
+        if not isinstance(y, int):
+            y = y[index:index + ml, index:index + ml]
+            pad_val = ml - cur_len
+            if y.shape[0] < self.max_length:
+                y = F.pad(y, (0, pad_val, 0, pad_val),
+                                    "constant", 0)
+        return x, pair_matrix, mask, item, y
 
 
 if __name__ == '__main__':

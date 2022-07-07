@@ -33,8 +33,9 @@ def test_rna_window_dataset(random_fasta, expected_labels):
             max_length=10,
             step_size=1
         )
-        x, pair_matrix, mask, indices = dataset[0]
-        assert not torch.any(torch.isnan(pair_matrix))
+        for x in range(len(dataset)):
+            x, pair_matrix, mask, indices, y = dataset[x]
+            assert not torch.any(torch.isnan(pair_matrix))
 
 
 
