@@ -257,20 +257,20 @@ def train_model(
     return {"cost": best_val_mae, "epoch": epoch}
 
 
-def main(fasta: str,
-         dataset_path: str,
-         label_dir: str,
-         config: Dict[str, Any],
-         num_threads: int = 1,
-         epochs: int = 400,
-         device: str = None,
-         max_length: int = 200,
-         train_val_ratio: float = 0.8,
-         md_config: Dict = None,
-         mode: str = "normal",
-         seed: int = 0
-         ):
-    """
+def train_network(fasta: str,
+                  dataset_path: str,
+                  label_dir: str,
+                  config: Dict[str, Any],
+                  num_threads: int = 1,
+                  epochs: int = 400,
+                  device: str = None,
+                  max_length: int = 200,
+                  train_val_ratio: float = 0.8,
+                  md_config: Dict = None,
+                  mode: str = "normal",
+                  seed: int = 0
+                  ):
+    """Python API for training a DISTAtteNCionE Network
 
     Args:
         fasta (str): Path to the Fasta file containing training sequences 
@@ -328,7 +328,7 @@ def training_executable_wrapper(args, md_config):
 
     }
 
-    main(
+    train_network(
         fasta=args.input,
         label_dir=args.label_dir,
         dataset_path=args.data_path,
