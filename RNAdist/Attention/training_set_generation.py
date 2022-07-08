@@ -6,6 +6,7 @@ import os
 import torch
 import random
 from RNAdist.DPModels.viennarna_helpers import set_md_from_config
+from typing import Dict, Any
 
 
 def chunks(lst, n):
@@ -13,10 +14,30 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
+def training_set_from_fasta(
+        fasta: str,
+        output_dir: str,
+        md_config: Dict[str, Any],
+        num_threads: int = 1,
+        nr_samples: int = 1000,
+        bin_size: int = 100
+) -> str:
+    """Generates DISTAtteNCionE training set from fasta file
 
+    Args:
+        fasta (str): Path to fasta file containing sequences
+        output_dir (str): Path to output directory of training set
+        md_config (dict of str): configuration dict used to change
+            ViennaRNA model details
+        num_threads (int): Number of parallel processes that can be used
+        nr_samples (int): How many structures per sequence
+            should be sampled to generate labels
+        bin_size (int): Reduces the number of files written by putting
+            labels for bin_size sequences into the same file.
 
-
-def training_set_from_fasta(fasta, output_dir, config, num_threads: int = 1, nr_samples: int = 1000, bin_size: int = 100):
+    Returns:
+        str: Path to the index file generated in the directory
+    """
     to_process = []
     os.makedirs(output_dir, exist_ok=True)
     for seq_record in SeqIO.parse(fasta, "fasta"):
@@ -25,7 +46,7 @@ def training_set_from_fasta(fasta, output_dir, config, num_threads: int = 1, nr_
     to_process = list(chunks(to_process, bin_size))
     files = [os.path.join(output_dir, f"labels_{x}") for x in range(len(to_process))]
     nr_samples = [nr_samples for _ in range(len(to_process))]
-    configs = [config for _ in range(len(to_process))]
+    configs = [md_config for _ in range(len(to_process))]
     to_process = list(zip(to_process, files, nr_samples, configs))
     if num_threads <= 1:
         indices = [mp_wrapper(*call) for call in to_process]
@@ -36,7 +57,7 @@ def training_set_from_fasta(fasta, output_dir, config, num_threads: int = 1, nr_
     index_file = os.path.join(output_dir, "index.pt")
     config_file = os.path.join(output_dir, "config.pt")
     torch.save(index, index_file)
-    torch.save(config, config_file)
+    torch.save(md_config, config_file)
     return index_file
 
 
