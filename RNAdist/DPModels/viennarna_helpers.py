@@ -52,20 +52,6 @@ def set_md_from_config(md, config):
 
 
 def structural_probabilities(sequence, md=None):
-    """
-    Calculate structural elements probabilities (different loop contexts),
-    using ViennaRNA's RNAplfold.
-    This uses the Python3 API (RNA.py) of ViennaRNA (tested with v 2.4.17).
-    So RNA.py needs to be in PYTHONPATH, which it is,
-    if e.g. installed via:
-    conda install -c bioconda viennarna=2.4.17
-    sequence:
-        Input sequence as string
-    returns:
-        data: Dict[str, List[float]]
-            Dictionary with structural context probabilities
-    """
-
 
     # Check input.
 
@@ -129,10 +115,6 @@ def structural_probabilities(sequence, md=None):
 
 
 def up_split_callback(v, v_size, i, maxsize, what, data):
-    """
-    This uses the Python3 API (RNA.py) of ViennaRNA (tested with v 2.4.13).
-    So RNA.py needs to be in PYTHONPATH (it is if installed via conda).
-    """
     if what & RNA.PROBS_WINDOW_UP:
         what = what & ~RNA.PROBS_WINDOW_UP
         dat = []
