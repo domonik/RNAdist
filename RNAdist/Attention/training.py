@@ -257,13 +257,40 @@ def train_model(
     return {"cost": best_val_mae, "epoch": epoch}
 
 
-def main(fasta, data_path, label_dir, config, num_threads: int = 1,
-         epochs: int = 400, device=None, max_length: int = 200,
-         train_val_ratio: float = 0.8, md_config: Dict = None, mode: str = "normal", seed: int = 0):
+def main(fasta: str,
+         dataset_path: str,
+         label_dir: str,
+         config: Dict[str],
+         num_threads: int = 1,
+         epochs: int = 400,
+         device: str = None,
+         max_length: int = 200,
+         train_val_ratio: float = 0.8,
+         md_config: Dict = None,
+         mode: str = "normal",
+         seed: int = 0
+         ):
+    """
+
+    Args:
+        fasta (str): Path to the Fasta file containing training sequences 
+        dataset_path (str): Path where the Dataset object will be stored 
+        label_dir (str): Path to the directory created via
+            :func:`~RNAdist.Attention.training_set_generation.training_set_from_fasta`
+        config (dict of str): configuration of training process
+        num_threads (int): number of parallel processes to use
+        epochs (int): maximum number of epochs
+        device (str): one of cpu or cuda:x with x specifying the cuda device
+        max_length (str): maximum length of the sequences used for padding or window generation
+        train_val_ratio (float): part that is used for training. 1-train_val ratio is used for validation
+        md_config (dict of str): !!Deprecated!! new versions will infer this from the label_dir
+        mode (str): One of "normal" or "window". Specifies the mode that is used for training.
+        seed (int): Random number seed for everything related to pytorch
+    """
     train_loader, val_loader = setup(
         fasta=fasta,
         label_dir=label_dir,
-        data_storage=data_path,
+        data_storage=dataset_path,
         batch_size=config["batch_size"],
         num_threads=num_threads,
         max_length=max_length,
@@ -304,7 +331,7 @@ def training_executable_wrapper(args, md_config):
     main(
         fasta=args.input,
         label_dir=args.label_dir,
-        data_path=args.data_path,
+        dataset_path=args.data_path,
         num_threads=args.num_threads,
         max_length=args.max_length,
         config=config,

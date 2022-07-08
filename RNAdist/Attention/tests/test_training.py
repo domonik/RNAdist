@@ -27,7 +27,7 @@ def test_training(random_fasta, train_config, expected_labels, model_type, expec
         main(
             fasta=random_fasta,
             label_dir=expected_labels,
-            data_path=tmpdir,
+            dataset_path=tmpdir,
             config=train_config,
             num_threads=1,
             epochs=1,
@@ -48,7 +48,7 @@ def test_cuda_training(random_fasta, train_config, expected_labels):
         main(
             fasta=random_fasta,
             label_dir=expected_labels,
-            data_path=tmpdir,
+            dataset_path=tmpdir,
             config=train_config,
             num_threads=os.cpu_count(),
             epochs=1,
