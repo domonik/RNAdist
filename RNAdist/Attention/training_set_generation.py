@@ -37,6 +37,9 @@ def training_set_from_fasta(
 
     Returns:
         str: Path to the index file generated in the directory
+
+    Examples:
+        >>> training_set_from_fasta("tests/test_data/test.fa", "test_output", num_threads=os.cpu_count())
     """
     to_process = []
     os.makedirs(output_dir, exist_ok=True)
