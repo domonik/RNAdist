@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Tuple, Callable
+from typing import Dict, List, Tuple, Callable, Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -260,7 +260,7 @@ def train_model(
 def main(fasta: str,
          dataset_path: str,
          label_dir: str,
-         config: Dict[str],
+         config: Dict[str, Any],
          num_threads: int = 1,
          epochs: int = 400,
          device: str = None,
