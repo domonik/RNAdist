@@ -23,6 +23,22 @@ def model_predict(
         md_config: Dict = None,
         dataset_dir: str = None
 ):
+    """Python API for predicting expected distances via a DISTAtteNCionE Network
+
+    Args:
+        fasta (str, os.PathLike): Path to fasta file containing sequences to predict
+        saved_model (str, os.PathLike): Path to the model file generated via training of HPO
+        outfile (str, os.PathLike): Path where to store the pickled expected distance predictions.
+            File will contain a dictionary using the :code:`fasta` headers as key and the prediction as numpy
+            array as value
+        batch_size (int): batch_size used for prediction
+        num_threads (int): number of parallel processes to use
+        device (str): One of :code:`cpu` or :code:`cuda:x` with x specifying the cuda device
+        max_length (int): Maximum length of the sequences used for padding.
+        md_config (Dict): configuration dict used to change
+            ViennaRNA model details
+        dataset_dir: Path where to store the Dataset. If None a temporary directory will be created.
+    """
     if dataset_dir is None:
         tmpdir = TemporaryDirectory()
         workdir = tmpdir.name
