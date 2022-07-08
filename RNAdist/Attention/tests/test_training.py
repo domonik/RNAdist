@@ -1,4 +1,4 @@
-from RNAdist.Attention.training import main
+from RNAdist.Attention.training import train_network
 from tempfile import TemporaryDirectory
 import executables
 import os
@@ -24,7 +24,7 @@ def test_training(random_fasta, train_config, expected_labels, model_type, expec
         expected_labels = expected_window_labels
         ml = 10
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
-        main(
+        train_network(
             fasta=random_fasta,
             label_dir=expected_labels,
             dataset_path=tmpdir,
@@ -45,7 +45,7 @@ def test_training(random_fasta, train_config, expected_labels, model_type, expec
 def test_cuda_training(random_fasta, train_config, expected_labels):
 
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
-        main(
+        train_network(
             fasta=random_fasta,
             label_dir=expected_labels,
             dataset_path=tmpdir,
