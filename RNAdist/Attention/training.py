@@ -276,7 +276,7 @@ def train_network(fasta: str,
         fasta (str): Path to the Fasta file containing training sequences 
         dataset_path (str): Path where the Dataset object will be stored 
         label_dir (str): Path to the directory created via
-            :func:`~RNAdist.Attention.training_set_generation.training_set_from_fasta`
+            :func:`~RNAdist.Attention.training_set_generation.rst.training_set_from_fasta`
         config (dict of str): configuration of training process
         num_threads (int): number of parallel processes to use
         epochs (int): maximum number of epochs
@@ -286,6 +286,16 @@ def train_network(fasta: str,
         md_config (dict of str): !!Deprecated!! new versions will infer this from the label_dir
         mode (str): One of "normal" or "window". Specifies the mode that is used for training.
         seed (int): Random number seed for everything related to pytorch
+
+    Examples:
+        You can train a network using the following lines  of code:
+
+        >>> from RNAdist.Attention.training import train_network
+        >>> train_network("fasta.fa", "dataset_path", "label_directory")
+
+        You can also change to window mode using a window size of 100 like this
+
+        >>> train_network("fasta.fa", "dataset_path", "label_directory", mode="window", max_length=100)
     """
     train_loader, val_loader = setup(
         fasta=fasta,

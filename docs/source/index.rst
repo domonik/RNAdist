@@ -6,14 +6,14 @@
 Welcome to RNAdist's documentation!
 ===================================
 
-Some words.
+.. toctree::
+   :maxdepth: 1
 
-.. autosummary::
-   :toctree: _autosummary
-   :template: custom-module-template.rst
-   :recursive:
+   tutorial
+   api_doc
 
-   RNAdist
+
+
 
 
 Indices and tables

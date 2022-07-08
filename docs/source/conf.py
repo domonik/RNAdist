@@ -38,6 +38,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
+    'sphinx.ext.intersphinx'
 ]
 autosummary_generate = True
 # Add any paths that contain templates here, relative to this directory.
@@ -54,7 +55,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "pydata_sphinx_theme"
 
 html_theme_options = {
     # Toc options

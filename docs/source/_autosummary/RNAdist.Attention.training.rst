@@ -1,4 +1,4 @@
-RNAdist.Attention.training
+﻿RNAdist.Attention.training
 ==========================
 
 .. automodule:: RNAdist.Attention.training
@@ -16,10 +16,10 @@ RNAdist.Attention.training
    
       dataset_generation
       loader_generation
-      main
       setup
       train
       train_model
+      train_network
       training_executable_wrapper
       unpack_batch
       validate
