@@ -1,4 +1,4 @@
-RNAdist.DPModels.viennarna\_helpers
+﻿RNAdist.DPModels.viennarna\_helpers
 ===================================
 
 .. automodule:: RNAdist.DPModels.viennarna_helpers
@@ -12,7 +12,7 @@ RNAdist.DPModels.viennarna\_helpers
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       bpp_callback
       fold_bppm

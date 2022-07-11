@@ -1,4 +1,4 @@
-RNAdist.NNModels.training\_set\_generation
+﻿RNAdist.NNModels.training\_set\_generation
 ==========================================
 
 .. automodule:: RNAdist.NNModels.training_set_generation
@@ -12,7 +12,7 @@ RNAdist.NNModels.training\_set\_generation
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       create_random_fasta
       generation_executable_wrapper

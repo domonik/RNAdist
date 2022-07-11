@@ -1,4 +1,4 @@
-RNAdist.NNModels.prediction
+﻿RNAdist.NNModels.prediction
 ===========================
 
 .. automodule:: RNAdist.NNModels.prediction
@@ -12,7 +12,7 @@ RNAdist.NNModels.prediction
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       model_predict
       model_window_predict

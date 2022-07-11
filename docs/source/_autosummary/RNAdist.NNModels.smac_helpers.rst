@@ -1,4 +1,4 @@
-RNAdist.NNModels.smac\_helpers
+﻿RNAdist.NNModels.smac\_helpers
 ==============================
 
 .. automodule:: RNAdist.NNModels.smac_helpers
@@ -12,7 +12,7 @@ RNAdist.NNModels.smac\_helpers
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       is_pareto_efficient_simple
       load_folder

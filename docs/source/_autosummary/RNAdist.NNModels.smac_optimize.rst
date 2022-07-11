@@ -1,4 +1,4 @@
-RNAdist.NNModels.smac\_optimize
+﻿RNAdist.NNModels.smac\_optimize
 ===============================
 
 .. automodule:: RNAdist.NNModels.smac_optimize
@@ -12,7 +12,7 @@ RNAdist.NNModels.smac\_optimize
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       smac_executable_wrapper
       smac_that

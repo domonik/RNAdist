@@ -12,7 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       pmcomp_dist_from_fc
       pmcomp_distance

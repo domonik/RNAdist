@@ -1,4 +1,4 @@
-RNAdist.NNModels.training
+﻿RNAdist.NNModels.training
 =========================
 
 .. automodule:: RNAdist.NNModels.training
@@ -12,7 +12,7 @@ RNAdist.NNModels.training
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       train_model
       train_network

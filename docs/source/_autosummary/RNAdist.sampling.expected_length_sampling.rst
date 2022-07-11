@@ -1,4 +1,4 @@
-RNAdist.sampling.expected\_length\_sampling
+﻿RNAdist.sampling.expected\_length\_sampling
 ===========================================
 
 .. automodule:: RNAdist.sampling.expected_length_sampling
@@ -12,7 +12,7 @@ RNAdist.sampling.expected\_length\_sampling
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       rna_shortest_paths
       sample_distance

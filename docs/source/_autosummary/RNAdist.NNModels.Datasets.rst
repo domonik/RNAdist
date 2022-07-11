@@ -1,4 +1,4 @@
-RNAdist.NNModels.Datasets
+﻿RNAdist.NNModels.Datasets
 =========================
 
 .. automodule:: RNAdist.NNModels.Datasets
@@ -12,7 +12,7 @@ RNAdist.NNModels.Datasets
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       pos_encoding
       positional_encode_seq

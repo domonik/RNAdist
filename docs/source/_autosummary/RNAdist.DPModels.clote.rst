@@ -12,7 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
-        :toctree:
+      :toctree:
    
       compute_clote
       cp_expected_distance
