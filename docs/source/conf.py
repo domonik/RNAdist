@@ -65,6 +65,7 @@ html_theme_options = {
     "includehidden": True,
     "titles_only": False,
 }
+mathjax3_config = {'chtml': {'displayAlign': 'left'}}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
