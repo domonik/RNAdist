@@ -1,5 +1,5 @@
-from RNAdist.Attention.prediction import model_predict, model_window_predict
-from RNAdist.Attention.tests.data_fixtures import (
+from RNAdist.NNModels.prediction import model_predict, model_window_predict
+from RNAdist.NNModels.tests.data_fixtures import (
     saved_model,
     random_fasta
 )

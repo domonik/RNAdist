@@ -5,15 +5,15 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
-from RNAdist.Attention.DISTAtteNCionE import (
+from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2,
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from RNAdist.Attention.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
 
 
-def loader_generation(
+def _loader_generation(
         training_set,
         validation_set,
         batch_size: int,
@@ -36,7 +36,7 @@ def loader_generation(
     return train_loader, val_loader
 
 
-def dataset_generation(
+def _dataset_generation(
         fasta: str,
         label_dir: str,
         data_storage: str,
@@ -74,7 +74,7 @@ def dataset_generation(
     return training_set, validation_set
 
 
-def setup(
+def _setup(
         fasta: str,
         label_dir: str,
         data_storage: str,
@@ -87,7 +87,7 @@ def setup(
         mode: str = "normal"
 ):
     torch.manual_seed(seed)
-    train_set, val_set = dataset_generation(
+    train_set, val_set = _dataset_generation(
         fasta=fasta,
         label_dir=label_dir,
         data_storage=data_storage,
@@ -97,7 +97,7 @@ def setup(
         md_config=md_config,
         mode=mode
     )
-    train_loader, val_loader = loader_generation(
+    train_loader, val_loader = _loader_generation(
         train_set,
         val_set,
         batch_size=batch_size,
@@ -107,7 +107,7 @@ def setup(
     return train_loader, val_loader
 
 
-def unpack_batch(batch, device, config):
+def _unpack_batch(batch, device, config):
     if config["masking"]:
         _, pair_rep, y, mask, _ = batch
         mask = mask.to(device)
@@ -121,13 +121,13 @@ def unpack_batch(batch, device, config):
     return pair_rep, y, mask, numel
 
 
-def train(model, data_loader, optimizer, device,
-          losses: List[Tuple[Callable, float]], config: Dict):
+def _train(model, data_loader, optimizer, device,
+           losses: List[Tuple[Callable, float]], config: Dict):
     total_loss = 0
     model.train()
     optimizer.zero_grad()
     for batch_idx, batch in enumerate(iter(data_loader)):
-        pair_rep, y, mask, numel = unpack_batch(batch, device, config)
+        pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
         multi_loss = 0
         for criterion, weight in losses:
@@ -144,14 +144,14 @@ def train(model, data_loader, optimizer, device,
     return total_loss
 
 
-def validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
-             config):
+def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
+              config):
     total_loss = 0
     total_mae = 0
     model.eval()
     with torch.no_grad():
         for idx, batch in enumerate(iter(data_loader)):
-            pair_rep, y, mask, numel = unpack_batch(batch, device, config)
+            pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
             pred = model(pair_rep, mask=mask)
             multi_loss = 0
             for criterion, weight in losses:
@@ -232,12 +232,12 @@ def train_model(
     best_val_mae = torch.tensor((float("inf")))
     epoch = 0
     for epoch in range(epochs):
-        train_loss = train(
+        train_loss = _train(
             model, train_loader, optimizer, device, losses, config
         )
         scheduler.step()
         if not epoch % config["validation_interval"]:
-            val_loss, val_mae = validate(
+            val_loss, val_mae = _validate(
                 model, val_loader, device, losses, config
             )
             if val_loss <= best_val_loss:
@@ -276,7 +276,7 @@ def train_network(fasta: str,
         fasta (str): Path to the Fasta file containing training sequences 
         dataset_path (str): Path where the Dataset object will be stored 
         label_dir (str): Path to the directory created via
-            :func:`~RNAdist.Attention.training_set_generation.rst.training_set_from_fasta`
+            :func:`~RNAdist.NNModels.training_set_generation.rst.training_set_from_fasta`
         config (dict of str): configuration of training process
         num_threads (int): number of parallel processes to use
         epochs (int): maximum number of epochs
@@ -290,14 +290,14 @@ def train_network(fasta: str,
     Examples:
         You can train a network using the following lines  of code:
 
-        >>> from RNAdist.Attention.training import train_network
+        >>> from RNAdist.NNModels.training import train_network
         >>> train_network("fasta.fa", "dataset_path", "label_directory")
 
         You can also change to window mode using a window size of 100 like this
 
         >>> train_network("fasta.fa", "dataset_path", "label_directory", mode="window", max_length=100)
     """
-    train_loader, val_loader = setup(
+    train_loader, val_loader = _setup(
         fasta=fasta,
         label_dir=label_dir,
         data_storage=dataset_path,

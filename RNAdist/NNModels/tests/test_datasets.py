@@ -1,11 +1,11 @@
-from RNAdist.Attention.Datasets import (
+from RNAdist.NNModels.Datasets import (
     RNAPairDataset,
     RNADATA,
     RNAWindowDataset
 )
 from tempfile import TemporaryDirectory
 import torch
-from RNAdist.Attention.tests.data_fixtures import (
+from RNAdist.NNModels.tests.data_fixtures import (
     random_fasta,
     expected_labels,
     PREFIX

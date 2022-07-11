@@ -9,7 +9,7 @@ from RNAdist.DPModels.viennarna_helpers import set_md_from_config
 from typing import Dict, Any
 
 
-def chunks(lst, n):
+def _chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
@@ -46,16 +46,16 @@ def training_set_from_fasta(
     for seq_record in SeqIO.parse(fasta, "fasta"):
         seq = str(seq_record.seq).upper()
         to_process.append((seq_record.description, seq))
-    to_process = list(chunks(to_process, bin_size))
+    to_process = list(_chunks(to_process, bin_size))
     files = [os.path.join(output_dir, f"labels_{x}") for x in range(len(to_process))]
     nr_samples = [nr_samples for _ in range(len(to_process))]
     configs = [md_config for _ in range(len(to_process))]
     to_process = list(zip(to_process, files, nr_samples, configs))
     if num_threads <= 1:
-        indices = [mp_wrapper(*call) for call in to_process]
+        indices = [_mp_wrapper(*call) for call in to_process]
     else:
         with Pool(num_threads) as pool:
-            indices = pool.starmap(mp_wrapper, to_process)
+            indices = pool.starmap(_mp_wrapper, to_process)
     index = dict(pair for d in indices for pair in d.items())
     index_file = os.path.join(output_dir, "index.pt")
     config_file = os.path.join(output_dir, "config.pt")
@@ -64,7 +64,7 @@ def training_set_from_fasta(
     return index_file
 
 
-def mp_wrapper(sequences, file, nr_samples, config):
+def _mp_wrapper(sequences, file, nr_samples, config):
     md = RNA.md()
     set_md_from_config(md, config)
     out = {}

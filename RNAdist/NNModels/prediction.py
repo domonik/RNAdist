@@ -6,10 +6,10 @@ import torch
 from torch.utils.data import DataLoader
 from Bio import SeqIO
 import numpy as np
-from RNAdist.Attention.DISTAtteNCionE import (
+from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2, DISTAtteNCionESmall
 )
-from RNAdist.Attention.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
 
 
 def model_predict(
@@ -125,7 +125,7 @@ def model_window_predict(
         num_workers=num_threads,
         pin_memory=False,
     )
-    model, config = load_model(saved_model, device)
+    model, config = _load_model(saved_model, device)
     current_data = {}
     output = {}
     sr_data = {sr.description: sr for sr in SeqIO.parse(fasta, "fasta")}
@@ -147,14 +147,14 @@ def model_window_predict(
                     current_data[description] = {}
                 current_data[description][idx] = pred
                 if len(current_data) >= 2:
-                    handle_current_data(
+                    _handle_current_data(
                         current_data,
                         dataset,
                         sr_data,
                         max_length,
                         output
                     )
-    handle_current_data(current_data, dataset, sr_data, max_length, output)
+    _handle_current_data(current_data, dataset, sr_data, max_length, output)
     assert len(current_data) == 0
     if dataset_dir is None:
         tmpdir.cleanup()
@@ -165,12 +165,12 @@ def model_window_predict(
         pickle.dump(output, handle)
 
 
-def handle_current_data(current_data, dataset, sr_data, max_length, output):
+def _handle_current_data(current_data, dataset, sr_data, max_length, output):
     keys = []
     for key, inner_dict in current_data.items():
         expected_indices = dataset.index_mapping[key]
         if len(expected_indices) == len(inner_dict):
-            whole_pred = puzzle_output(
+            whole_pred = _puzzle_output(
                 inner_dict,
                 sr_data[key],
                 max_length
@@ -181,7 +181,7 @@ def handle_current_data(current_data, dataset, sr_data, max_length, output):
         del current_data[key]
 
 
-def puzzle_output(predictions, seq_record, max_length):
+def _puzzle_output(predictions, seq_record, max_length):
     seq_len = len(seq_record.seq)
     whole_prediction = np.empty((seq_len, seq_len, len(predictions)))
     whole_prediction[:] = np.nan
@@ -197,7 +197,7 @@ def puzzle_output(predictions, seq_record, max_length):
     return whole_prediction
 
 
-def load_model(model_path, device):
+def _load_model(model_path, device):
     state_dict, config = torch.load(model_path, map_location="cpu")
     model = DISTAtteNCionE2(17, config["nr_layers"])
     model.load_state_dict(state_dict)
@@ -216,23 +216,3 @@ def prediction_executable_wrapper(args, md_config):
                   max_length=args.max_length,
                   md_config=md_config
                   )
-
-
-if __name__ == '__main__':
-    fasta = "../../../RNAdist_Evaluation/Datasets/test_sets/fasta/random_400_400.fasta"
-    assert os.path.exists(fasta)
-    model = "../../../RNAdist_Evaluation/Models/s40_e200_tmp37_optimized_model.pt"
-    assert os.path.exists(model)
-    prefix = os.getcwd()
-    prefix = os.path.join(prefix, "tmpdir_")
-    with TemporaryDirectory(prefix=prefix) as tmpdir:
-        model_window_predict(
-            fasta=fasta,
-            saved_model=model,
-            outfile="foo.pckl",
-            batch_size=32,
-            num_threads=12,
-            device="cuda",
-            max_length=200,
-            dataset_dir=tmpdir
-        )

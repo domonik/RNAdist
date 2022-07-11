@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 import os
-from RNAdist.Attention.training_set_generation import LabelDict
+from RNAdist.NNModels.training_set_generation import LabelDict
 from functools import cached_property
 from typing import List, Union
 from Bio import SeqIO

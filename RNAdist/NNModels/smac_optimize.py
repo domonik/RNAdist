@@ -9,10 +9,10 @@ import torch
 from smac.facade.smac_mf_facade import SMAC4MF
 from smac.scenario.scenario import Scenario
 from smac.utils.constants import MAXINT
-from RNAdist.Attention.training import (
+from RNAdist.NNModels.training import (
     train_model,
-    dataset_generation,
-    loader_generation
+    _dataset_generation,
+    _loader_generation
 )
 import numpy as np
 from smac.optimizer.multi_objective.parego import ParEGO
@@ -57,7 +57,7 @@ class TrainingWorker:
             tmpdir = None
         budget = budget / 100
         torch.manual_seed(seed)
-        train_set, val_set = dataset_generation(
+        train_set, val_set = _dataset_generation(
             fasta=self.fasta,
             label_dir=self.label_dir,
             data_storage=self.dataset_path,
@@ -67,7 +67,7 @@ class TrainingWorker:
         )
         train_set, val_set = self.partial_set(train_set, val_set, budget)
 
-        train_loader, val_loader = loader_generation(
+        train_loader, val_loader = _loader_generation(
             train_set, val_set, config["batch_size"]
         )
         costs = train_model(

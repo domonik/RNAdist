@@ -1,6 +1,6 @@
 import os
 from tempfile import TemporaryDirectory, NamedTemporaryFile
-from RNAdist.Attention.tests.data_fixtures import (
+from RNAdist.NNModels.tests.data_fixtures import (
     random_fasta,
     generation_config,
     expected_labels,
@@ -8,7 +8,7 @@ from RNAdist.Attention.tests.data_fixtures import (
 )
 import pytest
 
-from RNAdist.Attention.training_set_generation import create_random_fasta, \
+from RNAdist.NNModels.training_set_generation import create_random_fasta, \
     training_set_from_fasta, LabelDict
 
 

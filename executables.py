@@ -1,12 +1,12 @@
 import argparse
 import sys
 import os
-from RNAdist.Attention.prediction import prediction_executable_wrapper
-from RNAdist.Attention.training import training_executable_wrapper
-from RNAdist.Attention.training_set_generation import (
+from RNAdist.NNModels.prediction import prediction_executable_wrapper
+from RNAdist.NNModels.training import training_executable_wrapper
+from RNAdist.NNModels.training_set_generation import (
     generation_executable_wrapper
 )
-from RNAdist.Attention.smac_optimize import smac_executable_wrapper
+from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
 
 
 def training_parser():
