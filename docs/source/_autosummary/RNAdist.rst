@@ -28,7 +28,7 @@
    :template: custom-module-template.rst
    :recursive:
 
-   RNAdist.Attention
    RNAdist.DPModels
+   RNAdist.NNModels
    RNAdist.sampling
 
