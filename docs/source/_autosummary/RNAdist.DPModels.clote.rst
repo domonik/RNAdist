@@ -1,4 +1,4 @@
-RNAdist.DPModels.clote
+﻿RNAdist.DPModels.clote
 ======================
 
 .. automodule:: RNAdist.DPModels.clote
@@ -16,6 +16,7 @@ RNAdist.DPModels.clote
    
       compute_clote
       cp_expected_distance
+      dp_matrix_available
    
    
 
