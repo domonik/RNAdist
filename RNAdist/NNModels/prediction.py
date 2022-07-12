@@ -10,6 +10,8 @@ from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2, DISTAtteNCionESmall
 )
 from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.NNModels.training_set_generation import md_config_from_args
+
 
 
 def model_predict(
@@ -206,7 +208,8 @@ def _load_model(model_path, device):
     return model, config
 
 
-def prediction_executable_wrapper(args, md_config):
+def prediction_executable_wrapper(args):
+    md_config = md_config_from_args(args)
     model_predict(args.input,
                   args.model_file,
                   args.output,
