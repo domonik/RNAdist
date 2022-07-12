@@ -1,6 +1,4 @@
 import argparse
-import sys
-import os
 from RNAdist.NNModels.prediction import prediction_executable_wrapper
 from RNAdist.NNModels.training import training_executable_wrapper
 from RNAdist.NNModels.training_set_generation import (
@@ -9,8 +7,9 @@ from RNAdist.NNModels.training_set_generation import (
 from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
 
 
-def training_parser():
-    parser = argparse.ArgumentParser(
+def training_parser(subparsers, name):
+    parser = subparsers.add_parser(
+        name,
         description='Trains DISTAttenCionE NeuralNetwork'
     )
     group1 = parser.add_argument_group("Dataset Arguments")
@@ -159,8 +158,9 @@ def training_parser():
     return parser
 
 
-def generation_parser():
-    parser = argparse.ArgumentParser(
+def generation_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
         description='Generate DISTAttenCionE training set'
     )
     group1 = parser.add_argument_group("Dataset Generation")
@@ -195,12 +195,13 @@ def generation_parser():
         help="Number of samples used for expected distance calculation. (Default: 1000)",
         default=1000
     )
-
+    parser = add_md_parser(parser)
     return parser
 
 
-def prediction_parser():
-    parser = argparse.ArgumentParser(
+def prediction_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
         description="Predicts Expected Distances using DISTAtteNCionE model"
     )
     group1 = parser.add_argument_group("Prediction")
@@ -247,6 +248,7 @@ def prediction_parser():
         default=1,
         help="Maximum length for padding of the RNAs"
     )
+    parser = add_md_parser(parser)
     return parser
 
 
@@ -274,72 +276,41 @@ def add_md_parser(parser):
     return parser
 
 
-def md_config_from_args(args):
-    md_config = {
-        "temperature": args.temperature,
-        "min_loop_size": args.min_loop_size,
-        "noGU": args.noGU,
-    }
-    return md_config
-
-
 class DISTAtteNCioNEParser:
     def __init__(self):
-        parser = argparse.ArgumentParser(
+        self.parser = argparse.ArgumentParser(
             "DISTAtteNCioNE suite",
             usage="DISTAtteNCioNE <command> [<args>]"
 
         )
-        self.__object_methods = self.__get_modes()
+        self.methods = {
+            "generate_data": (generation_parser, generation_executable_wrapper),
+            "train": (training_parser, training_executable_wrapper),
+            "predict": (prediction_parser, prediction_executable_wrapper),
+            "optimize": (smac_parser, smac_executable_wrapper)
+        }
+        self.subparsers = self.parser.add_subparsers()
+        self.__addparsers()
 
-        help_methods = ", ".join(self.__object_methods)
-        help_msg = f"one of: {help_methods}"
-        parser.add_argument("command", help=help_msg)
-        args = parser.parse_args(sys.argv[1:2])
-        if args.command not in self.__object_methods:
-            print('Unrecognized command')
-            parser.print_help()
-            exit(1)
-        getattr(self, args.command)()
+    def __addparsers(self):
+        for name, (parser_add, func) in self.methods.items():
+            subp = parser_add(self.subparsers, name)
+            subp.set_defaults(func=func)
 
-    def __get_modes(self):
-        object_methods = []
-        for method_name in dir(DISTAtteNCioNEParser):
-            if callable(getattr(DISTAtteNCioNEParser, method_name)):
-                if not method_name.startswith("_"):
-                    object_methods.append(method_name)
-        return object_methods
+    def parse_args(self):
+        args = self.parser.parse_args()
+        return args
 
-    def train(self):
-        parser = training_parser()
-        parser = add_md_parser(parser)
-        args = parser.parse_args(sys.argv[2:])
-        md_config = md_config_from_args(args)
-        training_executable_wrapper(args, md_config)
-
-    def generate_data(self):
-        parser = generation_parser()
-        parser = add_md_parser(parser)
-        args = parser.parse_args(sys.argv[2:])
-        md_config = md_config_from_args(args)
-        generation_executable_wrapper(args, md_config)
-
-    def predict(self):
-        parser = prediction_parser()
-        parser = add_md_parser(parser)
-        args = parser.parse_args(sys.argv[2:])
-        md_config = md_config_from_args(args)
-        prediction_executable_wrapper(args, md_config)
-
-    def optimize(self):
-        parser = smac_parser()
-        args = parser.parse_args(sys.argv[2:])
-        smac_executable_wrapper(args)
+    def run(self):
+        args = self.parse_args()
+        args.func(args)
 
 
-
-def smac_parser():
-    parser = argparse.ArgumentParser()
+def smac_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
+        description="Runs SMAC optimization for a DISTAtteNCionE Network"
+    )
     group1 = parser.add_argument_group("Trainig Data")
     group2 = parser.add_argument_group("Training Settings")
     group1.add_argument(
@@ -418,7 +389,7 @@ def smac_parser():
 
 
 def main():
-    DISTAtteNCioNEParser()
+    DISTAtteNCioNEParser().run()
 
 def smac_main():
     pass

@@ -113,7 +113,8 @@ def create_random_fasta(outpath: str, nr_sequences: int, seqrange, seed):
             handle.write(f">{x}\n{seq}\n")
 
 
-def generation_executable_wrapper(args, md_config):
+def generation_executable_wrapper(args):
+    md_config = md_config_from_args(args)
     training_set_from_fasta(
         args.input,
         args.output,
@@ -123,5 +124,16 @@ def generation_executable_wrapper(args, md_config):
         nr_samples=args.nr_samples)
 
 
+def md_config_from_args(args):
+    md_config = {
+        "temperature": args.temperature,
+        "min_loop_size": args.min_loop_size,
+        "noGU": args.noGU,
+    }
+    return md_config
+
+
 if __name__ == '__main__':
     pass
+
+
