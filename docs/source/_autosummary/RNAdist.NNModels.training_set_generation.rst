@@ -16,6 +16,7 @@
    
       create_random_fasta
       generation_executable_wrapper
+      md_config_from_args
       training_set_from_fasta
    
    

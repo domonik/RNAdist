@@ -11,6 +11,7 @@ Welcome to RNAdist's documentation!
 
    tutorial
    api_doc
+   cli
 
 
 
