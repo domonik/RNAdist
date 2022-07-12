@@ -38,7 +38,8 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'sphinxarg.ext'
 ]
 autosummary_generate = True
 # Add any paths that contain templates here, relative to this directory.
@@ -62,8 +63,14 @@ html_theme_options = {
     "collapse_navigation": True,
     "sticky_navigation": True,
     "navigation_depth": 4,
-    "includehidden": True,
-    "titles_only": False,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/domonik/RNAdist",
+            "icon": "fab fa-github-square",
+            "type": "fontawesome",
+        },
+    ]
 }
 mathjax3_config = {'chtml': {'displayAlign': 'left'}}
 
@@ -71,3 +78,4 @@ mathjax3_config = {'chtml': {'displayAlign': 'left'}}
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_logo = "_static/RNAdist.svg"

@@ -385,14 +385,15 @@ def smac_parser(subparsers, name: str):
     return parser
 
 
-
-
-
 def main():
     DISTAtteNCioNEParser().run()
 
-def smac_main():
-    pass
+
+def documentation_wrapper():
+    parser = DISTAtteNCioNEParser().parser
+    return parser
+
+
 
 
 
