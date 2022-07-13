@@ -9,6 +9,7 @@ Welcome to RNAdist's documentation!
 .. toctree::
    :maxdepth: 1
 
+   installation
    tutorial
    api_doc
    cli
@@ -22,4 +23,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
