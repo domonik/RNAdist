@@ -184,7 +184,6 @@ class TriangularSelfAttention(nn.Module):
             if mask is not None:
                 mask = torch.permute(mask, (0, 2, 1))
         pair_rep = self.e_norm(pair_rep)
-
         n, seq_len, _, _ = pair_rep.shape
         dpa_queries = self.dpa_queries_lin(pair_rep) * self.c ** (-0.5)
         dpa_queries = dpa_queries.reshape(n, seq_len, seq_len, self.heads, self.c)
@@ -205,7 +204,8 @@ class TriangularSelfAttention(nn.Module):
         pair_bias = self.pair_bias_lin(pair_rep)
 
         if mask is not None:
-            dpa = dpa + mask.unsqueeze(dim=1)[..., None] # TODO: check
+            bias = (1e9 * (mask - 1.))
+            dpa = dpa + bias.unsqueeze(dim=1)[..., None] # TODO: check
 
         attention = F.softmax(dpa + pair_bias.unsqueeze(dim=1), dim=3)
 
