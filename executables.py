@@ -5,6 +5,7 @@ from RNAdist.NNModels.training_set_generation import (
     generation_executable_wrapper
 )
 from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
+import math
 
 
 def training_parser(subparsers, name):
@@ -78,6 +79,12 @@ def training_parser(subparsers, name):
         type=bool,
         help="whether masking is applied during training (Default: True)",
         default=True
+    )
+    group2.add_argument(
+        '--sample',
+        type=int,
+        help="whether masking is applied during training (Default: True)",
+        default=math.inf
     )
     group2.add_argument(
         '--learning_rate',

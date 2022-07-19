@@ -76,9 +76,10 @@ class RNADATA():
                 seq_embedding, pos_encoding_dim
             )
         pair_matrix = bppm[:, :, None]
-        seq_embedding, pair_matrix = _pad_stuff(
-            seq_embedding, pair_matrix, max_length
-        )
+        if mode == "fold":
+            seq_embedding, pair_matrix = _pad_stuff(
+                seq_embedding, pair_matrix, max_length
+            )
         return pair_matrix, seq_embedding
 
     @staticmethod
@@ -246,7 +247,7 @@ class RNAWindowDataset(RNADataset):
         if self.label_dir is not None:
             assert "window_size" in self.md_config
             assert "max_bp_span" in self.md_config
-            assert self.md_config["window_size"] == self.max_length
+            #assert self.md_config["window_size"] == self.max_length
         self.step_size = step_size
         if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
@@ -291,7 +292,7 @@ class RNAWindowDataset(RNADataset):
         rna_data = RNADATA(seq, description, md)
         bppm, seq_embedding = rna_data.to_tensor(
             max_length,
-            positional_encoding=False,
+            positional_encoding=True,
             mode="plfold"
         )
         if label_dict is not None:
@@ -338,10 +339,6 @@ class RNAWindowDataset(RNADataset):
         ml = self.max_length
         x = data["x"]
         x = x[index:index+ml]
-        x = positional_encode_seq(
-            x,
-            pos_encoding_dim=4
-        )
         pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
         y = data["y"]
