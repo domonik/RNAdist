@@ -148,10 +148,11 @@ def _train(model, data_loader, optimizer, device,
 
 
 def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
-              config):
+              config, train_val_ratio):
     total_loss = 0
     total_mae = 0
     model.eval()
+    idx = 0
     with torch.no_grad():
         for idx, batch in enumerate(iter(data_loader)):
             pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
@@ -171,8 +172,10 @@ def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
             error = torch.abs((pred - y) * weights).sum() / numel
             error *= y.shape[0]
             total_mae += error
-    total_loss /= len(data_loader.dataset)
-    total_mae /= len(data_loader.dataset)
+            if idx >= config["sample"] * train_val_ratio:
+                break
+    total_loss /= idx + 1
+    total_mae /= idx + 1
     return total_loss, total_mae
 
 
@@ -183,6 +186,7 @@ def train_model(
         config: Dict,
         device: str = None,
         seed: int = 0,
+        train_val_ratio: float = 0.8
 ):
     learning_rate = config["learning_rate"]
     patience = config["patience"]
@@ -241,7 +245,7 @@ def train_model(
         scheduler.step()
         if not epoch % config["validation_interval"]:
             val_loss, val_mae = _validate(
-                model, val_loader, device, losses, config
+                model, val_loader, device, losses, config, train_val_ratio
             )
             if val_loss <= best_val_loss:
                 best_val_loss = val_loss
@@ -318,7 +322,8 @@ def train_network(fasta: str,
         epochs,
         config,
         device=device,
-        seed=seed
+        seed=seed,
+        train_val_ratio=train_val_ratio
     )
 
 
