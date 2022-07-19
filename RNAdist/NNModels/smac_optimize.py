@@ -15,7 +15,6 @@ from RNAdist.NNModels.training import (
     _loader_generation
 )
 import numpy as np
-from smac.optimizer.multi_objective.parego import ParEGO
 from torch.utils.data import random_split
 from tempfile import TemporaryDirectory
 from ConfigSpace.conditions import InCondition
