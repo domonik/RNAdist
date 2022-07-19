@@ -126,6 +126,7 @@ def _train(model, data_loader, optimizer, device,
     total_loss = 0
     model.train()
     optimizer.zero_grad()
+    batch_idx = 0
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
@@ -140,7 +141,9 @@ def _train(model, data_loader, optimizer, device,
             optimizer.step()
             optimizer.zero_grad()
         total_loss += multi_loss.item() * y.shape[0] * config["gradient_accumulation"]
-    total_loss /= len(data_loader.dataset)
+        if batch_idx >= config["sample"]:
+            break
+    total_loss /= batch_idx + 1
     return total_loss
 
 
@@ -334,7 +337,8 @@ def training_executable_wrapper(args):
         "momentum": args.momentum,
         "weight_decay": args.weight_decay,
         "model": args.model,
-        "gradient_accumulation": args.gradient_accumulation
+        "gradient_accumulation": args.gradient_accumulation,
+        "sample": args.sample
 
     }
 

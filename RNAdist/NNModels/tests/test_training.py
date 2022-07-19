@@ -22,7 +22,7 @@ def test_training(random_fasta, train_config, expected_labels, model_type, expec
         ml = 20
     else:
         expected_labels = expected_window_labels
-        ml = 10
+        ml = 15
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         train_network(
             fasta=random_fasta,

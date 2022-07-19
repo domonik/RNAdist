@@ -1,6 +1,7 @@
 import os
 import pytest
 import torch
+import math
 
 TESTFILE_DIR = os.path.dirname(os.path.abspath(__file__))
 TESTDATA_DIR = os.path.join(TESTFILE_DIR, "test_data")
@@ -59,7 +60,8 @@ def train_config(tmp_path):
         "lr_step_size": 1,
         "weight_decay": 0,
         "model": "normal",
-        "gradient_accumulation": 2
+        "gradient_accumulation": 2,
+        "sample": math.inf
     }
     return config
 
