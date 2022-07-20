@@ -134,6 +134,7 @@ class TriangularUpdate(nn.Module):
             nn.Linear(self.embedding_dim, self.embedding_dim),
             nn.Sigmoid()
         )
+        #torch.nn.init.constant_(self.final_update[0].bias.data, 1)
         self.rescale = nn.Linear(self.c, self.embedding_dim)
         self.e_norm = nn.LayerNorm(embedding_dim)
         self.c_norm = nn.LayerNorm(self.c)
@@ -142,6 +143,7 @@ class TriangularUpdate(nn.Module):
         pair_rep = self.e_norm(pair_rep)
         le = self.left_edges(pair_rep)
         re = self.right_edges(pair_rep)
+        fu = self.final_update(pair_rep)
         if mask is not None:
             le = le * mask[..., None]
             re = re * mask[..., None]
@@ -149,13 +151,13 @@ class TriangularUpdate(nn.Module):
         ru = self.right_update(pair_rep)
         ru = ru * re
         lu = le * lu
-        fu = self.final_update(pair_rep)
         # shape will be [b, seq_len, seq_len, c] and wen want to sum over
-        # seq_len
         u = torch.einsum(self.equation, lu, ru)
         u = self.c_norm(u)
         u = self.rescale(u)
         u *= fu
+        if mask is not None:
+            u = u * mask[..., None]
         return u
 
 
@@ -224,6 +226,8 @@ class TriangularSelfAttention(nn.Module):
         out = self.final_lin(out)
         if self.mode == "out":
             out = torch.permute(out, (0, 2, 1, 3))
+        if mask is not None:
+            out = out * mask[..., None]
         return out
 
 
@@ -257,6 +261,8 @@ class PairUpdate(nn.Module):
         pair_rep = self.triangular_attention_in(pair_rep, mask) + pair_rep
         pair_rep = self.triangular_attention_out(pair_rep, mask) + pair_rep
         pair_rep = self.transition(pair_rep) + pair_rep
+        if mask is not None:
+            pair_rep = pair_rep * mask[..., None]
         return pair_rep
 
 

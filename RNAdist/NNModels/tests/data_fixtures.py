@@ -75,3 +75,20 @@ def saved_model():
 def expected_rna_data():
     data = torch.load(os.path.join(TESTDATA_DIR, "rna_tensor.pt"))
     return data
+
+
+@pytest.fixture(scope="session")
+def masked_pair_rep_batch():
+    torch.manual_seed(42)
+    pair_rep = torch.randn(3, 5, 5, 2)
+    masks = []
+    for _ in range(pair_rep.shape[0]):
+        mask = torch.zeros(pair_rep.shape[1], pair_rep.shape[2])
+        len = int(torch.randint(2, 4, (1,)))
+        mask[0:len, 0:len] = 1
+        masks.append(mask)
+    masks = torch.stack(masks)
+    pair_rep = pair_rep * masks[..., None]
+    target = torch.ones(pair_rep.shape)
+    assert masks.shape == pair_rep.shape[:-1]
+    return pair_rep, masks, target
