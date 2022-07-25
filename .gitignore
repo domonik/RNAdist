@@ -13,7 +13,7 @@ papers/
 *best_models/
 /dist
 /build
-
+*_autosummary/
 
 # C extensions
 *.so
