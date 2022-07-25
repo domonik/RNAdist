@@ -10,10 +10,16 @@ from dash import callback_context
 from dash.dependencies import Input, Output, State, ALL
 import os
 import pickle
+import base64
 
 __version__ = _version.get_versions()["version"]
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(FILEDIR, "assets")
+
+LOGO = os.path.join(ASSETS_DIR, "RNAdistVisualizer_dark.svg")
+assert os.path.exists(LOGO)
+encoded_img = base64.b64encode(open(LOGO, 'rb').read())
+
 
 app = dash.Dash(
     "RNAdist Dashboard",
@@ -35,9 +41,10 @@ pio.templates["plotly_white"].update(
 
 
 def _header_layout():
+    svg = 'data:image/svg+xml;base64,{}'.format(encoded_img.decode())
     header = html.Div(
         html.Div(
-            html.H3("RNAdist Visualizer"),
+            html.Img(src=svg, style={"width": "30%",}, className="p-2" ),
             className="databox",
             style={"text-align": "center"},
         ),
