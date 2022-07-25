@@ -13,9 +13,11 @@ from RNAdist.NNModels.tests.data_fixtures import (
 import pytest
 
 
-@pytest.mark.parametrize("model_type", ["normal", "small"])
+@pytest.mark.parametrize("model_type", ["normal", "small", "triangularselfattention"])
 @pytest.mark.parametrize("mode", ["normal", "window"])
-def test_training(random_fasta, train_config, expected_labels, model_type, expected_window_labels, mode):
+def test_training(random_fasta, train_config, expected_labels, model_type, expected_window_labels, mode, request):
+    if model_type not in ["small", "normal"]:
+        model_type = request.getfixturevalue(model_type)
     train_config.model= model_type
     if mode == "normal":
         expected_labels = expected_labels

@@ -67,6 +67,28 @@ def train_config(tmp_path):
     return config
 
 
+class TestModel(torch.nn.Module):
+    def __init__(self, embedding_size):
+        super().__init__()
+        self.embedding_size = embedding_size
+        self.outlayer = torch.nn.Linear(self.embedding_size, 1)
+
+
+    def forward(self, pair_rep, mask):
+        out = self.outlayer(pair_rep)
+        out = torch.squeeze(out)
+        out = torch.relu(out)
+        if mask is not None:
+            out = out * mask
+        return out
+
+
+@pytest.fixture
+def triangularselfattention():
+    model = TestModel(17)
+    return model
+
+
 @pytest.fixture()
 def saved_model():
     return os.path.join(TESTDATA_DIR, "test_model.pt")

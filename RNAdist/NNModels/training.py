@@ -204,14 +204,23 @@ def train_model(
         model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
+    elif isinstance(config["model"], torch.nn.Module):
+        model = config["model"]
+
     else:
         raise ValueError("no valid Model Type")
     if fine_tune:
         state_dict, old_config = torch.load(fine_tune, map_location="cpu")
-        if old_config["model"] != config["model"]:
-            raise ValueError("Model type of current configuration does not match the pretrained model type:\n"
-                             f"pretrained model: {old_config['model']}\n"
-                             f"current model: {config['model']}")
+        if not isinstance(config["model"], torch.nn.Module):
+            if old_config["model"] != config["model"]:
+                raise ValueError("Model type of current configuration does not match the pretrained model type:\n"
+                                 f"pretrained model: {old_config['model']}\n"
+                                 f"current model: {config['model']}")
+        else:
+            if not isinstance(old_config["model"], type(config["model"])):
+                raise ValueError("Model type of current configuration does not match the pretrained model type:\n"
+                                 f"pretrained model: {type(old_config['model'])}\n"
+                                 f"current model: {type(config['model'])}")
         model.load_state_dict(state_dict)
 
     model.to(device)

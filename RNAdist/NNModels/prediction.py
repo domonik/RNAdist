@@ -66,6 +66,8 @@ def model_predict(
         model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
+    elif isinstance(config["model"], torch.nn.Module):
+        model = config["model"]
     else:
         raise ValueError("Not able to infer model")
     model.load_state_dict(state_dict)

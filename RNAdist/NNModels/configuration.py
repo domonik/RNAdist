@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import math
+from typing import Union
+import torch
 
 
 @dataclass()
@@ -8,11 +10,13 @@ class ModelConfiguration:
 
     Args:
         model_checkpoint (str): Path to the model output file.
-        model (str): Either normal or small
-        alpha (float): "weight for the first part of the combined loss."
-             "The weight for the loss of elements i,j"
-             "where j > i + round(min_loop_length/2). The other part"
-             "will be weighted 1 - alpha"
+        model (Union[str, torch.nn.Module]): Either normal or small if type is str. If type is torch.nn.Module
+            make sure that the :func:`~forward` of it takes two arguments a pair_rep and a mask where pair_rep
+             is supposed to have the following shape: `(B, N, N, 17)` and the output must be of shape `(B, N, N)`
+        alpha (float): weight for the first part of the combined loss.
+             The weight for the loss of elements i,j
+             where j > i + round(min_loop_length/2). The other part
+             will be weighted 1 - alpha
         masking (bool): whether masking is applied during training
         nr_layers (int): How often the Pair Update module is stacked
         optimizer (str): Specifies the optimizer that is used. either adamw or sgd
