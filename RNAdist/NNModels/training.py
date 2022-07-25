@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
+from RNAdist.NNModels.configuration import ModelConfiguration
 from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2,
     DISTAtteNCionESmall,
@@ -278,7 +279,7 @@ def train_model(
 def train_network(fasta: str,
                   dataset_path: str,
                   label_dir: str,
-                  config: Dict[str, Any],
+                  config: ModelConfiguration,
                   num_threads: int = 1,
                   epochs: int = 400,
                   device: str = None,
@@ -295,8 +296,8 @@ def train_network(fasta: str,
         fasta (str): Path to the Fasta file containing training sequences 
         dataset_path (str): Path where the Dataset object will be stored 
         label_dir (str): Path to the directory created via
-            :func:`~RNAdist.NNModels.training_set_generation.rst.training_set_from_fasta`
-        config (dict of str): configuration of training process
+            :func:`~RNAdist.NNModels.training_set_generation.training_set_from_fasta`
+        config (ModelConfiguration): configuration of training process
         num_threads (int): number of parallel processes to use
         epochs (int): maximum number of epochs
         device (str): one of cpu or cuda:x with x specifying the cuda device
@@ -308,14 +309,18 @@ def train_network(fasta: str,
         fine_tune (str): Path to a pretrained model that should be used for fine tuning.
 
     Examples:
-        You can train a network using the following lines  of code:
+        You can train a network using the following lines  of code. The
+        :class:`~RNAdist.NNModels.configuration.ModelConfiguration` object is mandatory but has only
+        default values except for the path to the output file
 
         >>> from RNAdist.NNModels.training import train_network
-        >>> train_network("fasta.fa", "dataset_path", "label_directory")
+        >>> from RNAdist.NNModels.configuration import ModelConfiguration
+        >>> config = ModelConfiguration(model_checkpoint="path_to_output_model.pckl")
+        >>> train_network("fasta.fa", "dataset_path", "label_directory", config=config)
 
         You can also change to window mode using a window size of 100 like this
 
-        >>> train_network("fasta.fa", "dataset_path", "label_directory", mode="window", max_length=100)
+        >>> train_network("fasta.fa", "dataset_path", "label_directory", config=config, mode="window", max_length=100)
     """
     train_loader, val_loader = _setup(
         fasta=fasta,
@@ -343,24 +348,24 @@ def train_network(fasta: str,
 
 
 def training_executable_wrapper(args):
-    config = {
-        "alpha": args.alpha,
-        "masking": args.masking,
-        "learning_rate": args.learning_rate,
-        "batch_size": args.batch_size,
-        "validation_interval": args.validation_interval,
-        "nr_layers": args.nr_layers,
-        "patience": args.patience,
-        "optimizer": args.optimizer,
-        "model_checkpoint": args.output,
-        "lr_step_size": args.learning_rate_step_size,
-        "momentum": args.momentum,
-        "weight_decay": args.weight_decay,
-        "model": args.model,
-        "gradient_accumulation": args.gradient_accumulation,
-        "sample": args.sample
+    config = ModelConfiguration(
+        alpha=args.alpha,
+        masking=args.masking,
+        learning_rate=args.learning_rate,
+        batch_size=args.batch_size,
+        validation_interval=args.validation_interval,
+        nr_layers=args.nr_layers,
+        patience=args.patience,
+        optimizer=args.optimizer,
+        model_checkpoint=args.output,
+        lr_step_size=args.learning_rate_step_size,
+        momentum=args.momentum,
+        weight_decay=args.weight_decay,
+        model=args.model,
+        gradient_accumulation=args.gradient_accumulation,
+        sample=args.sample
 
-    }
+    )
 
     train_network(
         fasta=args.input,

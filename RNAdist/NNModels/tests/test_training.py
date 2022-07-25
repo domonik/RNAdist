@@ -16,7 +16,7 @@ import pytest
 @pytest.mark.parametrize("model_type", ["normal", "small"])
 @pytest.mark.parametrize("mode", ["normal", "window"])
 def test_training(random_fasta, train_config, expected_labels, model_type, expected_window_labels, mode):
-    train_config["model"] = model_type
+    train_config.model= model_type
     if mode == "normal":
         expected_labels = expected_labels
         ml = 20
