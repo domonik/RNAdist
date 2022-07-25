@@ -186,7 +186,8 @@ def train_model(
         config: Dict,
         device: str = None,
         seed: int = 0,
-        train_val_ratio: float = 0.8
+        train_val_ratio: float = 0.8,
+        fine_tune: str = None
 ):
     learning_rate = config["learning_rate"]
     patience = config["patience"]
@@ -202,6 +203,16 @@ def train_model(
         model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
+    else:
+        raise ValueError("no valid Model Type")
+    if fine_tune:
+        state_dict, old_config = torch.load(fine_tune, map_location="cpu")
+        if old_config["model"] != config["model"]:
+            raise ValueError("Model type of current configuration does not match the pretrained model type:\n"
+                             f"pretrained model: {old_config['model']}\n"
+                             f"current model: {config['model']}")
+        model.load_state_dict(state_dict)
+
     model.to(device)
     opt = config["optimizer"].lower()
     if opt == "sgd":
@@ -261,7 +272,7 @@ def train_model(
         if torch.isnan(torch.tensor(train_loss)):
             break
     best_val_mae = float(best_val_mae.detach().cpu())
-    return {"cost": best_val_mae, "epoch": epoch}
+    return {"cost": best_val_mae, "epoch": epoch, "state_dict": model.state_dict()}
 
 
 def train_network(fasta: str,
@@ -275,7 +286,8 @@ def train_network(fasta: str,
                   train_val_ratio: float = 0.8,
                   md_config: Dict = None,
                   mode: str = "normal",
-                  seed: int = 0
+                  seed: int = 0,
+                  fine_tune: str = None
                   ):
     """Python API for training a DISTAtteNCionE Network
 
@@ -293,6 +305,7 @@ def train_network(fasta: str,
         md_config (dict of str): !!Deprecated!! new versions will infer this from the label_dir
         mode (str): One of "normal" or "window". Specifies the mode that is used for training.
         seed (int): Random number seed for everything related to pytorch
+        fine_tune (str): Path to a pretrained model that should be used for fine tuning.
 
     Examples:
         You can train a network using the following lines  of code:
@@ -316,15 +329,18 @@ def train_network(fasta: str,
         seed=seed,
         mode=mode
     )
-    best_val_mae = train_model(
+    train_return = train_model(
         train_loader,
         val_loader,
         epochs,
         config,
         device=device,
         seed=seed,
-        train_val_ratio=train_val_ratio
+        train_val_ratio=train_val_ratio,
+        fine_tune=fine_tune
     )
+    return train_return["state_dict"]
+
 
 
 def training_executable_wrapper(args):

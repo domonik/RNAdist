@@ -59,3 +59,30 @@ def test_cuda_training(random_fasta, train_config, expected_labels):
         assert os.path.exists(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
 
+
+@pytest.mark.parametrize(
+    "epochs",
+    [0, 1]
+)
+def test_pretrained(random_fasta, train_config, expected_labels, saved_model, expected_window_labels, epochs):
+    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+        model_state_dict = train_network(
+            fasta=random_fasta,
+            label_dir=expected_labels,
+            dataset_path=tmpdir,
+            config=train_config,
+            num_threads=1,
+            epochs=epochs,
+            max_length=20,
+            train_val_ratio=0.2,
+            device="cpu",
+            fine_tune=saved_model
+        )
+        expected_state_dict, config = torch.load(saved_model)
+        for key in expected_state_dict:
+            expected_tensor = expected_state_dict[key]
+            assert key in model_state_dict, "Keys of expected and actual model do not match"
+            actual_tensor = model_state_dict[key]
+            if epochs == 0:
+                # Since we are training for 0 epochs the state dict should not be updated
+                assert torch.equal(expected_tensor, actual_tensor), "Model loading in fine tuning failed"
