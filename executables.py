@@ -60,6 +60,12 @@ def training_parser(subparsers, name):
         default="normal"
     )
     group2.add_argument(
+        '--fine_tune',
+        type=str,
+        help="Path to pretrained model that should be used in fine_tuning (Default: None)",
+        default=None
+    )
+    group2.add_argument(
         '--max_length',
         type=int,
         help="Maximum length of RNAs. (Default: 200)",

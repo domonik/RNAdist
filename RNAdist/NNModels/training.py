@@ -342,7 +342,6 @@ def train_network(fasta: str,
     return train_return["state_dict"]
 
 
-
 def training_executable_wrapper(args):
     config = {
         "alpha": args.alpha,
@@ -372,7 +371,8 @@ def training_executable_wrapper(args):
         config=config,
         seed=args.seed,
         epochs=args.max_epochs,
-        device=args.device
+        device=args.device,
+        fine_tune=args.fine_tune
     )
 
 
