@@ -11,6 +11,7 @@ from dash.dependencies import Input, Output, State, ALL
 import os
 import pickle
 import base64
+from dash.exceptions import PreventUpdate
 
 __version__ = _version.get_versions()["version"]
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -148,7 +149,7 @@ def _selector(data):
                             ),
                             html.Div(
                                 dcc.Dropdown(
-                                    data, data[0],
+                                    data[0:100], data[0],
                                     className="justify-content-center",
                                     id="sequence-selector"
                                 ),
@@ -205,6 +206,17 @@ def get_app_layout(dash_app: dash.Dash):
 
 
 @app.callback(
+    Output("sequence-selector", "options"),
+    Input("sequence-selector", "search_value")
+)
+def update_options(search_value):
+    if not search_value:
+        raise PreventUpdate
+    options = [o for o in data if search_value in o][0:100]
+    return options
+
+
+@app.callback(
         Output("heatmap-graph", "figure"),
         Input("sequence-selector", "value"),
 )
@@ -258,10 +270,7 @@ def _update_plot(line, key):
 
 if __name__ == "__main__":
     np.random.seed(10)
-    data = {
-        "seq1": np.random.randint(20, size=(20, 20)),
-        "seq2": np.random.randint(20, size=(20, 20))
-    }
+    data = {f"seq{x}": np.random.randint(20, size=(20, 20)) for x in range(1000)}
 
     get_app_layout(app)
     app.run_server(debug=True, port=8080, host="0.0.0.0")
