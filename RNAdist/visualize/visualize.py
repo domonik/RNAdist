@@ -45,7 +45,7 @@ def _header_layout():
     svg = 'data:image/svg+xml;base64,{}'.format(encoded_img.decode())
     header = html.Div(
         html.Div(
-            html.Img(src=svg, style={"width": "30%",}, className="p-3" ),
+            html.Img(src=svg, style={"width": "30%", "min-width": "300px"}, className="p-3" ),
             className="databox",
             style={"text-align": "center"},
         ),
