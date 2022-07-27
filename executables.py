@@ -4,6 +4,7 @@ from RNAdist.NNModels.training import training_executable_wrapper
 from RNAdist.NNModels.training_set_generation import (
     generation_executable_wrapper
 )
+from RNAdist.visualize.visualize import run_visualization
 from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
 import math
 
@@ -289,6 +290,60 @@ def add_md_parser(parser):
     return parser
 
 
+def visualization_parser(subparsers, name):
+    parser = subparsers.add_parser(
+        name,
+        description="Runs the Dash visualization tool"
+    )
+    parser.add_argument(
+        '--input',
+        type=str,
+        help="Path to the prediction file generated using one of the prediction mechansims",
+        required=True
+    )
+    parser.add_argument(
+        '--port',
+        type=str,
+        help="Port to run the Dash server (Default: 8080)",
+        default="8080"
+    )
+    parser.add_argument(
+        '--host',
+        type=str,
+        help="Host IP used by the dash server to serve the application (Default: 0.0.0.0)",
+        default="0.0.0.0"
+    )
+    return parser
+
+
+class RNAdistParser:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(
+            "RNAdist suite",
+            usage="RNAdist <command> [<args>]"
+
+        )
+        self.methods = {
+            "visualize": (visualization_parser, run_visualization),
+        }
+        self.subparsers = self.parser.add_subparsers()
+        self.__addparsers()
+
+    def __addparsers(self):
+        for name, (parser_add, func) in self.methods.items():
+            subp = parser_add(self.subparsers, name)
+            subp.set_defaults(func=func)
+
+    def parse_args(self):
+        args = self.parser.parse_args()
+        return args
+
+    def run(self):
+        args = self.parse_args()
+        args.func(args)
+
+
+
 class DISTAtteNCioNEParser:
     def __init__(self):
         self.parser = argparse.ArgumentParser(
@@ -402,10 +457,18 @@ def main():
     DISTAtteNCioNEParser().run()
 
 
+def rnadist_main():
+    RNAdistParser().run()
+
+
 def documentation_wrapper():
     parser = DISTAtteNCioNEParser().parser
     return parser
 
+
+def rnadist_documentation_wrapper():
+    parser = RNAdistParser().parser
+    return parser
 
 
 

@@ -30,6 +30,7 @@ setup(
     entry_points={
         "console_scripts": [
             "DISTAtteNCionE = executables:main",
+            "RNAdsit = executables:rnadist_main"
         ]
     },
 )

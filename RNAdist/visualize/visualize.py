@@ -26,6 +26,7 @@ app = dash.Dash(
     "RNAdist Dashboard",
     external_stylesheets=[dbc.themes.DARKLY],
     assets_url_path=ASSETS_DIR,
+    assets_folder=ASSETS_DIR,
     index_string=open(os.path.join(ASSETS_DIR, "index.html")).read(),
 )
 
@@ -264,15 +265,15 @@ def _update_plot(line, key):
     return fig
 
 
-
-
-
-
-if __name__ == "__main__":
-    np.random.seed(10)
-    data = {f"seq{x}": np.random.randint(20, size=(20, 20)) for x in range(1000)}
-
+def run_visualization(args):
+    global data
+    print("loading data")
+    with open(args.input, "rb") as handle:
+        data = pickle.load(handle)
+    print("finished loading going to start server")
     get_app_layout(app)
-    app.run_server(debug=True, port=8080, host="0.0.0.0")
+    app.run(debug=False, port=args.port, host=args.host)
+
+data = {}
 
 
