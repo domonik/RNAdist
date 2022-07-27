@@ -60,7 +60,10 @@ def _scatter_from_data(data, key, line: int = 0, start: int = 0):
     scatter = go.Scatter(
         y=data_row,
         x=x,
-        line={"width": 4, "color": "#ff8add"}
+        customdata=[line for _ in range(len(data_row))],
+        line={"width": 4, "color": "#ff8add"},
+        hovertemplate='i:%{customdata} <br>j:%{x}<br>distance: %{y} ',
+        name=""
 
     )
     fig = go.Figure()
@@ -71,17 +74,33 @@ def _scatter_from_data(data, key, line: int = 0, start: int = 0):
         fillcolor="#AAE4EE", opacity=0.5,
         layer="below", line_width=0,
     ),
+    key = key if len(key) <= 30 else key[0:30] + "..."
+    fig.update_layout(
+        title={"text": f"Expected Distance of {key} from i={line} to j", "font": {"size": 20}},
+        xaxis_title="Nucleotide j",
+        yaxis_title="Expected Distance",
+        title_x=0.5
+    )
     return fig
 
 
 def _heatmap_from_data(data, key):
     fig = go.Figure()
     fig.layout.template = "plotly_white"
+    d = data[key]
     heatmap = go.Heatmap(
-        z=data[key]
+        z=d,
+        hovertemplate='i:%{y} <br><b>j:%{x}</b><br>distance: %{z} ',
+        name=""
     )
     fig.add_trace(heatmap)
     fig['layout']['yaxis']['autorange'] = "reversed"
+    fig.update_layout(
+        title={"text": "Distance Heatmap", "font": {"size": 20}},
+        xaxis_title="Nucleotide j",
+        yaxis_title="Nucleotide i",
+        title_x=0.5
+    )
     return fig
 
 
@@ -280,4 +299,12 @@ def run_visualization(args):
 
 data = {}
 
+
+if __name__ == '__main__':
+    import argparse
+    args = argparse.Namespace()
+    args.input = "foofile"
+    args.port = "8080"
+    args.host = "0.0.0.0"
+    run_visualization(args)
 
