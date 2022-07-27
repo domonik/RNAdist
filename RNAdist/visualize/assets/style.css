@@ -9,4 +9,17 @@
 
 }
 
+.Select-value-label {
+    color: black !important;
+}
+
+.VirtualizedSelectOption {
+    color: black;
+ }
+
+.VirtualizedSelectFocusedOption {
+    background-color: #aae4ee;
+    opacity: .7;
+}
+
 

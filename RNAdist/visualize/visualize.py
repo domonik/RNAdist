@@ -44,7 +44,7 @@ def _header_layout():
     svg = 'data:image/svg+xml;base64,{}'.format(encoded_img.decode())
     header = html.Div(
         html.Div(
-            html.Img(src=svg, style={"width": "30%",}, className="p-2" ),
+            html.Img(src=svg, style={"width": "30%",}, className="p-3" ),
             className="databox",
             style={"text-align": "center"},
         ),
@@ -58,15 +58,16 @@ def _scatter_from_data(data, key, line: int = 0, start: int = 0):
     x = np.arange(start, len(data_row)+start)
     scatter = go.Scatter(
         y=data_row,
-        x=x
+        x=x,
+        line={"width": 4, "color": "#ff8add"}
 
     )
     fig = go.Figure()
     fig.layout.template = "plotly_white"
     fig.add_trace(scatter)
     fig.add_vrect(
-        x0=line-0.1, x1=line+0.1,
-        fillcolor="LightSalmon", opacity=0.5,
+        x0=max(line-.5, 0), x1=min(line+.5, len(data_row)+start - 1),
+        fillcolor="#AAE4EE", opacity=0.5,
         layer="below", line_width=0,
     ),
     return fig
@@ -101,7 +102,7 @@ def _distance_box():
         [
             html.Div(
                 [
-                    dcc.Graph(id="distance-graph")
+                    dcc.Graph(id="distance-graph", style={"height": "385px"})
                 ],
                 className="databox",
             )
@@ -121,7 +122,7 @@ def _heatmap_box():
                 className="databox"
             )
         ],
-        className="col-6 justify-content-center"
+        className="col-6 p-1 justify-content-center"
     )
     return d_box
 
@@ -133,17 +134,48 @@ def _selector(data):
             html.Div(
                 [
                     html.Div(
-                        dcc.Dropdown(data, data[0],
-                        className="justify-content-center", id="sequence-selector"),
-                        className="justify-content-center col-7"
+                        html.Div(
+                            html.H4("Selector", style={"text-align": "center"}),
+                            className="col-12 justify-content-center"
+                        ),
+                        className="row justify-content-center p-4"
                     ),
-                    html.Div(_range_button(10), id="range-buttons", className=" col-7 justify-content-center align-items-center")
-
+                    html.Div(
+                        [
+                            html.Div(
+                                html.Span("Sequence", style={"text-align": "center"}),
+                                className="col-3 justify-content-center align-self-center"
+                            ),
+                            html.Div(
+                                dcc.Dropdown(
+                                    data, data[0],
+                                    className="justify-content-center",
+                                    id="sequence-selector"
+                                ),
+                                className="col-7 justify-content-center",
+                            ),
+                        ],
+                        className="row justify-content-center p-2"
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                html.Span("Nucleotide index", style={"text-align": "center"}),
+                                className="col-3 justify-content-center align-self-center"
+                            ),
+                            html.Div(
+                                _range_button(10),
+                                className="col-7 justify-content-center",
+                                id="range-buttons"
+                            ),
+                        ],
+                        className="row justify-content-center p-2"
+                    ),
                 ],
-                className="databox row justify-content-center align-items-center"
+                className="databox justify-content-center"
             )
         ],
-        className="col-6 justify-content-center"
+        className="col-6 p-1 justify-content-center"
     )
     return d_box
 
@@ -154,18 +186,18 @@ def get_app_layout(dash_app: dash.Dash):
             dcc.Location(id="url", refresh=False),
             html.Div(
                 _header_layout(),
-                className="row"
+                className="row justify-content-center"
             ),
             html.Div(
                 _distance_box(),
-                className="row"
+                className="row justify-content-center"
             ),
             html.Div(
                 [
                     _heatmap_box(),
                     _selector(data),
                 ],
-                className="row"
+                className="row justify-content-center"
             )
 
         ]
