@@ -23,6 +23,7 @@ encoded_img = base64.b64encode(open(LOGO, 'rb').read())
 
 app = dash.Dash(
     "RNAdist Dashboard",
+    title="RNAdist Visualizer",
     external_stylesheets=[dbc.themes.DARKLY],
     assets_url_path=ASSETS_DIR,
     assets_folder=ASSETS_DIR,
