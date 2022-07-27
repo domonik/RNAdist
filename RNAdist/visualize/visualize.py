@@ -6,8 +6,7 @@ import dash_bootstrap_components as dbc
 import dash
 from dash import dcc
 from dash import html
-from dash import callback_context
-from dash.dependencies import Input, Output, State, ALL
+from dash.dependencies import Input, Output
 import os
 import pickle
 import base64
@@ -182,7 +181,7 @@ def _selector(data):
     return d_box
 
 
-def get_app_layout(dash_app: dash.Dash):
+def _get_app_layout(dash_app: dash.Dash):
     dash_app.layout = html.Div(
         [
             dcc.Location(id="url", refresh=False),
@@ -210,7 +209,7 @@ def get_app_layout(dash_app: dash.Dash):
     Output("sequence-selector", "options"),
     Input("sequence-selector", "search_value")
 )
-def update_options(search_value):
+def _update_options(search_value):
     if not search_value:
         raise PreventUpdate
     options = [o for o in data if search_value in o][0:100]
@@ -266,12 +265,17 @@ def _update_plot(line, key):
 
 
 def run_visualization(args):
+    """Wrapper for running visualization Dashboard
+
+    Args:
+        args (argparse.Namespace): cli args containing input, port and host
+    """
     global data
     print("loading data")
     with open(args.input, "rb") as handle:
         data = pickle.load(handle)
     print("finished loading going to start server")
-    get_app_layout(app)
+    _get_app_layout(app)
     app.run(debug=False, port=args.port, host=args.host)
 
 data = {}
