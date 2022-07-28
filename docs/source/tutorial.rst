@@ -7,4 +7,5 @@ Tutorial
     training_set_generation
     training
     prediction
+    visualization
 
