@@ -9,6 +9,23 @@
 
 }
 
+.fasta-panel {
+	background-color: #494949;
+    height: 100%;
+	border-radius: 5px;
+	border-color: black;
+	border-width: 1px;
+	border-style: solid;
+    font-family: monospace;
+    overflow-wrap: break-word;
+    overflow: scroll;
+}
+
+.fasta-panel p{
+	margin: 0
+
+}
+
 .Select-value-label {
     color: black !important;
 }

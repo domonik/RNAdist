@@ -12,6 +12,7 @@ import pickle
 import base64
 from dash.exceptions import PreventUpdate
 import pandas as pd
+from Bio import SeqIO
 
 __version__ = _version.get_versions()["version"]
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -59,12 +60,18 @@ def _header_layout():
 def _scatter_from_data(data, key, line: int = 0, start: int = 0):
     data_row = data[key][line, start:]
     x = np.arange(start, len(data_row)+start)
+    if fasta:
+        customdata = list(fasta[key][start:len(data_row)+start])
+        hovertemplate = f'i:{line} [{fasta[key][line]}]<br>j:%{{x}} [%{{customdata}}]<br>distance: %{{y}}'
+    else:
+        customdata = None
+        hovertemplate = f'i:{line} <br>j:%{{x}}<br>distance: %{{y}}'
     scatter = go.Scatter(
         y=data_row,
         x=x,
-        customdata=[line for _ in range(len(data_row))],
         line={"width": 4, "color": "#ff8add"},
-        hovertemplate='i:%{customdata} <br>j:%{x}<br>distance: %{y} ',
+        customdata=customdata,
+        hovertemplate=hovertemplate,
         name=""
 
     )
@@ -90,9 +97,17 @@ def _heatmap_from_data(data, key):
     fig = go.Figure()
     fig.layout.template = "plotly_white"
     d = data[key]
+    if fasta:
+        a = np.asarray(list(fasta[key]))[:len(d)]
+        customdata = np.asarray(np.meshgrid(a, a)).T.reshape(-1, 2).reshape(len(a), len(a), -1)
+        hovertemplate = 'i:%{y} [%{customdata[0]}] <br><b>j:%{x} [%{customdata[1]}] </b><br>distance: %{z}'
+    else:
+        hovertemplate = 'i:%{y} <br><b>j:%{x}</b><br>distance: %{z}'
+        customdata = None
     heatmap = go.Heatmap(
         z=d,
-        hovertemplate='i:%{y} <br><b>j:%{x}</b><br>distance: %{z} ',
+        hovertemplate=hovertemplate,
+        customdata=customdata,
         name=""
     )
     fig.add_trace(heatmap)
@@ -207,6 +222,13 @@ def _selector(data):
 
                         ],
                         className="row justify-content-center pb-4 p-2 pb-md-2"
+                    ),
+                    html.Div(
+                        [
+                            # This is the Div where the sequence will be placed
+                        ],
+                        className="row justify-content-center pb-4 p-2 pb-md-2",
+                        id="fasta-seq"
                     ),
                 ],
                 className="databox justify-content-center"
@@ -369,6 +391,23 @@ def _download_tsv(n_clicks, filename, key):
     return dcc.send_data_frame(df.to_csv, filename, sep="\t")
 
 
+@app.callback(
+    Output("fasta-seq", "children"),
+    Input("sequence-selector", "value")
+)
+def _add_fasta_sequence(key):
+    if fasta:
+        seq = fasta[key]
+        md = f"\>{key}\n\n{seq}"
+        div = html.Div(
+            dcc.Markdown(md),
+            style={"maxHeight": "170px"},
+            className="col-10 justify-content-center align-self-center fasta-panel"
+        )
+
+    else:
+        div = html.Div()
+    return div
 
 
 
@@ -384,12 +423,16 @@ def run_visualization(args):
     print("loading data")
     with open(args.input, "rb") as handle:
         data = pickle.load(handle)
+    if args.fasta:
+        seqs = {sr.description: str(sr.seq) for sr in SeqIO.parse(args.fasta, "fasta")}
+        global fasta
+        fasta = seqs
     print("finished loading going to start server")
     _get_app_layout(app)
     app.run(debug=True, port=args.port, host=args.host)
 
 data = {}
-
+fasta = {}
 
 if __name__ == '__main__':
     import argparse
@@ -397,5 +440,6 @@ if __name__ == '__main__':
     args.input = "foofile"
     args.port = "8080"
     args.host = "0.0.0.0"
+    args.fasta = "foofasta.fa"
     run_visualization(args)
 
