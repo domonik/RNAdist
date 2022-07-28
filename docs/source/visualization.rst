@@ -20,7 +20,7 @@ RNAdist Visualizer
 ------------------
 
 Now that you started the visualization. It is time to talk about what you see here.
-In the bottom right you can find the selector pane. Here you can select the Fasta header of the sequence you want to
+In the bottom right you can find the selector pane [2]. Here you can select the Fasta header of the sequence you want to
 inspect.
 
 .. note::
@@ -29,7 +29,9 @@ inspect.
     of the sequence you search for and it will show up.
 
 Via the Nucleotide Index input you can specify for which nucleotide expected distances should be shown in the upper
-distance graph.
+distance graph [1].
 
-Last but not least there is a heatmap in the lower left corner showing distances for all nucleotide combinations
+Last but not least there is a heatmap [3] in the lower left corner showing distances for all nucleotide combinations.
+You can download this heatmap as a tsv file using the `Export Heatmap to TSV` Button in the Selector Pane.
 
+.. image:: _static/RNAdist_visualizer_tutorial.svg
