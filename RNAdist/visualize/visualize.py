@@ -143,7 +143,7 @@ def _distance_box():
         [
             html.Div(
                 [
-                    dcc.Graph(id="distance-graph", style={"height": "385px"})
+                    dcc.Graph(id="distance-graph", style={"height": "370px"})
                 ],
                 className="databox",
             )
@@ -271,11 +271,11 @@ def _get_app_layout(dash_app: dash.Dash):
             dcc.Location(id="url", refresh=False),
             html.Div(
                 _header_layout(),
-                className="row justify-content-center"
+                className="row m-1 justify-content-center align-items-center"
             ),
             html.Div(
                 _distance_box(),
-                className="row justify-content-center"
+                className="row m-1 justify-content-center"
             ),
             html.Div(
                 [
@@ -283,7 +283,7 @@ def _get_app_layout(dash_app: dash.Dash):
                     _heatmap_box(),
 
                 ],
-                className="row justify-content-center"
+                className="row m-1  justify-content-center"
             )
 
         ]
@@ -401,7 +401,7 @@ def _add_fasta_sequence(key):
         md = f"\>{key}\n\n{seq}"
         div = html.Div(
             dcc.Markdown(md),
-            style={"maxHeight": "170px"},
+            style={"maxHeight": "160px"},
             className="col-10 justify-content-center align-self-center fasta-panel"
         )
 
