@@ -5,12 +5,13 @@ import numpy as np
 import dash_bootstrap_components as dbc
 import dash
 from dash import dcc
-from dash import html
-from dash.dependencies import Input, Output
+from dash import html, callback_context
+from dash.dependencies import Input, Output, State
 import os
 import pickle
 import base64
 from dash.exceptions import PreventUpdate
+import pandas as pd
 
 __version__ = _version.get_versions()["version"]
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +78,7 @@ def _scatter_from_data(data, key, line: int = 0, start: int = 0):
     ),
     key = key if len(key) <= 30 else key[0:30] + "..."
     fig.update_layout(
-        title={"text": f"Expected Distance of {key} from i={line} to j", "font": {"size": 20}},
+        title={"text": f"Expected Distance<br>{key}", "font": {"size": 20}},
         xaxis_title="Nucleotide j",
         yaxis_title="Expected Distance",
         title_x=0.5
@@ -100,7 +101,11 @@ def _heatmap_from_data(data, key):
         title={"text": "Distance Heatmap", "font": {"size": 20}},
         xaxis_title="Nucleotide j",
         yaxis_title="Nucleotide i",
-        title_x=0.5
+        title_x=0.5,
+        xaxis_side="top",
+    )
+    fig.update_xaxes(
+        title_standoff=0
     )
     return fig
 
@@ -143,7 +148,7 @@ def _heatmap_box():
                 className="databox"
             )
         ],
-        className="col-6 p-1 justify-content-center"
+        className="col-12 col-md-6 p-1 justify-content-center order-md-first"
     )
     return d_box
 
@@ -159,13 +164,13 @@ def _selector(data):
                             html.H4("Selector", style={"text-align": "center"}),
                             className="col-12 justify-content-center"
                         ),
-                        className="row justify-content-center p-4"
+                        className="row justify-content-center p-2 p-md-4"
                     ),
                     html.Div(
                         [
                             html.Div(
                                 html.Span("Sequence", style={"text-align": "center"}),
-                                className="col-3 justify-content-center align-self-center"
+                                className="col-10 col-md-3 justify-content-center align-self-center"
                             ),
                             html.Div(
                                 dcc.Dropdown(
@@ -173,7 +178,7 @@ def _selector(data):
                                     className="justify-content-center",
                                     id="sequence-selector"
                                 ),
-                                className="col-7 justify-content-center",
+                                className="col-10 col-md-7 justify-content-center",
                             ),
                         ],
                         className="row justify-content-center p-2"
@@ -182,23 +187,60 @@ def _selector(data):
                         [
                             html.Div(
                                 html.Span("Nucleotide index", style={"text-align": "center"}),
-                                className="col-3 justify-content-center align-self-center"
+                                className="col-10 col-md-3 justify-content-center align-self-center"
                             ),
                             html.Div(
                                 _range_button(10),
-                                className="col-7 justify-content-center",
+                                className="col-10 col-md-7 justify-content-center",
                                 id="range-buttons"
                             ),
                         ],
                         className="row justify-content-center p-2"
                     ),
+                    html.Div(
+                        [
+                            html.Div(
+                                dbc.Button("Export Heatmap to TSV", style={"text-align": "center", "width": "100%"}, id="open-modal"),
+                                className="col-10 justify-content-center align-self-center"
+                            ),
+                            _modal_tsv_download()
+
+                        ],
+                        className="row justify-content-center pb-4 p-2 pb-md-2"
+                    ),
                 ],
                 className="databox justify-content-center"
             )
         ],
-        className="col-6 p-1 justify-content-center"
+        className="col-12 col-md-6 p-1 justify-content-center"
     )
     return d_box
+
+
+def _modal_tsv_download():
+    modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Select file Name"),
+            dbc.ModalBody(
+                [
+                    html.Div(
+                        [
+                            html.Div(dbc.Input("named-download",),
+                                        className=" col-9"),
+                            dbc.Button("Download", id="download-tsv-button", className="btn btn-primary col-3"),
+                            dcc.Download(id="download-tsv")
+                        ],
+                        className="row justify-content-around",
+                    )
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Close", id="close", className="ml-auto",
+                           n_clicks=0)),
+        ],
+        id="modal",
+    )
+    return modal
 
 
 def _get_app_layout(dash_app: dash.Dash):
@@ -215,8 +257,9 @@ def _get_app_layout(dash_app: dash.Dash):
             ),
             html.Div(
                 [
-                    _heatmap_box(),
                     _selector(data),
+                    _heatmap_box(),
+
                 ],
                 className="row justify-content-center"
             )
@@ -284,6 +327,53 @@ def _update_plot(line, key):
     return fig
 
 
+@app.callback(
+    [
+        Output("modal", "is_open"),
+        Output("named-download", "value")
+     ],
+    [
+        Input("open-modal", "n_clicks"),
+        Input("close", "n_clicks"),
+        Input("download-tsv-button", "n_clicks"),
+    ],
+    [State("modal", "is_open"),
+     State("sequence-selector", "value")
+     ],
+    prevent_initial_call=True
+
+)
+def _toggle_modal(n1, n2, n3, is_open, seqname):
+    filename = seqname + ".tsv"
+    if n1 or n2 or n3:
+        return not is_open, filename
+    return is_open, filename
+
+
+@app.callback(
+    Output("download-tsv", "data"),
+    [
+        Input("download-tsv-button", "n_clicks"),
+
+    ],
+    [
+        State("named-download", "value"),
+        State("sequence-selector", "value")
+    ],
+    prevent_initial_call=True
+)
+def _download_tsv(n_clicks, filename, key):
+    filename = os.path.basename(filename)
+    to_download = data[key]
+    df = pd.DataFrame(to_download)
+    return dcc.send_data_frame(df.to_csv, filename, sep="\t")
+
+
+
+
+
+
+
 def run_visualization(args):
     """Wrapper for running visualization Dashboard
 
@@ -296,7 +386,7 @@ def run_visualization(args):
         data = pickle.load(handle)
     print("finished loading going to start server")
     _get_app_layout(app)
-    app.run(debug=False, port=args.port, host=args.host)
+    app.run(debug=True, port=args.port, host=args.host)
 
 data = {}
 
