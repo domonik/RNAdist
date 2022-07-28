@@ -302,6 +302,13 @@ def visualization_parser(subparsers, name):
         required=True
     )
     parser.add_argument(
+        '--fasta',
+        type=str,
+        help="Fasta file containing sequences from the prediction. Leavong the default None will lead to missing"
+             " nucleotide information (Default: None)",
+        default=None
+    )
+    parser.add_argument(
         '--port',
         type=str,
         help="Port to run the Dash server (Default: 8080)",

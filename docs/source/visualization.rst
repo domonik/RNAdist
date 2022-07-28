@@ -11,10 +11,15 @@ Therefore simply type:
 
 .. code-block:: bash
 
-    RNAdist visualize --input path/to/pediction/file.pckl
+    RNAdist visualize --input path/to/pediction/file.pckl --fasta path/to/fasta
 
 This will run the dash server using the default port and ip address. You can now use the application if you open your
 browser and type http://127.0.0.1:8080/ into the url bar.
+
+.. note::
+
+    The :code:`--fasta` flag is optional but it will include additional information about nucleotides during
+    visualization
 
 RNAdist Visualizer
 ------------------
