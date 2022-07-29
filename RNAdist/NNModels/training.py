@@ -144,7 +144,7 @@ def _train(model, data_loader, optimizer, device,
         total_loss += multi_loss.item() * y.shape[0] * config["gradient_accumulation"]
         if batch_idx >= config["sample"]:
             break
-    total_loss /= batch_idx + 1
+    total_loss /= min(batch_idx * config["batch_size"], len(data_loader.dataset))
     return total_loss
 
 
@@ -175,8 +175,8 @@ def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
             total_mae += error
             if idx >= config["sample"] * train_val_ratio:
                 break
-    total_loss /= idx + 1
-    total_mae /= idx + 1
+    total_loss /= min(idx * config["batch_size"], len(data_loader.dataset))
+    total_mae /= min(idx * config["batch_size"], len(data_loader.dataset))
     return total_loss, total_mae
 
 
