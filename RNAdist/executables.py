@@ -98,7 +98,9 @@ def visualization_parser(subparsers, name):
     parser.add_argument(
         '--input',
         type=str,
-        help="Path to the prediction file generated using one of the prediction mechansims",
+        nargs="+",
+        help="Path to the prediction files generated using one of the prediction mechansims. It is possible to "
+             "include multiple files using whitespace separated paths",
         required=True
     )
     parser.add_argument(
