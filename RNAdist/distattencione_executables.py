@@ -1,12 +1,120 @@
 import argparse
-from RNAdist.NNModels.prediction import prediction_executable_wrapper
-from RNAdist.NNModels.training import training_executable_wrapper
-from RNAdist.NNModels.training_set_generation import (
-    generation_executable_wrapper
-)
-from RNAdist.visualize.visualize import run_visualization
-from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
 import math
+
+from RNAdist.NNModels.prediction import prediction_executable_wrapper
+from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
+from RNAdist.NNModels.training import training_executable_wrapper
+from RNAdist.NNModels.training_set_generation import generation_executable_wrapper
+from RNAdist.executables import add_md_parser
+
+
+class DISTAtteNCioNEParser:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(
+            "DISTAtteNCioNE suite",
+            usage="DISTAtteNCioNE <command> [<args>]"
+
+        )
+        self.methods = {
+            "generate_data": (generation_parser, generation_executable_wrapper),
+            "train": (training_parser, training_executable_wrapper),
+            "predict": (prediction_parser, prediction_executable_wrapper),
+            "optimize": (smac_parser, smac_executable_wrapper)
+        }
+        self.subparsers = self.parser.add_subparsers()
+        self.__addparsers()
+
+    def __addparsers(self):
+        for name, (parser_add, func) in self.methods.items():
+            subp = parser_add(self.subparsers, name)
+            subp.set_defaults(func=func)
+
+    def parse_args(self):
+        args = self.parser.parse_args()
+        return args
+
+    def run(self):
+        args = self.parse_args()
+        args.func(args)
+
+
+def smac_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
+        description="Runs SMAC optimization for a DISTAtteNCionE Network"
+    )
+    group1 = parser.add_argument_group("Trainig Data")
+    group2 = parser.add_argument_group("Training Settings")
+    group1.add_argument(
+        '--fasta',
+        type=str,
+        help="FASTA File used for training set generation",
+        required=True
+    )
+    group1.add_argument(
+        '--model_output',
+        type=str,
+        help="Path where the optimized model will be saved",
+        required=True
+    )
+    group1.add_argument(
+        '--label_dir',
+        type=str,
+        help="Output directory of training data generation",
+        required=True
+    )
+    group1.add_argument(
+        '--dataset_path',
+        type=str,
+        help="Path where the Pytorch Dataset will be stored",
+        required=True
+    )
+    group2.add_argument(
+        '--smac_dir',
+        type=str,
+        help="Path where the smac optimization data is stored"
+             " (Default: SMAC_OUTPUT)",
+        default="SMAC_OUTPUT"
+    )
+    group2.add_argument(
+        '--max_length',
+        type=int,
+        help="Maximum Length of the RNA in the FASTA File (Default: 200)",
+        default=200
+    )
+    group2.add_argument(
+        '--train_val_ratio',
+        type=float,
+        help="Split ratio for Training, Validation split (Default: 0.2)",
+        default=0.2
+    )
+    group2.add_argument(
+        '--device',
+        type=str,
+        help="Device to train on (Default: cuda) "
+             "It is not recommended to use CPU for HPO",
+        default="cuda"
+    )
+    group2.add_argument(
+        '--max_epochs',
+        type=int,
+        help="Maximum nr of epochs to train (Default: 200)",
+        default=200
+    )
+    group2.add_argument(
+        '--num_threads',
+        type=int,
+        help="Maximum nr of cores used for training (Default: 1)",
+        default=1
+    )
+    group2.add_argument(
+        '--run_default',
+        type=bool,
+        help="Whether to run default HPO settings before optimization"
+             " (Default: False)",
+        default=False
+    )
+    return parser
 
 
 def training_parser(subparsers, name):
@@ -266,218 +374,13 @@ def prediction_parser(subparsers, name: str):
     return parser
 
 
-def add_md_parser(parser):
-    group2 = parser.add_argument_group("ViennaRNA Model Details")
-    group2.add_argument(
-        '--temperature',
-        type=float,
-        help="Temperature for RNA secondary structure prediction (Default: 37)",
-        default=37.0
-    )
-    group2.add_argument(
-        '--min_loop_size',
-        type=float,
-        help="Minimum Loop size of RNA. (Default: 3)",
-        default=3
-    )
-    group2.add_argument(
-        '--noGU',
-        type=int,
-        help="If set to 1 prevents GU pairs (Default: 0)",
-        default=0,
-        choices=range(0, 2)
-    )
-    return parser
-
-
-def visualization_parser(subparsers, name):
-    parser = subparsers.add_parser(
-        name,
-        description="Runs the Dash visualization tool"
-    )
-    parser.add_argument(
-        '--input',
-        type=str,
-        help="Path to the prediction file generated using one of the prediction mechansims",
-        required=True
-    )
-    parser.add_argument(
-        '--fasta',
-        type=str,
-        help="Fasta file containing sequences from the prediction. Leavong the default None will lead to missing"
-             " nucleotide information (Default: None)",
-        default=None
-    )
-    parser.add_argument(
-        '--port',
-        type=str,
-        help="Port to run the Dash server (Default: 8080)",
-        default="8080"
-    )
-    parser.add_argument(
-        '--host',
-        type=str,
-        help="Host IP used by the dash server to serve the application (Default: 0.0.0.0)",
-        default="0.0.0.0"
-    )
-    return parser
-
-
-class RNAdistParser:
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(
-            "RNAdist suite",
-            usage="RNAdist <command> [<args>]"
-
-        )
-        self.methods = {
-            "visualize": (visualization_parser, run_visualization),
-        }
-        self.subparsers = self.parser.add_subparsers()
-        self.__addparsers()
-
-    def __addparsers(self):
-        for name, (parser_add, func) in self.methods.items():
-            subp = parser_add(self.subparsers, name)
-            subp.set_defaults(func=func)
-
-    def parse_args(self):
-        args = self.parser.parse_args()
-        return args
-
-    def run(self):
-        args = self.parse_args()
-        args.func(args)
-
-
-
-class DISTAtteNCioNEParser:
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(
-            "DISTAtteNCioNE suite",
-            usage="DISTAtteNCioNE <command> [<args>]"
-
-        )
-        self.methods = {
-            "generate_data": (generation_parser, generation_executable_wrapper),
-            "train": (training_parser, training_executable_wrapper),
-            "predict": (prediction_parser, prediction_executable_wrapper),
-            "optimize": (smac_parser, smac_executable_wrapper)
-        }
-        self.subparsers = self.parser.add_subparsers()
-        self.__addparsers()
-
-    def __addparsers(self):
-        for name, (parser_add, func) in self.methods.items():
-            subp = parser_add(self.subparsers, name)
-            subp.set_defaults(func=func)
-
-    def parse_args(self):
-        args = self.parser.parse_args()
-        return args
-
-    def run(self):
-        args = self.parse_args()
-        args.func(args)
-
-
-def smac_parser(subparsers, name: str):
-    parser = subparsers.add_parser(
-        name,
-        description="Runs SMAC optimization for a DISTAtteNCionE Network"
-    )
-    group1 = parser.add_argument_group("Trainig Data")
-    group2 = parser.add_argument_group("Training Settings")
-    group1.add_argument(
-        '--fasta',
-        type=str,
-        help="FASTA File used for training set generation",
-        required=True
-    )
-    group1.add_argument(
-        '--model_output',
-        type=str,
-        help="Path where the optimized model will be saved",
-        required=True
-    )
-    group1.add_argument(
-        '--label_dir',
-        type=str,
-        help="Output directory of training data generation",
-        required=True
-    )
-    group1.add_argument(
-        '--dataset_path',
-        type=str,
-        help="Path where the Pytorch Dataset will be stored",
-        required=True
-    )
-    group2.add_argument(
-        '--smac_dir',
-        type=str,
-        help="Path where the smac optimization data is stored"
-             " (Default: SMAC_OUTPUT)",
-        default="SMAC_OUTPUT"
-    )
-    group2.add_argument(
-        '--max_length',
-        type=int,
-        help="Maximum Length of the RNA in the FASTA File (Default: 200)",
-        default=200
-    )
-    group2.add_argument(
-        '--train_val_ratio',
-        type=float,
-        help="Split ratio for Training, Validation split (Default: 0.2)",
-        default=0.2
-    )
-    group2.add_argument(
-        '--device',
-        type=str,
-        help="Device to train on (Default: cuda) "
-             "It is not recommended to use CPU for HPO",
-        default="cuda"
-    )
-    group2.add_argument(
-        '--max_epochs',
-        type=int,
-        help="Maximum nr of epochs to train (Default: 200)",
-        default=200
-    )
-    group2.add_argument(
-        '--num_threads',
-        type=int,
-        help="Maximum nr of cores used for training (Default: 1)",
-        default=1
-    )
-    group2.add_argument(
-        '--run_default',
-        type=bool,
-        help="Whether to run default HPO settings before optimization"
-             " (Default: False)",
-        default=False
-    )
-    return parser
-
-
-def main():
-    DISTAtteNCioNEParser().run()
-
-
-def rnadist_main():
-    RNAdistParser().run()
-
-
 def documentation_wrapper():
     parser = DISTAtteNCioNEParser().parser
     return parser
 
 
-def rnadist_documentation_wrapper():
-    parser = RNAdistParser().parser
-    return parser
-
-
+def main():
+    DISTAtteNCioNEParser().run()
 
 
 if __name__ == '__main__':

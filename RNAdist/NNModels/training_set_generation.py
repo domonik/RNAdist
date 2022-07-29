@@ -8,6 +8,8 @@ import random
 from RNAdist.DPModels.viennarna_helpers import set_md_from_config
 from typing import Dict, Any
 
+from RNAdist.fasta_wrappers import md_config_from_args
+
 
 def _chunks(lst, n):
     for i in range(0, len(lst), n):
@@ -122,15 +124,6 @@ def generation_executable_wrapper(args):
         num_threads=args.num_threads,
         bin_size=args.bin_size,
         nr_samples=args.nr_samples)
-
-
-def md_config_from_args(args):
-    md_config = {
-        "temperature": args.temperature,
-        "min_loop_size": args.min_loop_size,
-        "noGU": args.noGU,
-    }
-    return md_config
 
 
 if __name__ == '__main__':

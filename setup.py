@@ -26,12 +26,12 @@ setup(
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
     scripts=[
-        "executables.py"
+        "RNAdist/executables.py"
     ],
     entry_points={
         "console_scripts": [
-            "DISTAtteNCionE = executables:main",
-            "RNAdist = executables:rnadist_main"
+            "DISTAtteNCionE = RNAdist.distattencione_executables:main",
+            "RNAdist = RNAdist.executables:main"
         ]
     },
 )

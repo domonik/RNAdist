@@ -10,8 +10,7 @@ from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2, DISTAtteNCionESmall
 )
 from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
-from RNAdist.NNModels.training_set_generation import md_config_from_args
-
+from RNAdist.fasta_wrappers import md_config_from_args
 
 
 def model_predict(

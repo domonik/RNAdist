@@ -1,13 +1,8 @@
 from RNAdist.NNModels.training import train_network
 from tempfile import TemporaryDirectory
-import executables
 import os
 import torch
-import subprocess
 from RNAdist.NNModels.tests.data_fixtures import (
-    random_fasta,
-    expected_labels,
-    train_config,
     PREFIX
 )
 import pytest
