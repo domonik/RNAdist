@@ -13,6 +13,7 @@ import base64
 from dash.exceptions import PreventUpdate
 import pandas as pd
 from Bio import SeqIO
+import plotly
 
 __version__ = _version.get_versions()["version"]
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,6 +23,7 @@ LOGO = os.path.join(ASSETS_DIR, "RNAdistVisualizer_dark.svg")
 assert os.path.exists(LOGO)
 encoded_img = base64.b64encode(open(LOGO, 'rb').read())
 
+COLORS = ["#ff8add"] + plotly.colors.qualitative.Light24
 
 app = dash.Dash(
     "RNAdist Dashboard",
@@ -57,27 +59,30 @@ def _header_layout():
     return header
 
 
-def _scatter_from_data(data, key, line: int = 0, start: int = 0):
-    data_row = data[key][line, start:]
-    x = np.arange(start, len(data_row)+start)
-    if fasta:
-        customdata = list(fasta[key][start:len(data_row)+start])
-        hovertemplate = f'i:{line} [{fasta[key][line]}]<br>j:%{{x}} [%{{customdata}}]<br>distance: %{{y}}'
-    else:
-        customdata = None
-        hovertemplate = f'i:{line} <br>j:%{{x}}<br>distance: %{{y}}'
-    scatter = go.Scatter(
-        y=data_row,
-        x=x,
-        line={"width": 4, "color": "#ff8add"},
-        customdata=customdata,
-        hovertemplate=hovertemplate,
-        name=""
-
-    )
+def _scatter_from_data(cur_data, key, line: int = 0, start: int = 0):
     fig = go.Figure()
     fig.layout.template = "plotly_white"
-    fig.add_trace(scatter)
+    cur_data = cur_data[key]
+    for cidx, (ip_name, value) in enumerate(cur_data.items()):
+        data_row = value[line, start:]
+        x = np.arange(start, len(data_row)+start)
+        if fasta:
+            customdata = list(fasta[key][start:len(data_row)+start])
+            hovertemplate = f'i:{line} [{fasta[key][line]}]<br>j:%{{x}} [%{{customdata}}]<br>distance: %{{y}}'
+        else:
+            customdata = None
+            hovertemplate = f'i:{line} <br>j:%{{x}}<br>distance: %{{y}}'
+        scatter = go.Scatter(
+            y=data_row,
+            x=x,
+            line={"width": 4, "color": COLORS[cidx]},
+            customdata=customdata,
+            hovertemplate=hovertemplate,
+            name=ip_name
+
+        )
+
+        fig.add_trace(scatter)
     fig.add_vrect(
         x0=max(line-.5, 0), x1=min(line+.5, len(data_row)+start - 1),
         fillcolor="#AAE4EE", opacity=0.5,
@@ -93,10 +98,10 @@ def _scatter_from_data(data, key, line: int = 0, start: int = 0):
     return fig
 
 
-def _heatmap_from_data(data, key):
+def _heatmap_from_data(data, key, file):
     fig = go.Figure()
     fig.layout.template = "plotly_white"
-    d = data[key]
+    d = data[key][file]
     if fasta:
         a = np.asarray(list(fasta[key]))[:len(d)]
         customdata = np.asarray(np.meshgrid(a, a)).T.reshape(-1, 2).reshape(len(a), len(a), -1)
@@ -169,7 +174,8 @@ def _heatmap_box():
 
 
 def _selector(data):
-    data = list(data)
+    sel_data = list(data)
+    data_files = list(data[sel_data[0]])
     d_box = html.Div(
         [
             html.Div(
@@ -179,7 +185,7 @@ def _selector(data):
                             html.H4("Selector", style={"text-align": "center"}),
                             className="col-12 justify-content-center"
                         ),
-                        className="row justify-content-center p-2 p-md-4"
+                        className="row justify-content-center p-2 p-md-2"
                     ),
                     html.Div(
                         [
@@ -189,9 +195,26 @@ def _selector(data):
                             ),
                             html.Div(
                                 dcc.Dropdown(
-                                    data[0:100], data[0],
+                                    sel_data[0:100], sel_data[0],
                                     className="justify-content-center",
                                     id="sequence-selector"
+                                ),
+                                className="col-10 col-md-7 justify-content-center",
+                            ),
+                        ],
+                        className="row justify-content-center p-2"
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                html.Span("Heatmap Prediction", style={"text-align": "center"}),
+                                className="col-10 col-md-3 justify-content-center align-self-center"
+                            ),
+                            html.Div(
+                                dcc.Dropdown(
+                                    data_files[0:100], data_files[0],
+                                    className="justify-content-center",
+                                    id="data-selector"
                                 ),
                                 className="col-10 col-md-7 justify-content-center",
                             ),
@@ -303,10 +326,13 @@ def _update_options(search_value):
 
 @app.callback(
         Output("heatmap-graph", "figure"),
-        Input("sequence-selector", "value"),
+        [
+            Input("sequence-selector", "value"),
+            Input("data-selector", "value")
+        ]
 )
-def _update_heatmap(value):
-    fig = _heatmap_from_data(data, value)
+def _update_heatmap(key, file):
+    fig = _heatmap_from_data(data, key, file)
     return fig
 
 
@@ -329,7 +355,7 @@ def _update_on_click(value, key):
 
 )
 def _update_range_buttons(key):
-    cur_data = data[key]
+    cur_data = data[key][list(data[key].keys())[0]]
     range_max = len(cur_data)
     return _range_button(range_max)
 
@@ -421,8 +447,14 @@ def run_visualization(args):
     """
     global data
     print("loading data")
-    with open(args.input, "rb") as handle:
-        data = pickle.load(handle)
+    for ip in args.input:
+        with open(ip, "rb") as handle:
+            d = pickle.load(handle)
+            for k, v in d.items():
+                if k not in data:
+                    data[k] = {}
+                data[k][ip] = v
+
     if args.fasta:
         seqs = {sr.description: str(sr.seq) for sr in SeqIO.parse(args.fasta, "fasta")}
         global fasta
@@ -437,7 +469,7 @@ fasta = {}
 if __name__ == '__main__':
     import argparse
     args = argparse.Namespace()
-    args.input = "foofile"
+    args.input = ["foofile", "foofile2"]
     args.port = "8080"
     args.host = "0.0.0.0"
     args.fasta = "foofasta.fa"

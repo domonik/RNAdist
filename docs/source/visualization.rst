@@ -14,7 +14,16 @@ Therefore simply type:
     RNAdist visualize --input path/to/pediction/file.pckl --fasta path/to/fasta
 
 This will run the dash server using the default port and ip address. You can now use the application if you open your
-browser and type http://127.0.0.1:8080/ into the url bar.
+browser and type http://127.0.0.1:8080/ into the url bar. The tool supports multiple prediction files.
+
+.. note::
+
+    The tool supports multiple prediction files. Just put multiple whitespace-separated paths after the :code:`--input`
+    flag.
+
+    .. warning::
+
+        The predictions must originate from the same fasta file. Else the Dashboard will crash.
 
 .. note::
 
