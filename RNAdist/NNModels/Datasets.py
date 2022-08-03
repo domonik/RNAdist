@@ -42,7 +42,7 @@ def positional_encode_seq(seq_embedding, pos_encoding_dim: int = 4):
     return seq_embedding
 
 
-def _pad_stuff(seq_embedding, pair_matrix, up_to):
+def _pad_end(seq_embedding, pair_matrix, up_to, mask=None):
     if seq_embedding.shape[0] < up_to:
 
         pad_val = up_to - seq_embedding.shape[0]
@@ -50,6 +50,12 @@ def _pad_stuff(seq_embedding, pair_matrix, up_to):
                               "constant", 0)
         pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
                             "constant", 0)
+        if mask is not None:
+            mask = F.pad(mask, (0, pad_val, 0, pad_val),
+                                "constant", 0)
+            return seq_embedding, pair_matrix, mask
+    if mask is not None:
+        return seq_embedding, pair_matrix, mask
     return seq_embedding, pair_matrix
 
 
@@ -77,7 +83,7 @@ class RNADATA():
             )
         pair_matrix = bppm[:, :, None]
         if mode == "fold":
-            seq_embedding, pair_matrix = _pad_stuff(
+            seq_embedding, pair_matrix = _pad_end(
                 seq_embedding, pair_matrix, max_length
             )
         return pair_matrix, seq_embedding
@@ -252,6 +258,7 @@ class RNAWindowDataset(RNADataset):
         if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
 
+
     def seq_indices(self, seq):
         return range(
             0, len(seq) - self.max_length + self.step_size, self.step_size
@@ -334,27 +341,54 @@ class RNAWindowDataset(RNADataset):
         return len(self.data_array)
 
     def __getitem__(self, item):
+        #raise NotImplementedError("masks need to be applied correctly - padded stuff should be masked completely. window extension only at the end for loss calculation")
         file, index, _ = self.data_array[item]
+
         data = torch.load(file)
         ml = self.max_length
+        ws = max(index - ml, 0)
+        we = index + ml * 2
         x = data["x"]
-        x = x[index:index+ml]
+        x = x[ws:we]
+        padding_mask = torch.ones(x.shape[0], x.shape[0])
         pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
         y = data["y"]
-        sub_bppm = bppm[index:index + ml, index:index + ml, :]
+        sub_bppm = bppm[ws:we, ws:we, :]
         pair_matrix = torch.cat((sub_bppm, pair_rep), dim=-1)
-        mask = torch.zeros(ml, ml)
         cur_len = x.shape[0]
-        mask[:cur_len, :cur_len] = 1
-        x, pair_matrix = _pad_stuff(seq_embedding=x,
-                                    pair_matrix=pair_matrix,
-                                    up_to=ml)
+        b_pad_val = max(ml - index, 0)
+        if b_pad_val > 0:
+            # here we need to pad the beginning of the sequence
+            x, pair_matrix, padding_mask = _pad_beginning(
+                seq_embedding=x,
+                pair_matrix=pair_matrix,
+                mask=padding_mask,
+                nr_zeros=b_pad_val
+            )
+
+        x, pair_matrix, padding_mask = _pad_end(seq_embedding=x,
+                                  pair_matrix=pair_matrix,
+                                  mask=padding_mask,
+                                  up_to=ml * 3)
         if not isinstance(y, int):
-            y = y[index:index + ml, index:index + ml]
-            pad_val = ml - cur_len
-            if y.shape[0] < self.max_length:
+            y = y[ws:we, ws:we]
+            if b_pad_val > 0:
+                y = F.pad(y, (b_pad_val, 0, b_pad_val, 0),
+                          "constant", 0)
+            pad_val = ml * 3 - y.shape[0]
+            if pad_val > 0:
                 y = F.pad(y, (0, pad_val, 0, pad_val),
                                     "constant", 0)
-        return x, pair_matrix, y, mask, item
+        return x, pair_matrix, y, padding_mask, item
 
+
+def _pad_beginning(seq_embedding, pair_matrix, mask, nr_zeros: int):
+
+    seq_embedding = F.pad(seq_embedding, (0, 0, nr_zeros, 0),
+                          "constant", 0)
+    pair_matrix = F.pad(pair_matrix, (0, 0, nr_zeros, 0, nr_zeros, 0),
+                        "constant", 0)
+    mask = F.pad(mask, (nr_zeros, 0, nr_zeros, 0),
+                        "constant", 0)
+    return seq_embedding, pair_matrix, mask

@@ -24,17 +24,21 @@ def test_rna_pair_dataset(random_fasta, expected_labels):
 
 
 def test_rna_window_dataset(random_fasta, expected_labels):
+    ml = 8
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         dataset = RNAWindowDataset(
             data=random_fasta,
             label_dir=None,
             dataset_path=tmpdir,
             num_threads=1,
-            max_length=10,
+            max_length=ml,
             step_size=1
         )
         for x in range(len(dataset)):
             x, pair_matrix, mask, indices, y = dataset[x]
+            assert pair_matrix.shape[0] == 3 * ml
+            assert pair_matrix.shape[1] == 3 * ml
+            assert x.shape[0] == 3 * ml
             assert not torch.any(torch.isnan(pair_matrix))
 
 
