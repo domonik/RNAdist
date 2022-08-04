@@ -122,8 +122,14 @@ def _unpack_batch(batch, device, config):
     return pair_rep, y, mask, numel
 
 
-def _train(model, data_loader, optimizer, device,
-           losses: List[Tuple[Callable, float]], config: Dict):
+def _train(model,
+           data_loader,
+           optimizer,
+           device,
+           losses: List[Tuple[Callable, float]],
+           config: Dict,
+           global_mask: torch.Tensor = None
+           ):
     total_loss = 0
     model.train()
     optimizer.zero_grad()
@@ -131,6 +137,8 @@ def _train(model, data_loader, optimizer, device,
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
+        if global_mask is not None:
+            pred = pred * global_mask
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
@@ -148,8 +156,14 @@ def _train(model, data_loader, optimizer, device,
     return total_loss
 
 
-def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
-              config, train_val_ratio):
+def _validate(model,
+              data_loader,
+              device,
+              losses: List[Tuple[Callable, float]],
+              config,
+              train_val_ratio,
+              global_mask: torch.Tensor = None
+              ):
     total_loss = 0
     total_mae = 0
     model.eval()
@@ -158,6 +172,8 @@ def _validate(model, data_loader, device, losses: List[Tuple[Callable, float]],
         for idx, batch in enumerate(iter(data_loader)):
             pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
             pred = model(pair_rep, mask=mask)
+            if global_mask is not None:
+                pred = global_mask * pred
             multi_loss = 0
             for criterion, weight in losses:
                 loss = criterion(y, pred, mask)
@@ -222,7 +238,14 @@ def train_model(
                                  f"pretrained model: {type(old_config['model'])}\n"
                                  f"current model: {type(config['model'])}")
         model.load_state_dict(state_dict)
-
+    if isinstance(train_loader.dataset.dataset, RNAWindowDataset):
+        max_length = val_loader.dataset.dataset.max_length
+        global_mask = torch.zeros(3 * max_length, 3 * max_length)
+        global_mask[max_length:2*max_length, max_length:2 * max_length] = 1
+        global_mask = global_mask.to(device)
+        print("Using global mask due to window prediction")
+    else:
+        global_mask = None
     model.to(device)
     opt = config["optimizer"].lower()
     if opt == "sgd":
@@ -261,12 +284,12 @@ def train_model(
     epoch = 0
     for epoch in range(epochs):
         train_loss = _train(
-            model, train_loader, optimizer, device, losses, config
+            model, train_loader, optimizer, device, losses, config, global_mask
         )
         scheduler.step()
         if not epoch % config["validation_interval"]:
             val_loss, val_mae = _validate(
-                model, val_loader, device, losses, config, train_val_ratio
+                model, val_loader, device, losses, config, train_val_ratio, global_mask
             )
             if val_loss <= best_val_loss:
                 best_val_loss = val_loss
