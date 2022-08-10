@@ -139,6 +139,7 @@ def _train(model,
         pred = model(pair_rep, mask=mask)
         if global_mask is not None:
             pred = pred * global_mask
+            y = y * global_mask
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
@@ -174,6 +175,7 @@ def _validate(model,
             pred = model(pair_rep, mask=mask)
             if global_mask is not None:
                 pred = global_mask * pred
+                y = global_mask * y
             multi_loss = 0
             for criterion, weight in losses:
                 loss = criterion(y, pred, mask)
