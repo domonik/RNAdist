@@ -140,6 +140,7 @@ def _train(model,
         if global_mask is not None:
             pred = pred * global_mask
             y = y * global_mask
+            mask = mask * global_mask  # this should  correct the counting of elements in the loss
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
@@ -176,6 +177,7 @@ def _validate(model,
             if global_mask is not None:
                 pred = global_mask * pred
                 y = global_mask * y
+                mask = mask * global_mask  # this should  correct the counting of elements in the loss
             multi_loss = 0
             for criterion, weight in losses:
                 loss = criterion(y, pred, mask)
