@@ -111,6 +111,7 @@ def model_window_predict(
         tmpdir = TemporaryDirectory()
         workdir = tmpdir.name
     else:
+        tmpdir = None
         workdir = dataset_dir
     dataset = RNAWindowDataset(
         data=fasta,
@@ -145,7 +146,7 @@ def model_window_predict(
             for batch_index, index in enumerate(indices):
 
                 _, idx, description = dataset.data_array[int(index)]
-                pred = batched_pred[batch_index]
+                pred = batched_pred[batch_index][max_length:2*max_length, max_length:2 * max_length]
                 if description not in current_data:
                     current_data[description] = {}
                 current_data[description][idx] = pred
@@ -159,7 +160,7 @@ def model_window_predict(
                     )
     _handle_current_data(current_data, dataset, sr_data, max_length, output)
     assert len(current_data) == 0
-    if dataset_dir is None:
+    if tmpdir is not None:
         tmpdir.cleanup()
     out_dir = os.path.dirname(outfile)
     if out_dir != "":
