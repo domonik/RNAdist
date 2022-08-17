@@ -13,12 +13,15 @@ cdef _up_in_ij(double[:, :] bppm, int min_len = 3):
     return 1 - up_in
 
 
-def _init(bppm, int min_len = 3):
-    m = np.zeros(bppm.shape, dtype=np.float64)
-    for x in range(min_len):
-        dia = np.ones(bppm.shape[0] - (x + 1), dtype=np.float64) * (x+1)
-        new_m = np.diag(dia, x + 1)
-        m += new_m
+
+def _init(int size, int min_len = 3):
+    m = np.zeros((size, size), dtype=np.float64)
+    cdef double[:, :] m_view = m
+    cdef int x, y
+    for x in range(0, size):
+        for y in range(1, min_len+1):
+            if y+x < size:
+                m_view[x, y+x] = y
     return m
 
 
@@ -30,7 +33,7 @@ def _fast_pmcomp(fc):
         raise RuntimeError("DP matrices have no been filled yet. "
                            "Please call the pf() function of the fold compound first")
     up_in = _up_in_ij(bppm)
-    expected_d = _init(bppm)
+    expected_d = _init(bppm.shape[0], min_len)
     cdef double[:, :] expected_d_view = expected_d
     cdef double[:, :] up_view = up_in
     cdef double[:, :] bppm_view = bppm
@@ -50,7 +53,7 @@ def _fast_pmcomp(fc):
 def _fast_clote_ponty(fc):
     dp_mx = fc.exp_matrices
     if dp_mx is None:
-        raise RuntimeError("DP matrices have no been filled yet. "
+        raise RuntimeError("DP matrices have not been filled yet. "
                            "Please call the pf() function of the fold compound first")
     output_matrix = np.zeros((fc.length + 1, fc.length + 1), dtype=np.float64)
     cdef double[:, :] output_view = output_matrix
