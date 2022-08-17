@@ -30,6 +30,7 @@ setup(
         "torchaudio",
         "networkx",
         "biopython",
+        "pandas",
         "smac>=1.4",
         "plotly",
         "dash>=2.5",
