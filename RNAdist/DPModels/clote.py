@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 import numpy as np
+from RNAdist.DPModels._dp_calulations import _fast_clote_ponty
 import RNA
 
 
@@ -115,26 +116,7 @@ def compute_clote(fc):
         RuntimeError: If the DP matrices are not filled yet due to a missing fc.pf() call
 
     """
-    dp_mx = fc.exp_matrices
-    if dp_mx is None:
-        raise RuntimeError("DP matrices have no been filled yet. "
-                           "Please call the pf() function of the fold compound first")
-    output_matrix = np.zeros((fc.length + 1, fc.length + 1))
-
-    # compute D(i,j) of Clote et al. 2012
-    for l in range(1, fc.length + 1):
-        for i in range(1, fc.length + 1 - l):
-            j = i + l
-            dist = output_matrix[i][j - 1] * dp_mx.get_scale(1) + dp_mx.get_Z(i, j)
-            for k in range(i + 1, j + 1):
-                dist += (output_matrix[i][k - 1] + dp_mx.get_Z(i, k - 1)) * dp_mx.get_ZB(k, j) * fc.exp_E_ext_stem(k, j)
-            output_matrix[i][j] = dist
-    # now divide everything by Z(i,j) to obtain actual expected distances
-    for i in range(1, fc.length + 1):
-        for j in range(i + 1, fc.length + 1):
-            output_matrix[i][j] /= dp_mx.get_Z(i, j)
-    output_matrix = output_matrix[1:, 1:]
-    return output_matrix
+    return _fast_clote_ponty(fc)
 
 
 

@@ -1,5 +1,7 @@
 from setuptools import setup, find_packages
 import versioneer
+from Cython.Build import cythonize
+import numpy as np
 
 NAME = "RNAdist"
 DESCRIPTION = "Package for Calculating Expected Distances on the " \
@@ -22,11 +24,24 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     package_data={"RNAdist.visualize": ["assets/*"]},
-    install_requires=["torch", "torchvision", "torchaudio", "networkx", "biopython", "smac>=1.4", "plotly", "dash>=2.5", "dash_bootstrap_components"],
+    install_requires=[
+        "torch",
+        "torchvision",
+        "torchaudio",
+        "networkx",
+        "biopython",
+        "smac>=1.4",
+        "plotly",
+        "dash>=2.5",
+        "dash_bootstrap_components",
+    ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
+    ext_modules=cythonize("RNAdist/DPModels/_dp_calulations.pyx"),
+    include_dirs=np.get_include(),
     scripts=[
-        "RNAdist/executables.py"
+        "RNAdist/executables.py",
+        "versioneer.py"
     ],
     entry_points={
         "console_scripts": [
