@@ -8,4 +8,5 @@ Tutorial
     training
     prediction
     visualization
+    binding_site
 
