@@ -277,6 +277,18 @@ def training_parser(subparsers, name):
              "automatically determines if gpu is available)",
         default=None
     )
+    group2.add_argument(
+        '--use_bppm',
+        type=bool,
+        help="Whether to use the basepair probability matrix as a feature",
+        default=True
+    )
+    group2.add_argument(
+        '--use_position',
+        type=bool,
+        help="Whether to use positional encoding as a feature",
+        default=True
+    )
     return parser
 
 

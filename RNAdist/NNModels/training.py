@@ -117,8 +117,13 @@ def _unpack_batch(batch, device, config):
         _, pair_rep, y, _, _ = batch
         numel = y.numel()
         mask = None
+    if not config.use_position:
+        pair_rep = torch.concat((pair_rep[:, :, :, :5], pair_rep[:, :, :, 9:13]), dim=-1)
+    if not config.use_bppm:
+        pair_rep = pair_rep[:, :, :, 1:]
     y = y.to(device)
     pair_rep = pair_rep.to(device)
+
     return pair_rep, y, mask, numel
 
 
@@ -127,7 +132,7 @@ def _train(model,
            optimizer,
            device,
            losses: List[Tuple[Callable, float]],
-           config: Dict,
+           config: ModelConfiguration,
            global_mask: torch.Tensor = None
            ):
     total_loss = 0
@@ -204,7 +209,7 @@ def train_model(
         train_loader,
         val_loader,
         epochs: int,
-        config: Dict,
+        config: ModelConfiguration,
         device: str = None,
         seed: int = 0,
         train_val_ratio: float = 0.8,
@@ -220,13 +225,14 @@ def train_model(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         assert device.startswith("cuda") or device.startswith("cpu")
+    input_dim = config.input_dim
+
     if config["model"] == "normal":
-        model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
+        model = DISTAtteNCionE2(input_dim, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
-        model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
+        model = DISTAtteNCionESmall(input_dim, nr_updates=config["nr_layers"])
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
-
     else:
         raise ValueError("no valid Model Type")
     if fine_tune:
@@ -399,8 +405,9 @@ def training_executable_wrapper(args):
         weight_decay=args.weight_decay,
         model=args.model,
         gradient_accumulation=args.gradient_accumulation,
-        sample=args.sample
-
+        sample=args.sample,
+        use_bppm=args.use_bppm,
+        use_position=args.use_position
     )
 
     train_network(

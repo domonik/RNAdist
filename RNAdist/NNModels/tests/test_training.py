@@ -8,12 +8,38 @@ from RNAdist.NNModels.tests.data_fixtures import (
 import pytest
 
 
-@pytest.mark.parametrize("model_type", ["normal", "small", "triangularselfattention"])
+class TestModel(torch.nn.Module):
+    def __init__(self, embedding_size):
+        super().__init__()
+        self.embedding_size = embedding_size
+        self.outlayer = torch.nn.Linear(self.embedding_size, 1)
+
+    def forward(self, pair_rep, mask):
+        out = self.outlayer(pair_rep)
+        out = torch.squeeze(out)
+        out = torch.relu(out)
+        if mask is not None:
+            out = out * mask
+        return out
+
+
+def triangularselfattention(dim):
+    model = TestModel(dim)
+    return model
+
+
+@pytest.mark.parametrize("model_type", ["normal", "small", triangularselfattention])
+@pytest.mark.parametrize("use_bppm", [True, False])
+@pytest.mark.parametrize("use_pos", [True, False])
 @pytest.mark.parametrize("mode", ["normal", "window"])
-def test_training(random_fasta, train_config, expected_labels, model_type, expected_window_labels, mode, request):
+def test_training(random_fasta, train_config, expected_labels,
+                  model_type, use_bppm, use_pos, expected_window_labels, mode, request):
+    train_config.use_bppm = use_bppm
+    train_config.use_position = use_pos
     if model_type not in ["small", "normal"]:
-        model_type = request.getfixturevalue(model_type)
-    train_config.model= model_type
+        model_type = model_type(train_config.input_dim)
+    train_config.model = model_type
+
     if mode == "normal":
         expected_labels = expected_labels
         ml = 20

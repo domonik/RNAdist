@@ -47,6 +47,8 @@ class ModelConfiguration:
     momentum: float = 0
     weight_decay: float = 0
     gradient_accumulation: int = 1
+    use_bppm: bool = True
+    use_position: bool = True
 
     def __post_init__(self):
         """Check valid argument combinations
@@ -55,6 +57,13 @@ class ModelConfiguration:
         if self.sample:
             if not self.sample % self.gradient_accumulation:
                 raise ValueError(f"sample must be a multiple of gradient accumulation")
+
+    @property
+    def input_dim(self):
+        input_dim = 17
+        input_dim = input_dim - 1 if not self.use_bppm else input_dim
+        input_dim = input_dim - 8 if not self.use_position else input_dim
+        return input_dim
 
     def __getitem__(self, item):
         return self.__dict__[item]
