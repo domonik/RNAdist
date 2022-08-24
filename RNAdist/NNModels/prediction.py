@@ -66,7 +66,8 @@ def model_predict(
         with torch.no_grad():
             x, pair_rep, y, mask, indices = element
             pair_rep = pair_rep.to(device)
-            pair_rep = torch.index_select(pair_rep, -1, config.indices)
+            use = config.indices.to(device)
+            pair_rep = torch.index_select(pair_rep, -1, use)
             mask = mask.to(device)
             if not config["masking"]:
                 mask = None
@@ -128,7 +129,8 @@ def model_window_predict(
 
             x, pair_rep, _, mask, indices = element
             pair_rep = pair_rep.to(device)
-            pair_rep = torch.index_select(pair_rep, -1, config.indices)
+            use = config.indices.to(device)
+            pair_rep = torch.index_select(pair_rep, -1, use)
             mask = mask.to(device)
             if not config["masking"]:
                 mask = None

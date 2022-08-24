@@ -119,7 +119,8 @@ def _unpack_batch(batch, device, config):
         mask = None
     y = y.to(device)
     pair_rep = pair_rep.to(device)
-    pair_rep = torch.index_select(pair_rep, -1,  config.indices)
+    indices = config.indices.to(device)
+    pair_rep = torch.index_select(pair_rep, -1,  indices)
     return pair_rep, y, mask, numel
 
 
