@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import math
 from typing import Union
 import torch
+from functools import cached_property
 
 
 @dataclass()
@@ -33,6 +34,7 @@ class ModelConfiguration:
             (batch_size * gradient_accumulation)
         use_bppm (bool): Whether to use basepair probability matrix as a feature
         use_position (bool): Whether to use positional encoding as a feature
+        use_nucleotide_encoding (bool): Whether to use nucleotide encoding as a feature
     """
     model_checkpoint: str
     model: str = "normal"
@@ -50,7 +52,8 @@ class ModelConfiguration:
     weight_decay: float = 0
     gradient_accumulation: int = 1
     use_bppm: bool = True
-    use_position: bool = True
+    use_position: bool = True,
+    use_nucleotide_encoding: bool = True
 
     def __post_init__(self):
         """Check valid argument combinations
@@ -59,13 +62,30 @@ class ModelConfiguration:
         if self.sample:
             if not self.sample % self.gradient_accumulation:
                 raise ValueError(f"sample must be a multiple of gradient accumulation")
+        if not any((self.use_position, self.use_bppm, self.use_nucleotide_encoding)):
+            raise ValueError(f"One of use_position, use_bppm or use_nucleotide_encoding must be True")
 
     @property
     def input_dim(self):
-        input_dim = 17
-        input_dim = input_dim - 1 if not self.use_bppm else input_dim
-        input_dim = input_dim - 8 if not self.use_position else input_dim
-        return input_dim
+        return len(self.indices)
+
+    @cached_property
+    def indices(self):
+        indices = []
+        if self.use_bppm:
+            indices.append(0)
+        if self.use_position:
+            indices += range(5, 9)
+            indices += range(13, 17)
+        if self.use_nucleotide_encoding:
+            indices += range(1, 5)
+            indices += range(9, 13)
+        indices = sorted(indices)
+        if all((self.use_bppm, self.use_position, self.use_nucleotide_encoding)):
+            assert indices == list(range(0, 17)), f"Not the expected indices\n" \
+                                                  f"expected: {list(range(0, 17))}" \
+                                                  f"but got: {indices}"
+        return torch.tensor(indices)
 
     def __getitem__(self, item):
         return self.__dict__[item]

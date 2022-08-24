@@ -119,11 +119,7 @@ def _unpack_batch(batch, device, config):
         mask = None
     y = y.to(device)
     pair_rep = pair_rep.to(device)
-    if not config.use_position:
-        pair_rep = torch.concat((pair_rep[:, :, :, :5], pair_rep[:, :, :, 9:13]), dim=-1)
-    if not config.use_bppm:
-        pair_rep = pair_rep[:, :, :, 1:]
-
+    pair_rep = torch.index_select(pair_rep, -1,  config.indices)
     return pair_rep, y, mask, numel
 
 

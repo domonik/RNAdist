@@ -12,10 +12,10 @@ class TestModel(torch.nn.Module):
     def __init__(self, embedding_size):
         super().__init__()
         self.embedding_size = embedding_size
-        self.outlayer = torch.nn.Linear(self.embedding_size, 1)
+        self.output = torch.nn.Linear(self.embedding_size, 1)
 
     def forward(self, pair_rep, mask):
-        out = self.outlayer(pair_rep)
+        out = self.output(pair_rep)
         out = torch.squeeze(out)
         out = torch.relu(out)
         if mask is not None:
@@ -60,7 +60,9 @@ def test_training(random_fasta, train_config, expected_labels,
             mode=mode
         )
         assert os.path.exists(train_config["model_checkpoint"])
+        state_dict, config = torch.load(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
+        assert state_dict["output.weight"].shape[-1] == len(config.indices)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(),
