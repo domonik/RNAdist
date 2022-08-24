@@ -1,6 +1,7 @@
 from RNAdist.NNModels.prediction import model_predict, model_window_predict
 from RNAdist.NNModels.tests.data_fixtures import (
     saved_model,
+    saved_model_no_bpp,
     random_fasta
 )
 import os
@@ -10,7 +11,15 @@ import pytest
 import torch
 
 
-def test_model_predict(saved_model, random_fasta, tmp_path):
+@pytest.mark.parametrize(
+    "model",
+    [
+        "saved_model",
+        "saved_model_no_bpp"
+    ]
+)
+def test_model_predict(model, random_fasta, tmp_path, request):
+    saved_model = request.getfixturevalue(model)
     desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
     outfile = os.path.join(tmp_path, "predictions")
     model_predict(
@@ -71,7 +80,15 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
         assert key in data
 
 
-def test_window_predict(saved_model, random_fasta, tmp_path):
+@pytest.mark.parametrize(
+    "model",
+    [
+        "saved_model",
+        "saved_model_no_bpp"
+    ]
+)
+def test_window_predict(model, random_fasta, tmp_path, request):
+    saved_model = request.getfixturevalue(model)
     desc = [ sr for sr in SeqIO.parse(random_fasta, "fasta")]
     outfile = os.path.join(tmp_path, "predictions")
     model_window_predict(

@@ -64,12 +64,13 @@ def model_predict(
     output = {}
     for element in iter(data_loader):
         with torch.no_grad():
-            x, bppm, y, mask, indices = element
-            bppm = bppm.to(device)
+            x, pair_rep, y, mask, indices = element
+            pair_rep = pair_rep.to(device)
+            pair_rep = torch.index_select(pair_rep, -1, config.indices)
             mask = mask.to(device)
             if not config["masking"]:
                 mask = None
-            pred = model(bppm, mask=mask).cpu()
+            pred = model(pair_rep, mask=mask).cpu()
             pred = pred.numpy()
             for e_idx, idx in enumerate(indices):
                 description, seq = dataset.rna_graphs[idx]
@@ -125,12 +126,13 @@ def model_window_predict(
     for element in iter(data_loader):
         with torch.no_grad():
 
-            x, pair_matrix, _, mask, indices = element
-            pair_matrix = pair_matrix.to(device)
+            x, pair_rep, _, mask, indices = element
+            pair_rep = pair_rep.to(device)
+            pair_rep = torch.index_select(pair_rep, -1, config.indices)
             mask = mask.to(device)
             if not config["masking"]:
                 mask = None
-            batched_pred = model(pair_matrix, mask=mask).cpu()
+            batched_pred = model(pair_rep, mask=mask).cpu()
             batched_pred = batched_pred.numpy()
             for batch_index, index in enumerate(indices):
 

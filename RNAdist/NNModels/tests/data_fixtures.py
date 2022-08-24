@@ -74,6 +74,11 @@ def saved_model():
 
 
 @pytest.fixture()
+def saved_model_no_bpp():
+    return os.path.join(TESTDATA_DIR, "test_model_no_bpp.pt")
+
+
+@pytest.fixture()
 def expected_rna_data():
     data = torch.load(os.path.join(TESTDATA_DIR, "rna_tensor.pt"))
     return data
