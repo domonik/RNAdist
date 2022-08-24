@@ -109,10 +109,10 @@ def smac_parser(subparsers, name: str):
     )
     group2.add_argument(
         '--run_default',
-        type=bool,
         help="Whether to run default HPO settings before optimization"
              " (Default: False)",
-        default=False
+        default=False,
+        action="store_true"
     )
     return parser
 
@@ -190,10 +190,11 @@ def training_parser(subparsers, name):
         default=0.5
     )
     group2.add_argument(
-        '--masking',
-        type=bool,
-        help="whether masking is applied during training (Default: True)",
-        default=True
+        '--no_masking',
+        help="No masking is applied during training",
+        default=False,
+        action="store_true"
+
     )
     group2.add_argument(
         '--sample',
