@@ -406,8 +406,8 @@ def training_executable_wrapper(args):
         model=args.model,
         gradient_accumulation=args.gradient_accumulation,
         sample=args.sample,
-        use_bppm=args.use_bppm,
-        use_position=args.use_position
+        use_bppm=not args.exclude_bppm,
+        use_position=not args.exclude_position
     )
 
     train_network(

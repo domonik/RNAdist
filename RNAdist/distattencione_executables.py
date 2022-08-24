@@ -278,16 +278,16 @@ def training_parser(subparsers, name):
         default=None
     )
     group2.add_argument(
-        '--use_bppm',
-        type=bool,
+        '--exclude_bppm',
         help="Whether to use the basepair probability matrix as a feature",
-        default=True
+        default=False,
+        action="store_true"
     )
     group2.add_argument(
-        '--use_position',
-        type=bool,
-        help="Whether to use positional encoding as a feature",
-        default=True
+        '--exclude_position',
+        help="Excludes the position encoding as a feature",
+        default=False,
+        action="store_true"
     )
     return parser
 
