@@ -60,18 +60,7 @@ def model_predict(
         num_workers=num_threads,
         pin_memory=False,
     )
-    state_dict, config = torch.load(saved_model, map_location="cpu")
-    if config["model"] == "normal":
-        model = DISTAtteNCionE2(17, nr_updates=config["nr_layers"])
-    elif config["model"] == "small":
-        model = DISTAtteNCionESmall(17, nr_updates=config["nr_layers"])
-    elif isinstance(config["model"], torch.nn.Module):
-        model = config["model"]
-    else:
-        raise ValueError("Not able to infer model")
-    model.load_state_dict(state_dict)
-    model.to(device)
-    model.eval()
+    model, config = _load_model(saved_model, device)
     output = {}
     for element in iter(data_loader):
         with torch.no_grad():
@@ -203,7 +192,14 @@ def _puzzle_output(predictions, seq_record, max_length):
 
 def _load_model(model_path, device):
     state_dict, config = torch.load(model_path, map_location="cpu")
-    model = DISTAtteNCionE2(17, config["nr_layers"])
+    if config["model"] == "normal":
+        model = DISTAtteNCionE2(config.input_dim, nr_updates=config["nr_layers"])
+    elif config["model"] == "small":
+        model = DISTAtteNCionESmall(config.input_dim, nr_updates=config["nr_layers"])
+    elif isinstance(config["model"], torch.nn.Module):
+        model = config["model"]
+    else:
+        raise ValueError("Not able to infer model")
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
