@@ -31,6 +31,8 @@ class ModelConfiguration:
         weight_decay (float): weight decay used in optimization
         gradient_accumulation (int): gradient accumulation mirrors larger batch size
             (batch_size * gradient_accumulation)
+        use_bppm (bool): Whether to use basepair probability matrix as a feature
+        use_position (bool): Whether to use positional encoding as a feature
     """
     model_checkpoint: str
     model: str = "normal"
