@@ -60,7 +60,7 @@ class ModelConfiguration:
 
         """
         if self.sample:
-            if not self.sample % self.gradient_accumulation and self.gradient_accumulation > 1:
+            if self.sample % self.gradient_accumulation and not math.isinf(self.sample):
                 raise ValueError(f"sample must be a multiple of gradient accumulation")
         if not any((self.use_position, self.use_bppm, self.use_nucleotide_encoding)):
             raise ValueError(f"One of use_position, use_bppm or use_nucleotide_encoding must be True")
