@@ -130,7 +130,6 @@ def _train(model,
            device,
            losses: List[Tuple[Callable, float]],
            config: ModelConfiguration,
-           global_mask: torch.Tensor = None
            ):
     total_loss = 0
     model.train()
@@ -139,10 +138,6 @@ def _train(model,
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
-        if global_mask is not None:
-            pred = pred * global_mask
-            y = y * global_mask
-            mask = mask * global_mask  # this should  correct the counting of elements in the loss
         multi_loss = 0
         for criterion, weight in losses:
             loss = criterion(y, pred, mask)
@@ -166,7 +161,6 @@ def _validate(model,
               losses: List[Tuple[Callable, float]],
               config,
               train_val_ratio,
-              global_mask: torch.Tensor = None
               ):
     total_loss = 0
     total_mae = 0
@@ -176,10 +170,6 @@ def _validate(model,
         for idx, batch in enumerate(iter(data_loader)):
             pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
             pred = model(pair_rep, mask=mask)
-            if global_mask is not None:
-                pred = global_mask * pred
-                y = global_mask * y
-                mask = mask * global_mask  # this should  correct the counting of elements in the loss
             multi_loss = 0
             for criterion, weight in losses:
                 loss = criterion(y, pred, mask)
@@ -245,14 +235,6 @@ def train_model(
                                  f"pretrained model: {type(old_config['model'])}\n"
                                  f"current model: {type(config['model'])}")
         model.load_state_dict(state_dict)
-    if isinstance(train_loader.dataset.dataset, RNAWindowDataset):
-        max_length = val_loader.dataset.dataset.max_length
-        global_mask = torch.zeros(3 * max_length, 3 * max_length)
-        global_mask[max_length:2*max_length, max_length:2 * max_length] = 1
-        global_mask = global_mask.to(device)
-        print("Using global mask due to window prediction")
-    else:
-        global_mask = None
     model.to(device)
     opt = config["optimizer"].lower()
     if opt == "sgd":
@@ -291,12 +273,12 @@ def train_model(
     epoch = 0
     for epoch in range(epochs):
         train_loss = _train(
-            model, train_loader, optimizer, device, losses, config, global_mask
+            model, train_loader, optimizer, device, losses, config,
         )
         scheduler.step()
         if not epoch % config["validation_interval"]:
             val_loss, val_mae = _validate(
-                model, val_loader, device, losses, config, train_val_ratio, global_mask
+                model, val_loader, device, losses, config, train_val_ratio,
             )
             if val_loss <= best_val_loss:
                 best_val_loss = val_loss

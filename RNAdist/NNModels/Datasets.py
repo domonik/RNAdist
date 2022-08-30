@@ -250,10 +250,6 @@ class RNAWindowDataset(RNADataset):
                  ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
-        if self.label_dir is not None:
-            assert "window_size" in self.md_config
-            assert "max_bp_span" in self.md_config
-            #assert self.md_config["window_size"] == self.max_length
         self.step_size = step_size
         if not self._dataset_generated(list(self.files.values())):
             self.generate_dataset()
@@ -294,13 +290,11 @@ class RNAWindowDataset(RNADataset):
         description, indices, seq = seq_data
         md = RNA.md()
         set_md_from_config(md, md_config)
-        md.max_bp_span = max_length
-        md.window_size = max_length
-        rna_data = RNADATA(seq, description, md)
+        rna_data = RNADATA(seq, description)
         bppm, seq_embedding = rna_data.to_tensor(
             max_length,
             positional_encoding=True,
-            mode="plfold"
+            mode="fold"
         )
         if label_dict is not None:
             label = label_dict[description][0]
@@ -341,54 +335,156 @@ class RNAWindowDataset(RNADataset):
         return len(self.data_array)
 
     def __getitem__(self, item):
-        #raise NotImplementedError("masks need to be applied correctly - padded stuff should be masked completely. window extension only at the end for loss calculation")
         file, index, _ = self.data_array[item]
-
         data = torch.load(file)
         ml = self.max_length
-        ws = max(index - ml, 0)
-        we = index + ml * 2
         x = data["x"]
-        x = x[ws:we]
-        padding_mask = torch.ones(x.shape[0], x.shape[0])
+        y = data["y"]
+        start = int(torch.randint(0, 600, size=(1,)))
+        random_pos = torch.tensor([pos_encoding(idx, 4) for idx in range(start, start + x.shape[0])])
+        x[:, 4:8] = random_pos
+        x = x[index:index + ml]
         pair_rep = self.pair_rep_from_single(x)
         bppm = data["bppm"]
-        y = data["y"]
-        sub_bppm = bppm[ws:we, ws:we, :]
+        sub_bppm = bppm[index:index + ml, index:index + ml, :]
+        sub_bppm = (sub_bppm - torch.min(sub_bppm)) / (torch.max(sub_bppm) - torch.min(sub_bppm))
         pair_matrix = torch.cat((sub_bppm, pair_rep), dim=-1)
+        mask = torch.zeros(ml, ml)
         cur_len = x.shape[0]
-        b_pad_val = max(ml - index, 0)
-        if b_pad_val > 0:
-            # here we need to pad the beginning of the sequence
-            x, pair_matrix, padding_mask = _pad_beginning(
-                seq_embedding=x,
-                pair_matrix=pair_matrix,
-                mask=padding_mask,
-                nr_zeros=b_pad_val
-            )
-
-        x, pair_matrix, padding_mask = _pad_end(seq_embedding=x,
-                                  pair_matrix=pair_matrix,
-                                  mask=padding_mask,
-                                  up_to=ml * 3)
+        mask[:cur_len, :cur_len] = 1
+        x, pair_matrix = _pad_end(seq_embedding=x,
+                                    pair_matrix=pair_matrix,
+                                    up_to=ml)
+        pad_val = 0
         if not isinstance(y, int):
-            y = y[ws:we, ws:we]
-            if b_pad_val > 0:
-                y = F.pad(y, (b_pad_val, 0, b_pad_val, 0),
-                          "constant", 0)
-            pad_val = ml * 3 - y.shape[0]
-            if pad_val > 0:
+            y = y[index:index + ml, index:index + ml]
+            pad_val = ml - y.shape[0]
+            if y.shape[0] < self.max_length:
                 y = F.pad(y, (0, pad_val, 0, pad_val),
-                                    "constant", 0)
-        return x, pair_matrix, y, padding_mask, item
-
-
-def _pad_beginning(seq_embedding, pair_matrix, mask, nr_zeros: int):
-
-    seq_embedding = F.pad(seq_embedding, (0, 0, nr_zeros, 0),
                           "constant", 0)
-    pair_matrix = F.pad(pair_matrix, (0, 0, nr_zeros, 0, nr_zeros, 0),
-                        "constant", 0)
-    mask = F.pad(mask, (nr_zeros, 0, nr_zeros, 0),
-                        "constant", 0)
-    return seq_embedding, pair_matrix, mask
+        assert x.shape[0] == self.max_length
+        assert pair_matrix.shape[0] == self.max_length
+        assert y.shape[0] == self.max_length, f"shape: {y.shape}, {index}, {ml}, {pad_val}, {cur_len}"
+        assert mask.shape[0] == self.max_length
+        return x, pair_matrix, y, mask, item
+
+
+class RNAWindowDataset2(RNADataset):
+
+    def __init__(self, data: str,
+                 label_dir: Union[str, os.PathLike, None],
+                 dataset_path: str = "./",
+                 num_threads: int = 1,
+                 max_length: int = 201,
+                 md_config=None,
+                 step_size: int = 1
+                 ):
+        super().__init__(
+            data, label_dir, dataset_path, num_threads, max_length, md_config)
+        self.step_size = step_size
+        if not self.max_length % 2:
+            raise ValueError(f"max_length must be uneven for window mode")
+        if not self._dataset_generated(self.files):
+            self.generate_dataset()
+
+    @cached_property
+    def _seq_data(self):
+        indices2seq = {}
+        full_indices = []
+        seq2triu = {}
+        idx = 0
+        files = []
+        with torch.no_grad():
+            for seq_record in SeqIO.parse(self.data, "fasta"):
+                desc = str(seq_record.description)
+                seq = str(seq_record.seq)
+                seq_len = len(seq)
+                indices = torch.triu_indices(seq_len, seq_len)
+                seq2triu[desc] = indices
+                file = os.path.join(
+                    self.dataset_path, f"{desc}_{self.extension}"
+                )
+                files.append(file)
+                for inner_idx in indices:
+                    full_indices.append(idx)
+                    indices2seq[idx] = (seq, desc, inner_idx, file)
+                    idx += 1
+        return full_indices, indices2seq, seq2triu, files
+
+    @property
+    def files(self):
+        return self._seq_data[3]
+
+    @property
+    def dataset_indices(self):
+        return self._seq_data[0]
+
+    @property
+    def indices_to_desc(self):
+        return self._seq_data[1]
+
+    @property
+    def desc_to_triu(self):
+        return self._seq_data[2]
+
+    def generate_dataset(self):
+        calls = []
+        f = set()
+        for _, (seq, desc, inner_idx, file) in self.indices_to_desc.items():
+            if desc not in f:
+                f.add(desc)
+                calls.append((seq, desc, file, self.label_dict, self.md_config))
+        if self.num_threads == 1:
+            for call in calls:
+                self.mp_create_wrapper(*call)
+        else:
+            with Pool(self.num_threads) as pool:
+                pool.starmap(self.mp_create_wrapper, calls)
+
+    @staticmethod
+    def mp_create_wrapper(seq, desc, file, label_dict, md_config):
+        md = RNA.md()
+        set_md_from_config(md, md_config)
+        rna_data = RNADATA(seq, desc, md)
+        bppm, seq_embedding = rna_data.to_tensor(
+            max_length=len(seq),
+            positional_encoding=False,
+            mode="fold"
+        )
+        if label_dict is not None:
+            label = label_dict[desc][0]
+            label = label.float()
+        else:
+            label = 1
+        data = {"x": seq_embedding, "bppm": bppm, "y": label}
+        torch.save(data, file)
+
+    def __getitem__(self, item):
+        seq, desc, inner_idx, file = self.indices_to_desc[item]
+        data = torch.load(file)
+        i, j = self.desc_to_triu[desc][:, inner_idx]
+        x = data["x"]
+        bppm = data["bppm"]
+        y = data["y"]
+        mask = torch.ones(*bppm.shape[0:2])
+        pad_val = int((self.max_length - 1) / 2)
+        x = F.pad(x,  (0, 0, pad_val, pad_val))
+        pair_rep = self.pair_rep_from_single(x)
+        bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
+        mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
+        mask = mask[i:i+self.max_length, j:j+self.max_length]
+        pair_rep = torch.cat((bppm, pair_rep), dim=-1)
+        pair_rep = pair_rep[i:i+self.max_length, j:j+self.max_length]
+        if not isinstance(y, int):
+            y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))
+            y = y[i:i + self.max_length, j:j + self.max_length]
+        assert x.shape[0] == self.max_length
+        assert pair_rep.shape[0] == self.max_length
+        assert y.shape[0] == self.max_length
+        assert mask.shape[0] == self.max_length
+        return x, pair_rep, y, mask, item
+
+
+
+
+
