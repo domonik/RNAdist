@@ -4,6 +4,8 @@ from typing import Dict, List, Tuple, Callable, Any
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+from Bio import SeqIO
+from tempfile import TemporaryDirectory
 
 from RNAdist.NNModels.configuration import ModelConfiguration
 from RNAdist.NNModels.DISTAtteNCionE import (
@@ -37,6 +39,40 @@ def _loader_generation(
     return train_loader, val_loader
 
 
+def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, max_length):
+    with TemporaryDirectory(prefix="RNAdist_split") as tmpdir:
+        seq_records = [seq_record for seq_record in SeqIO.parse(fasta, "fasta")]
+        indices = torch.randperm(len(seq_records))
+        t = int(len(indices) * train_val_ratio)
+        train_seqs = [seq_records[idx] for idx in indices[:t]]
+        val_seqs = [seq_records[idx] for idx in indices[t:]]
+        train_file = os.path.join(tmpdir, "training_set")
+        valid_file = os.path.join(tmpdir, "validation_set")
+        with open(train_file, "w") as handle:
+            SeqIO.write(train_seqs, handle, "fasta")
+        with open(valid_file, "w") as handle:
+            SeqIO.write(val_seqs, handle, "fasta")
+        val_storage = os.path.join(data_storage, "validation")
+        train_storage = os.path.join(data_storage, "training")
+        train_set = RNAWindowDataset(
+            data=train_file,
+            label_dir=label_dir,
+            dataset_path=train_storage,
+            num_threads=num_threads,
+            max_length=max_length,
+            step_size=1
+        )
+        val_set = RNAWindowDataset(
+            data=valid_file,
+            label_dir=label_dir,
+            dataset_path=val_storage,
+            num_threads=num_threads,
+            max_length=max_length,
+            step_size=1
+        )
+        return train_set, val_set
+
+
 def _dataset_generation(
         fasta: str,
         label_dir: str,
@@ -56,20 +92,20 @@ def _dataset_generation(
             max_length=max_length,
             md_config=md_config
         )
+        t = int(len(dataset) * train_val_ratio)
+        v = len(dataset) - t
+        training_set, validation_set = random_split(dataset, [t, v])
     elif mode == "window":
-        dataset = RNAWindowDataset(
-            data=fasta,
+        training_set, validation_set = _split_fasta(
+            fasta=fasta,
+            train_val_ratio=train_val_ratio,
             label_dir=label_dir,
-            dataset_path=data_storage,
+            data_storage=data_storage,
             num_threads=num_threads,
-            max_length=max_length,
-            step_size=1
+            max_length=max_length
         )
     else:
         raise ValueError("Unsupported mode")
-    t = int(len(dataset) * train_val_ratio)
-    v = len(dataset) - t
-    training_set, validation_set = random_split(dataset, [t, v])
     print(f"training set size: {len(training_set)}")
     print(f"validation set size: {len(validation_set)}")
     return training_set, validation_set
@@ -189,6 +225,7 @@ def _validate(model,
                 break
     total_loss /= min((idx + 1) * config["batch_size"], len(data_loader.dataset))
     total_mae /= min((idx + 1) * config["batch_size"], len(data_loader.dataset))
+    print("end validation")
     return total_loss, total_mae
 
 
