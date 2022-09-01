@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 import os
 from RNAdist.NNModels.training_set_generation import LabelDict
+from RNAdist.NNModels.nn_helpers import _scatter_triu_indices
 from functools import cached_property
 from typing import List, Union
 from Bio import SeqIO
@@ -271,7 +272,8 @@ class RNAWindowDataset(RNADataset):
             seq = str(seq_record.seq)
             seq_len = len(seq)
             start = total_len
-            matrix_elements = int(seq_len * (seq_len - 1) * 0.5 + seq_len)
+            m = math.ceil(seq_len / self.step_size)
+            matrix_elements = int(((m * m) - m) / 2 + m)
             total_len += matrix_elements
             end = total_len
             file = os.path.join(
@@ -348,7 +350,7 @@ class RNAWindowDataset(RNADataset):
             x = data["x"]
             y = data["y"]
             slen = x.shape[0]
-            i, j = torch.triu_indices(slen, slen)[:, inner_index]
+            i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             #start = int(torch.randint(0, 600, size=(1,)))
             start = 0
             positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start,start+ x.shape[0])])
@@ -368,7 +370,9 @@ class RNAWindowDataset(RNADataset):
                 y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))
                 y = y[i:i + self.max_length, j:j + self.max_length]
             x = torch.zeros(self.max_length, 1)
-        return x, pair_rep, y, mask, item
+            file_index = torch.tensor(file_index)
+            idx_information = torch.stack((file_index, i, j), dim=0)
+        return x, pair_rep, y, mask, idx_information
 
     def __len__(self):
         return self.index_to_data[-1][-1]

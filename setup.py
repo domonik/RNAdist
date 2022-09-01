@@ -1,6 +1,7 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 import versioneer
 from Cython.Build import cythonize
+from torch.utils import cpp_extension
 import numpy as np
 
 NAME = "RNAdist"
@@ -13,7 +14,7 @@ DESCRIPTION = "Package for Calculating Expected Distances on the " \
 setup(
     name=NAME,
     version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    cmdclass={'build_ext': cpp_extension.BuildExtension},
     author="domonik",
     author_email="dominik.rabsch@gmail.com",
     packages=find_packages(),
@@ -38,7 +39,12 @@ setup(
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    ext_modules=cythonize("RNAdist/DPModels/_dp_calulations.pyx"),
+    ext_modules=[
+        cpp_extension.CppExtension(
+            name="RNAdist.NNModels.nn_helpers",
+            sources=["RNAdist/NNModels/nn_helpers.cpp"],
+        ),
+    ] + cythonize("RNAdist/DPModels/_dp_calulations.pyx"),
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",

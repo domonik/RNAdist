@@ -121,13 +121,14 @@ def model_window_predict(
         pin_memory=False,
     )
     model, config = _load_model(saved_model, device)
-    current_data = {}
-    output = {}
-    sr_data = {sr.description: sr for sr in SeqIO.parse(fasta, "fasta")}
+    output_data = {
+        # this pads the sequence just like the dataset does in __getitem__
+        desc: np.zeros((len(seq) + dataset.max_length - 1, len(seq) + dataset.max_length - 1))
+        for desc, seq in dataset.seq_data
+    }
     for element in iter(data_loader):
         with torch.no_grad():
-
-            x, pair_rep, _, mask, indices = element
+            x, pair_rep, _, mask, index_data = element
             pair_rep = pair_rep.to(device)
             use = config.indices.to(device)
             pair_rep = torch.index_select(pair_rep, -1, use)
@@ -136,13 +137,12 @@ def model_window_predict(
                 mask = None
             batched_pred = model(pair_rep, mask=mask).cpu()
             batched_pred = batched_pred.numpy()
-            for batch_index, index in enumerate(indices):
+            for batch_index, _ in enumerate(index_data):
+                file_idx, i, j = index_data[batch_index]
+                description, _ = dataset.seq_data[file_idx]
+                pred = batched_pred[batch_index]
 
-                _, idx, description = dataset.data_array[int(index)]
-                pred = batched_pred[batch_index][max_length:2*max_length, max_length:2 * max_length]
-                if description not in current_data:
-                    current_data[description] = {}
-                current_data[description][idx] = pred
+                current_data[description][index_data] = pred
                 if len(current_data) >= 2:
                     _handle_current_data(
                         current_data,
