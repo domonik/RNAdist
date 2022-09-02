@@ -218,11 +218,13 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         global_mask[i_start:i_end, j_start:j_end] = 1
     else:
         global_mask = None
+        i_start = i_end = None
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
         if global_mask is not None:
-            pred = pred * global_mask
+            pred = pred * global_mask,
+            numel = int((i_end - i_start) ** 2)
         multi_loss = 0
         for criterion, weight, elementwise in losses:
             loss = criterion(y, pred)
