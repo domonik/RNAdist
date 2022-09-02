@@ -65,7 +65,7 @@ def _loader_generation(
     return train_loader, val_loader
 
 
-def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, max_length):
+def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, max_length, global_mask_size):
     with TemporaryDirectory(prefix="RNAdist_split") as tmpdir:
         seq_records = [seq_record for seq_record in SeqIO.parse(fasta, "fasta")]
         indices = torch.randperm(len(seq_records))
@@ -86,7 +86,9 @@ def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, m
             dataset_path=train_storage,
             num_threads=num_threads,
             max_length=max_length,
-            step_size=1
+            step_size=1,
+            global_mask_size=global_mask_size
+
         )
         val_set = RNAWindowDataset(
             data=valid_file,
@@ -94,7 +96,9 @@ def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, m
             dataset_path=val_storage,
             num_threads=num_threads,
             max_length=max_length,
-            step_size=1
+            step_size=1,
+            global_mask_size = global_mask_size
+
         )
         return train_set, val_set
 
@@ -107,9 +111,13 @@ def _dataset_generation(
         max_length: int = 200,
         train_val_ratio: float = 0.8,
         md_config: Dict = None,
-        mode: str = "normal"
+        mode: str = "normal",
+        global_mask_size: int = None
 ):
     if mode == "normal":
+        if global_mask_size\
+                is not None:
+            print("global_mask_size has no effect in normal mode")
         dataset = RNAPairDataset(
             data=fasta,
             label_dir=label_dir,
@@ -128,7 +136,9 @@ def _dataset_generation(
             label_dir=label_dir,
             data_storage=data_storage,
             num_threads=num_threads,
-            max_length=max_length
+            max_length=max_length,
+            global_mask_size=global_mask_size
+
         )
     else:
         raise ValueError("Unsupported mode")
@@ -148,7 +158,8 @@ def _setup(
         md_config: Dict = None,
         seed: int = 0,
         mode: str = "normal",
-        sample: int = None
+        sample: int = None,
+        global_mask_size: int = None
 ):
     torch.manual_seed(seed)
     train_set, val_set = _dataset_generation(
@@ -159,7 +170,8 @@ def _setup(
         max_length=max_length,
         train_val_ratio=train_val_ratio,
         md_config=md_config,
-        mode=mode
+        mode=mode,
+        global_mask_size=global_mask_size
     )
     train_loader, val_loader = _loader_generation(
         train_set,
@@ -196,9 +208,21 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         model.train()
     else:
         model.eval()
+    if isinstance(data_loader.dataset, RNAWindowDataset):
+        ml = data_loader.dataset.max_length
+        gms = data_loader.dataset.global_mask_size
+        global_mask = torch.zeros(ml, ml, device=device)
+        mid = int((ml-1) / 2)
+        i_start = j_start = mid - gms
+        i_end = j_end = mid + gms
+        global_mask[i_start:i_end, j_start:j_end] = 1
+    else:
+        global_mask = None
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
+        if global_mask is not None:
+            pred = pred * global_mask
         multi_loss = 0
         for criterion, weight, elementwise in losses:
             loss = criterion(y, pred)
@@ -331,12 +355,13 @@ def train_network(fasta: str,
                   md_config: Dict = None,
                   mode: str = "normal",
                   seed: int = 0,
-                  fine_tune: str = None
+                  fine_tune: str = None,
+                  global_mask_size: int = None
                   ):
     """Python API for training a DISTAtteNCionE Network
 
     Args:
-        fasta (str): Path to the Fasta file containing training sequences 
+        fasta (str): Path to the Fasta file containing training sequences
         dataset_path (str): Path where the Dataset object will be stored 
         label_dir (str): Path to the directory created via
             :func:`~RNAdist.NNModels.training_set_generation.training_set_from_fasta`
@@ -350,6 +375,7 @@ def train_network(fasta: str,
         mode (str): One of "normal" or "window". Specifies the mode that is used for training.
         seed (int): Random number seed for everything related to pytorch
         fine_tune (str): Path to a pretrained model that should be used for fine tuning.
+        global_mask_size (int): Global Mask applied in window prediction mode. Has no effect in normal mode.
 
     Examples:
         You can train a network using the following lines  of code. The
@@ -376,7 +402,8 @@ def train_network(fasta: str,
         md_config=md_config,
         seed=seed,
         mode=mode,
-        sample=config.sample
+        sample=config.sample,
+        global_mask_size=global_mask_size
     )
     train_return = train_model(
         train_loader,

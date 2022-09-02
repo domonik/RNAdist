@@ -233,13 +233,17 @@ class RNAWindowDataset(RNADataset):
                  num_threads: int = 1,
                  max_length: int = 201,
                  md_config=None,
-                 step_size: int = 1
+                 step_size: int = 1,
+                 global_mask_size: int = None
                  ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
         self.step_size = step_size
-        if self.step_size != 1:
-            raise NotImplementedError("Step Size > 1 is not implemented yet")
+        self.global_mask_size = global_mask_size
+        if self.global_mask_size is None:
+            self.global_mask_size = int((self.max_length - 1) / 2)
+        if not self.step_size % 2:
+            raise NotImplementedError("uneven step size is not implemented yet")
         if not self.max_length % 2:
             raise ValueError(f"max_length must be uneven for window mode")
         if not self._dataset_generated([file for file in self.files]):
