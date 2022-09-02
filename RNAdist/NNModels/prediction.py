@@ -64,7 +64,7 @@ def model_predict(
     output = {}
     for element in iter(data_loader):
         with torch.no_grad():
-            x, pair_rep, y, mask, indices = element
+            pair_rep, y, mask, indices = element
             pair_rep = pair_rep.to(device)
             use = config.indices.to(device)
             pair_rep = torch.index_select(pair_rep, -1, use)
@@ -95,7 +95,7 @@ def model_window_predict(
         device: str = "cpu",
         max_length: int = 200,
         md_config: Dict = None,
-        step_size: int = 1,
+        global_mask_size: int = 1,
         dataset_dir: str = None
 ):
     if dataset_dir is None:
@@ -111,14 +111,15 @@ def model_window_predict(
         num_threads=num_threads,
         max_length=max_length,
         md_config=md_config,
-        step_size=step_size
+        step_size=global_mask_size * 2 + 1,
+        global_mask_size=global_mask_size
     )
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_threads,
-        pin_memory=False,
+        pin_memory=True,
     )
     model, config = _load_model(saved_model, device)
     output_data = {
@@ -126,9 +127,12 @@ def model_window_predict(
         desc: np.zeros((len(seq) + dataset.max_length - 1, len(seq) + dataset.max_length - 1))
         for desc, seq in dataset.seq_data
     }
+    gms = global_mask_size
+    mid = int((max_length-1) / 2)
+    pred_s, pred_e = mid - gms, mid + gms
     for element in iter(data_loader):
         with torch.no_grad():
-            x, pair_rep, _, mask, index_data = element
+            pair_rep, _, mask, index_data = element
             pair_rep = pair_rep.to(device)
             use = config.indices.to(device)
             pair_rep = torch.index_select(pair_rep, -1, use)
@@ -138,28 +142,20 @@ def model_window_predict(
             batched_pred = model(pair_rep, mask=mask).cpu()
             batched_pred = batched_pred.numpy()
             for batch_index, _ in enumerate(index_data):
-                file_idx, i, j = index_data[batch_index]
+                file_idx = index_data[batch_index][0]
+                i, j = index_data[batch_index][1:] + mid
                 description, _ = dataset.seq_data[file_idx]
                 pred = batched_pred[batch_index]
-                mean_v = dataset.max_length * dataset.max_length
-                current_data[description][index_data] = pred
-                if len(current_data) >= 2:
-                    _handle_current_data(
-                        current_data,
-                        dataset,
-                        sr_data,
-                        max_length,
-                        output
-                    )
-    _handle_current_data(current_data, dataset, sr_data, max_length, output)
-    assert len(current_data) == 0
+                output_data[description][i-gms:i+gms,j-gms:j+gms] = pred[pred_s:pred_e, pred_s:pred_e]
+    for key, value in output_data.items():
+        output_data[key] = value[mid:-mid, mid:-mid]
     if tmpdir is not None:
         tmpdir.cleanup()
     out_dir = os.path.dirname(outfile)
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
     with open(outfile, "wb") as handle:
-        pickle.dump(output, handle)
+        pickle.dump(output_data, handle)
 
 
 def _handle_current_data(current_data, dataset, sr_data, max_length, output):

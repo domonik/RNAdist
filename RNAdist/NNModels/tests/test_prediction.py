@@ -69,9 +69,9 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
         saved_model=saved_model,
         batch_size=4,
         num_threads=os.cpu_count(),
-        max_length=10,
+        max_length=11,
         device="cuda",
-        step_size=1
+        global_mask_size=1
     )
     assert os.path.exists(outfile)
     with open(outfile, "rb") as handle:
@@ -97,9 +97,9 @@ def test_window_predict(model, random_fasta, tmp_path, request):
         saved_model=saved_model,
         batch_size=4,
         num_threads=os.cpu_count(),
-        max_length=10,
+        max_length=11,
         device="cpu",
-        step_size=1
+        global_mask_size=1
     )
     assert os.path.exists(outfile)
     with open(outfile, "rb") as handle:
