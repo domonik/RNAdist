@@ -67,7 +67,7 @@ class RNADATA():
         self.description = description
         self.md = md
 
-    def to_tensor(self, max_length, positional_encoding, pos_encoding_dim=4, mode: str = "fold"):
+    def to_tensor(self, mode: str = "fold"):
         if mode == "fold":
             bppm = fold_bppm(self.sequence, self.md)
         elif mode == "plfold":
@@ -76,30 +76,10 @@ class RNADATA():
         else:
             raise ValueError(f"mode must be one of [fold, plfold] but is {mode}")
         bppm = torch.tensor(bppm, dtype=torch.float)
-        bppm = self._add_upprob(bppm)
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
         seq_embedding = torch.tensor(seq_embedding, dtype=torch.float)
-        if positional_encoding:
-            seq_embedding = positional_encode_seq(
-                seq_embedding, pos_encoding_dim
-            )
-        pair_matrix = bppm[:, :, None]
-        if mode == "fold":
-            seq_embedding, pair_matrix = _pad_end(
-                seq_embedding, pair_matrix, max_length
-            )
-        return pair_matrix, seq_embedding
-
-    @staticmethod
-    def _add_upprob(bppm):
-        for idx1 in range(bppm.shape[0]):
-            upprob = 1 - bppm[idx1].sum().item()
-            if idx1 != 0 and idx1 != bppm.shape[0] - 1:
-                upprob = upprob / 2
-            for idx2 in range(bppm.shape[0]):
-                if idx2 == idx1 + 1 or idx2 == idx1 - 1:
-                    bppm[idx1, idx2] = upprob
-        return bppm
+        bppm = bppm[:, :, None]
+        return bppm, seq_embedding
 
 
 class RNADataset(Dataset):
@@ -176,6 +156,9 @@ class RNAPairDataset(RNADataset):
         descriptions = set()
         for seq_record in SeqIO.parse(self.data, "fasta"):
             assert seq_record.description not in descriptions, "Fasta headers must be unique"
+            if len(seq_record.seq) > self.max_length:
+                raise ValueError(f"Sequence {seq_record.description} is too long ({len(seq_record.seq)})\n"
+                                 f"consider using a Window Dataset or increase max_length ({self.max_length}")
             data.append((seq_record.description, str(seq_record.seq)))
             descriptions.add(seq_record.description)
         return data
@@ -190,9 +173,8 @@ class RNAPairDataset(RNADataset):
 
     def generate_dataset(self):
         l = [self.label_dict for _ in range(len(self._files))]
-        ml = [self.max_length for _ in range(len(self._files))]
         mds = [self.md_config for _ in range(len(self._files))]
-        calls = list(zip(self._files, self.rna_graphs, ml, l, mds))
+        calls = list(zip(self._files, self.rna_graphs, l, mds))
         if self.num_threads == 1:
             for call in calls:
                 self.mp_create_wrapper(*call)
@@ -201,14 +183,12 @@ class RNAPairDataset(RNADataset):
                 pool.starmap(self.mp_create_wrapper, calls)
 
     @staticmethod
-    def mp_create_wrapper(file, seq_data, max_length, label_dict, md_config):
+    def mp_create_wrapper(file, seq_data, label_dict, md_config):
         description, seq = seq_data
         md = RNA.md()
         set_md_from_config(md, md_config)
         rna_data = RNADATA(seq, description, md)
         pair_matrix, seq_embedding = rna_data.to_tensor(
-            max_length,
-            positional_encoding=True
         )
         if label_dict is not None:
             label = label_dict[description][0]
@@ -222,22 +202,27 @@ class RNAPairDataset(RNADataset):
         return len(self._files)
 
     def __getitem__(self, item):
-        file = self._files[item]
-        data = torch.load(file)
-        x = data["x"]
-        pair_rep = self.pair_rep_from_single(x)
-        bppm = data["bppm"]
-        pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
-        y = data["y"]
-        seq_len = len(self.rna_graphs[item][1])
-        pad_val = self.max_length - seq_len
-        if not isinstance(y, int):
-            if y.shape[0] < self.max_length:
-                y = F.pad(y, (0, pad_val, 0, pad_val),
-                                    "constant", 0)
-        mask = torch.zeros(self.max_length, self.max_length)
-        mask[:seq_len, :seq_len] = 1
-        return x, pair_matrix, y, mask, item
+        with torch.no_grad():
+            file = self._files[item]
+            data = torch.load(file)
+            x = data["x"]
+            start = 0
+            positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start, start + x.shape[0])])
+            x = torch.cat((x, positions), dim=1)
+            pad_val = self.max_length - x.shape[0]
+            pair_rep = self.pair_rep_from_single(x)
+            bppm = data["bppm"]
+            pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
+            pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
+                                "constant", 0)
+            y = data["y"]
+            if not isinstance(y, int):
+                if y.shape[0] < self.max_length:
+                    y = F.pad(y, (0, pad_val, 0, pad_val),
+                                        "constant", 0)
+            mask = torch.zeros(self.max_length, self.max_length)
+            mask[:x.shape[0], :x.shape[0]] = 1
+        return pair_matrix, y, mask, item
 
 
 class RNAWindowDataset(RNADataset):
@@ -315,8 +300,6 @@ class RNAWindowDataset(RNADataset):
         set_md_from_config(md, md_config)
         rna_data = RNADATA(seq, desc, md)
         bppm, seq_embedding = rna_data.to_tensor(
-            max_length=len(seq),
-            positional_encoding=False,
             mode="fold"
         )
         if label_dict is not None:
@@ -328,7 +311,7 @@ class RNAWindowDataset(RNADataset):
         torch.save(data, file)
 
     def get_indes_from_ranges(self, index):
-        right = len(self.index_to_data)
+        right = len(self.index_to_data) - 1
         left = 0
         while left <= right:
             file_idx = math.floor((left + right) / 2)
@@ -340,8 +323,8 @@ class RNAWindowDataset(RNADataset):
             else:
                 inner_index = index - lower
                 return file, inner_index
-        raise IndexError("File index out of range")
-
+        raise IndexError(f"File index out of range {index},"
+                         f" low: {self.index_to_data[0]}, high {self.index_to_data[-1]}")
 
     def __getitem__(self, item):
         with torch.no_grad():
@@ -351,7 +334,6 @@ class RNAWindowDataset(RNADataset):
             y = data["y"]
             slen = x.shape[0]
             i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
-            #start = int(torch.randint(0, 600, size=(1,)))
             start = 0
             positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start,start+ x.shape[0])])
             x = torch.cat((x, positions), dim=1)
@@ -369,10 +351,9 @@ class RNAWindowDataset(RNADataset):
             if not isinstance(y, int):
                 y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))
                 y = y[i:i + self.max_length, j:j + self.max_length]
-            x = torch.zeros(self.max_length, 1)
             file_index = torch.tensor(file_index)
             idx_information = torch.stack((file_index, i, j), dim=0)
-        return x, pair_rep, y, mask, idx_information
+        return pair_rep, y, mask, idx_information
 
     def __len__(self):
         return self.index_to_data[-1][-1]

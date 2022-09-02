@@ -141,7 +141,7 @@ def model_window_predict(
                 file_idx, i, j = index_data[batch_index]
                 description, _ = dataset.seq_data[file_idx]
                 pred = batched_pred[batch_index]
-
+                mean_v = dataset.max_length * dataset.max_length
                 current_data[description][index_data] = pred
                 if len(current_data) >= 2:
                     _handle_current_data(

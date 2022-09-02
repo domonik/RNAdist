@@ -2,7 +2,7 @@ import os
 from typing import Dict, List, Tuple, Callable, Any
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data import random_split
 from Bio import SeqIO
 from tempfile import TemporaryDirectory
@@ -20,22 +20,48 @@ def _loader_generation(
         training_set,
         validation_set,
         batch_size: int,
-        num_threads: int = 1
+        num_threads: int = 1,
+        sample: int = None
 ):
-    train_loader = DataLoader(
-        training_set,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_threads,
-        pin_memory=True,
-    )
-    val_loader = DataLoader(
-        validation_set,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_threads,
-        pin_memory=True,
-    )
+    if sample:
+        train_loader = DataLoader(
+            training_set,
+            batch_size=batch_size,
+            num_workers=num_threads,
+            pin_memory=True,
+            sampler=RandomSampler(
+                data_source=training_set,
+                replacement=True,
+                num_samples=sample
+            )
+        )
+        val_loader = DataLoader(
+            validation_set,
+            batch_size=batch_size,
+            num_workers=num_threads,
+            pin_memory=True,
+            sampler=RandomSampler(
+                data_source=validation_set,
+                replacement=True,
+                num_samples=sample
+            )
+        )
+    else:
+
+        train_loader = DataLoader(
+            training_set,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_threads,
+            pin_memory=True,
+        )
+        val_loader = DataLoader(
+            validation_set,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_threads,
+            pin_memory=True,
+        )
     return train_loader, val_loader
 
 
@@ -121,7 +147,8 @@ def _setup(
         train_val_ratio: float = 0.2,
         md_config: Dict = None,
         seed: int = 0,
-        mode: str = "normal"
+        mode: str = "normal",
+        sample: int = None
 ):
     torch.manual_seed(seed)
     train_set, val_set = _dataset_generation(
@@ -138,7 +165,8 @@ def _setup(
         train_set,
         val_set,
         batch_size=batch_size,
-        num_threads=num_threads
+        num_threads=num_threads,
+        sample=sample
     )
 
     return train_loader, val_loader
@@ -146,11 +174,11 @@ def _setup(
 
 def _unpack_batch(batch, device, config):
     if config["masking"]:
-        _, pair_rep, y, mask, _ = batch
+        pair_rep, y, mask, _ = batch
         mask = mask.to(device)
         numel = torch.count_nonzero(mask)
     else:
-        _, pair_rep, y, _, _ = batch
+        pair_rep, y, _, _ = batch
         numel = y.numel()
         mask = None
     y = y.to(device)
@@ -160,72 +188,34 @@ def _unpack_batch(batch, device, config):
     return pair_rep, y, mask, numel
 
 
-def _train(model,
-           data_loader,
-           optimizer,
-           device,
-           losses: List[Tuple[Callable, float]],
-           config: ModelConfiguration,
-           ):
+def _run_prediction(data_loader, model, losses, device, config, optimizer, train: bool = True):
     total_loss = 0
-    model.train()
-    optimizer.zero_grad()
+    total_mae = 0
     batch_idx = 0
+    if train:
+        model.train()
+    else:
+        model.eval()
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
         pred = model(pair_rep, mask=mask)
         multi_loss = 0
-        for criterion, weight in losses:
-            loss = criterion(y, pred, mask)
+        for criterion, weight, elementwise in losses:
+            loss = criterion(y, pred)
+            if not elementwise:
+                loss = loss / numel  # adjusts the loss to be elementwise
             multi_loss = multi_loss + loss * weight
             multi_loss = multi_loss / config["gradient_accumulation"]
-        multi_loss.backward()
-        if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (
-                batch_idx + 1 == len(data_loader)):
-            optimizer.step()
-            optimizer.zero_grad()
-        total_loss += multi_loss.item() * y.shape[0] * config["gradient_accumulation"]
-        if batch_idx >= config["sample"]:
-            break
-    total_loss /= min((batch_idx + 1) * config["batch_size"], len(data_loader.dataset))
-    return total_loss
-
-
-def _validate(model,
-              data_loader,
-              device,
-              losses: List[Tuple[Callable, float]],
-              config,
-              train_val_ratio,
-              ):
-    total_loss = 0
-    total_mae = 0
-    model.eval()
-    idx = 0
-    with torch.no_grad():
-        for idx, batch in enumerate(iter(data_loader)):
-            pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
-            pred = model(pair_rep, mask=mask)
-            multi_loss = 0
-            for criterion, weight in losses:
-                loss = criterion(y, pred, mask)
-                multi_loss = multi_loss + loss * weight
-            total_loss += multi_loss.item() * y.shape[0]
-            size = y.shape[-1]
-            weights = torch.zeros((size, size), device=device)
-            triu_i = torch.triu_indices(size, size, offset=2 + 1)
-            weights[triu_i[0], triu_i[1]] = 1
-            weights[triu_i[1], triu_i[0]] = 1
-            if mask is not None:
-                numel = (mask * weights).count_nonzero()
-            error = torch.abs((pred - y) * weights).sum() / numel
-            error *= y.shape[0]
-            total_mae += error
-            if idx >= config["sample"] * train_val_ratio:
-                break
-    total_loss /= min((idx + 1) * config["batch_size"], len(data_loader.dataset))
-    total_mae /= min((idx + 1) * config["batch_size"], len(data_loader.dataset))
-    print("end validation")
+        if train:
+            multi_loss.backward()
+            if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (batch_idx + 1 == len(data_loader)):
+                optimizer.step()
+                optimizer.zero_grad()
+        total_loss += multi_loss.item() * config["gradient_accumulation"]
+        absolute_error = torch.sum(torch.abs(pred - y)) / numel
+        total_mae += absolute_error.item()
+    total_mae /= min((batch_idx + 1), len(data_loader.dataset) / config["batch_size"])
+    total_loss /= min((batch_idx + 1), len(data_loader.dataset) / config["batch_size"])
     return total_loss, total_mae
 
 
@@ -236,7 +226,6 @@ def train_model(
         config: ModelConfiguration,
         device: str = None,
         seed: int = 0,
-        train_val_ratio: float = 0.8,
         fine_tune: str = None
 ):
     learning_rate = config["learning_rate"]
@@ -295,42 +284,38 @@ def train_model(
         gamma=0.1 if isinstance(optimizer, torch.optim.SGD) else 1
         # prevents using scheduling if adaptive optimization is used
     )
-    criterion = WeightedDiagonalMSELoss(
-        alpha=config["alpha"],
-        device=device,
-        offset=2,
-        # Todo: adjust offset for different min_loop_length
-        #  formula: torch.round(mll / 2)
+    criterion = torch.nn.MSELoss(
         reduction="sum"
     )
-    losses = [(criterion, 1)]
+    losses = [(criterion, 1, False)]
     best_epoch = 0
     best_val_loss = torch.tensor((float("inf")))
     best_val_mae = torch.tensor((float("inf")))
     epoch = 0
     for epoch in range(epochs):
-        train_loss = _train(
-            model, train_loader, optimizer, device, losses, config,
+        train_loss, train_mae = _run_prediction(
+            train_loader, model, losses, device, config, optimizer, train=True
         )
         scheduler.step()
         if not epoch % config["validation_interval"]:
-            val_loss, val_mae = _validate(
-                model, val_loader, device, losses, config, train_val_ratio,
-            )
+            with torch.no_grad():
+                val_loss, val_mae = _run_prediction(
+                    val_loader, model, losses, device, config, optimizer, train=False
+                )
             if val_loss <= best_val_loss:
                 best_val_loss = val_loss
                 best_val_mae = val_mae
                 best_epoch = epoch
                 torch.save((model.state_dict(), config), config["model_checkpoint"])
             print(
-                f"Epoch: {epoch}\tTraining Loss: {train_loss}\tValidation Loss: {val_loss}\tValidation MAE {val_mae}")
+                f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}\tValidation Loss: {val_loss:.2f}\tValidation MAE: {val_mae:.2f}")
         else:
-            print(f"Epoch: {epoch}\tTraining_Loss: {train_loss}")
+            print(f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}")
         if epoch - best_epoch >= patience:
             break
         if torch.isnan(torch.tensor(train_loss)):
             break
-    best_val_mae = float(best_val_mae.detach().cpu())
+    best_val_mae = float(best_val_mae)
     return {"cost": best_val_mae, "epoch": epoch, "state_dict": model.state_dict()}
 
 
@@ -390,7 +375,8 @@ def train_network(fasta: str,
         train_val_ratio=train_val_ratio,
         md_config=md_config,
         seed=seed,
-        mode=mode
+        mode=mode,
+        sample=config.sample
     )
     train_return = train_model(
         train_loader,
@@ -399,7 +385,6 @@ def train_network(fasta: str,
         config,
         device=device,
         seed=seed,
-        train_val_ratio=train_val_ratio,
         fine_tune=fine_tune
     )
     return train_return["state_dict"]

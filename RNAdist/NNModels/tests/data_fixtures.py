@@ -62,7 +62,7 @@ def train_config(tmp_path):
         weight_decay=0,
         model="normal",
         gradient_accumulation=2,
-        sample=math.inf
+        sample=None
     )
     return config
 

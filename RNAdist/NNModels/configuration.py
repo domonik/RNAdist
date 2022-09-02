@@ -45,7 +45,7 @@ class ModelConfiguration:
     learning_rate: float = 0.01
     batch_size: int = 16
     validation_interval: int = 5
-    sample: int = math.inf
+    sample: int = None
     patience: int = 20
     lr_step_size: int = None,
     momentum: float = 0

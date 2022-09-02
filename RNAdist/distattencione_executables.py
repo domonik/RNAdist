@@ -199,8 +199,8 @@ def training_parser(subparsers, name):
     group2.add_argument(
         '--sample',
         type=int,
-        help="whether masking is applied during training (Default: True)",
-        default=math.inf
+        help="Number of samples drawn from training and validation set (with replacement)",
+        default=None
     )
     group2.add_argument(
         '--learning_rate',
