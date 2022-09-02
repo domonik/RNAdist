@@ -129,7 +129,7 @@ def model_window_predict(
     }
     gms = global_mask_size
     mid = int((max_length-1) / 2)
-    pred_s, pred_e = mid - gms, mid + gms
+    pred_s, pred_e = mid - gms, mid + gms + 1
     for element in iter(data_loader):
         with torch.no_grad():
             pair_rep, _, mask, index_data = element
@@ -146,7 +146,7 @@ def model_window_predict(
                 i, j = index_data[batch_index][1:] + mid
                 description, _ = dataset.seq_data[file_idx]
                 pred = batched_pred[batch_index]
-                output_data[description][i-gms:i+gms,j-gms:j+gms] = pred[pred_s:pred_e, pred_s:pred_e]
+                output_data[description][i-gms:i+gms+1,j-gms:j+gms+1] = pred[pred_s:pred_e, pred_s:pred_e]
     for key, value in output_data.items():
         output_data[key] = value[mid:-mid, mid:-mid]
     if tmpdir is not None:

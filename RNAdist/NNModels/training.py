@@ -214,7 +214,7 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         global_mask = torch.zeros(ml, ml, device=device)
         mid = int((ml-1) / 2)
         i_start = j_start = mid - gms
-        i_end = j_end = mid + gms
+        i_end = j_end = mid + gms + 1
         global_mask[i_start:i_end, j_start:j_end] = 1
     else:
         global_mask = None
@@ -224,6 +224,7 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         pred = model(pair_rep, mask=mask)
         if global_mask is not None:
             pred = pred * global_mask
+            y = y * global_mask
             numel = int((i_end - i_start) ** 2)
         multi_loss = 0
         for criterion, weight, elementwise in losses:
