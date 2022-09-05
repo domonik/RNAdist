@@ -54,6 +54,8 @@ class ModelConfiguration:
     use_bppm: bool = True
     use_position: bool = True,
     use_nucleotide_encoding: bool = True
+    random_shift: float = None
+    normalize_bpp: bool = False
 
     def __post_init__(self):
         """Check valid argument combinations

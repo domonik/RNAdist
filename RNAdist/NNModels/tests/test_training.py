@@ -32,8 +32,11 @@ def triangularselfattention(dim):
 @pytest.mark.parametrize("use_bppm", [True, False])
 @pytest.mark.parametrize("use_pos", [True, False])
 @pytest.mark.parametrize("mode", ["normal", "window"])
+@pytest.mark.parametrize("random_shift", [None, 0.8])
 def test_training(random_fasta, train_config, expected_labels,
-                  model_type, use_bppm, use_pos, expected_window_labels, mode, request):
+                  model_type, use_bppm, use_pos, expected_window_labels, mode, random_shift, request):
+    if random_shift is not None:
+        train_config.random_shift = random_shift
     train_config.use_bppm = use_bppm
     train_config.use_position = use_pos
     if model_type not in ["small", "normal"]:

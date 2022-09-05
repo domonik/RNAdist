@@ -13,7 +13,7 @@ from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, random_index_shift
 
 
 def _loader_generation(
@@ -112,7 +112,8 @@ def _dataset_generation(
         train_val_ratio: float = 0.8,
         md_config: Dict = None,
         mode: str = "normal",
-        global_mask_size: int = None
+        global_mask_size: int = None,
+        augmentor: DataAugmentor = None
 ):
     if mode == "normal":
         if global_mask_size\
@@ -124,7 +125,8 @@ def _dataset_generation(
             dataset_path=data_storage,
             num_threads=num_threads,
             max_length=max_length,
-            md_config=md_config
+            md_config=md_config,
+            augmentor=augmentor
         )
         t = int(len(dataset) * train_val_ratio)
         v = len(dataset) - t
@@ -159,7 +161,8 @@ def _setup(
         seed: int = 0,
         mode: str = "normal",
         sample: int = None,
-        global_mask_size: int = None
+        global_mask_size: int = None,
+        augmentor: DataAugmentor = None
 ):
     torch.manual_seed(seed)
     train_set, val_set = _dataset_generation(
@@ -171,7 +174,8 @@ def _setup(
         train_val_ratio=train_val_ratio,
         md_config=md_config,
         mode=mode,
-        global_mask_size=global_mask_size
+        global_mask_size=global_mask_size,
+        augmentor=augmentor
     )
     train_loader, val_loader = _loader_generation(
         train_set,
@@ -225,7 +229,7 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         if global_mask is not None:
             pred = pred * global_mask
             y = y * global_mask
-            numel = int((i_end - i_start) ** 2)
+            numel = int((i_end - i_start) ** 2) * pred.shape[0]
         multi_loss = 0
         for criterion, weight, elementwise in losses:
             loss = criterion(y, pred)
@@ -394,6 +398,23 @@ def train_network(fasta: str,
 
         >>> train_network("fasta.fa", "dataset_path", "label_directory", config=config, mode="window", max_length=100)
     """
+    aug_fcts = {"pair": [], "single": [], "single_prob": [], "pair_prob": []}
+    if config.normalize_bpp:
+        aug_fcts["pair"].append(normalize_bpp)
+        aug_fcts["pair_prob"].append(1)
+    if config.random_shift is not None:
+        aug_fcts["single"].append(random_index_shift(0, 1000))
+        aug_fcts["single_prob"].append(config.random_shift)
+    if any((config.normalize_bpp, config.random_shift)):
+        print("using Data Augmentation")
+        augmentor = DataAugmentor(
+            pair_rep_functions=aug_fcts["pair"],
+            single_rep_functions=aug_fcts["single"],
+            p_single=aug_fcts["single_prob"],
+            p_pair=aug_fcts["pair_prob"]
+        )
+    else:
+        augmentor = None
     train_loader, val_loader = _setup(
         fasta=fasta,
         label_dir=label_dir,
@@ -406,7 +427,8 @@ def train_network(fasta: str,
         seed=seed,
         mode=mode,
         sample=config.sample,
-        global_mask_size=global_mask_size
+        global_mask_size=global_mask_size,
+        augmentor=augmentor
     )
     train_return = train_model(
         train_loader,
@@ -438,7 +460,9 @@ def training_executable_wrapper(args):
         gradient_accumulation=args.gradient_accumulation,
         sample=args.sample,
         use_bppm=not args.exclude_bppm,
-        use_position=not args.exclude_position
+        use_position=not args.exclude_position,
+        normalize_bpp=args.normalize_bppm,
+        random_shift=args.random_shift
     )
 
     train_network(

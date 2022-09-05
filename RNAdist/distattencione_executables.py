@@ -290,6 +290,18 @@ def training_parser(subparsers, name):
         default=False,
         action="store_true"
     )
+    group2.add_argument(
+        '--random_shift',
+        help="Applies a random shift in indices of nucleotides",
+        default=None,
+        type=float
+    )
+    group2.add_argument(
+        '--normalize_bppm',
+        help="Min Max normalizes the base pairing probability matrix",
+        default=False,
+        action="store_true"
+    )
     return parser
 
 

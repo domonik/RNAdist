@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
@@ -5,12 +6,13 @@ import os
 from RNAdist.NNModels.training_set_generation import LabelDict
 from RNAdist.NNModels.nn_helpers import _scatter_triu_indices
 from functools import cached_property
-from typing import List, Union
+from typing import List, Union, Callable
 from Bio import SeqIO
 from torch.multiprocessing import Pool
 import RNA
 import itertools
 import math
+import random
 import torch.multiprocessing
 from RNAdist.DPModels.viennarna_helpers import (
     fold_bppm, set_md_from_config, plfold_bppm)
@@ -142,11 +144,13 @@ class RNAPairDataset(RNADataset):
                  dataset_path: str = "./",
                  num_threads: int = 1,
                  max_length: int = 200,
-                 md_config=None):
+                 md_config=None,
+                 augmentor: DataAugmentor = None
+                 ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config
         )
-
+        self.augmentor = augmentor
         if not self._dataset_generated(self._files):
             self.generate_dataset()
 
@@ -209,12 +213,16 @@ class RNAPairDataset(RNADataset):
             start = 0
             positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start, start + x.shape[0])])
             x = torch.cat((x, positions), dim=1)
+            if self.augmentor is not None:
+                x = self.augmentor.augment(x, mode="single")
             pad_val = self.max_length - x.shape[0]
             pair_rep = self.pair_rep_from_single(x)
             bppm = data["bppm"]
             pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
             pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
                                 "constant", 0)
+            if self.augmentor is not None:
+                pair_matrix = self.augmentor.augment(pair_matrix, mode="pair")
             y = data["y"]
             if not isinstance(y, int):
                 if y.shape[0] < self.max_length:
@@ -234,12 +242,14 @@ class RNAWindowDataset(RNADataset):
                  max_length: int = 201,
                  md_config=None,
                  step_size: int = 1,
-                 global_mask_size: int = None
+                 global_mask_size: int = None,
+                 augmentor: DataAugmentor = None
                  ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
         self.step_size = step_size
         self.global_mask_size = global_mask_size
+        self.augmentor = augmentor
         if self.global_mask_size is None:
             self.global_mask_size = int((self.max_length - 1) / 2)
         if not self.step_size % 2:
@@ -341,6 +351,8 @@ class RNAWindowDataset(RNADataset):
             start = 0
             positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start,start+ x.shape[0])])
             x = torch.cat((x, positions), dim=1)
+            if self.augmentor is not None:
+                x = self.augmentor.augment(x, mode="single")
             bppm = data["bppm"]
             mask = torch.ones(*bppm.shape[0:2])
             pad_val = int((self.max_length - 1) / 2)
@@ -363,5 +375,48 @@ class RNAWindowDataset(RNADataset):
         return self.index_to_data[-1][-1]
 
 
+class DataAugmentor:
+    def __init__(self,
+                 pair_rep_functions: List[Callable] = None,
+                 single_rep_functions: List[Callable] = None,
+                 p_pair: Union[List[float], float] = 0.5,
+                 p_single: Union[List[float], float] = 0.5,
+                 ):
+        self.pair_rep_functions = [] if pair_rep_functions is None else pair_rep_functions
+        self.single_rep_functions = [] if single_rep_functions is None else single_rep_functions
+        self.pr_probabilities = torch.tensor(
+            p_pair if isinstance(p_pair, list) else [p_pair for _ in range(len(self.pair_rep_functions))]
+        )
+        self.single_probabilities = torch.tensor(
+            p_single if isinstance(p_single, list) else [p_single for _ in range(len(self.pair_rep_functions))]
+        )
 
+    def augment(self, tensor: torch.Tensor, mode: str = "single"):
+        if mode == "pair":
+            pr = self.pr_probabilities
+            fcts = self.pair_rep_functions
+        elif mode == "single":
+            pr = self.single_probabilities
+            fcts = self.single_rep_functions
+        else:
+            raise ValueError("Mode not supported")
+        apply = torch.rand(len(pr)) <= pr
+        for idx, function in enumerate(fcts):
+            if apply[idx]:
+                tensor = function(tensor)
+        return tensor
+
+
+def random_index_shift(start, end):
+    def shift_index(single_rep: torch.Tensor):
+        _inner_start = int(torch.randint(start, end))
+        positions = torch.tensor([pos_encoding(idx, 4) for idx in range(_inner_start, _inner_start + single_rep.shape[0])])
+        single_rep[4:8] = positions
+        return single_rep
+
+
+def normalize_bpp(pair_rep: torch.Tensor):
+    bpp = pair_rep[:, :, 0]
+    pair_rep[:, :, 0] = (bpp - torch.min(bpp)) / (torch.max(bpp) - torch.min(bpp))
+    return pair_rep
 
