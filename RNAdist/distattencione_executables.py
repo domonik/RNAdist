@@ -181,15 +181,6 @@ def training_parser(subparsers, name):
         default=200
     )
     group2.add_argument(
-        '--alpha',
-        type=float,
-        help="weight for the first part of the combined loss."
-             "The weight for the loss of elements i,j"
-             "where j > i + round(min_loop_length/2). The other part"
-             "will be weighted 1 - alpha (Default: 0.5)",
-        default=0.5
-    )
-    group2.add_argument(
         '--no_masking',
         help="No masking is applied during training",
         default=False,

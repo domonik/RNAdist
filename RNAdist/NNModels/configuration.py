@@ -14,9 +14,6 @@ class ModelConfiguration:
         model (Union[str, torch.nn.Module]): Either normal or small if type is str. If type is :class:`torch.nn.Module`
             make sure that the :func:`~forward` of it takes two arguments a pair_rep and a mask where pair_rep
             is supposed to have the following shape: `(B, N, N, 17)` and the output must be of shape `(B, N, N)`
-        alpha (float): weight for the first part of the combined loss.
-            The weight for the loss of elements i,j where j > i + round(min_loop_length/2). The other part will be
-            weighted 1 - alpha
         masking (bool): whether masking is applied during training
         nr_layers (int): How often the Pair Update module is stacked
         optimizer (str): Specifies the optimizer that is used. either adamw or sgd
@@ -35,10 +32,11 @@ class ModelConfiguration:
         use_bppm (bool): Whether to use basepair probability matrix as a feature
         use_position (bool): Whether to use positional encoding as a feature
         use_nucleotide_encoding (bool): Whether to use nucleotide encoding as a feature
+        random_shift (float): probability to apply random shift in position encoding.
+        normalize_bpp (bool): Whether bpp matrix is min max normalized or not.
     """
     model_checkpoint: str
     model: str = "normal"
-    alpha: float = 0.5
     masking: bool = True
     nr_layers: int = 1
     optimizer: str = "adamw"

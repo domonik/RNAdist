@@ -49,7 +49,6 @@ def random_fasta():
 @pytest.fixture
 def train_config(tmp_path):
     config = ModelConfiguration(
-        alpha=0.99,
         masking=True,
         learning_rate=0.01,
         batch_size=4,
@@ -62,7 +61,6 @@ def train_config(tmp_path):
         weight_decay=0,
         model="normal",
         gradient_accumulation=2,
-        sample=None
     )
     return config
 

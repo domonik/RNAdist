@@ -444,7 +444,6 @@ def train_network(fasta: str,
 
 def training_executable_wrapper(args):
     config = ModelConfiguration(
-        alpha=args.alpha,
         masking=not args.no_masking,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
