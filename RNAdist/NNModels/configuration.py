@@ -50,7 +50,7 @@ class ModelConfiguration:
     weight_decay: float = 0
     gradient_accumulation: int = 1
     use_bppm: bool = True
-    use_position: bool = True,
+    use_position: bool = True
     use_nucleotide_encoding: bool = True
     random_shift: float = None
     normalize_bpp: bool = False
