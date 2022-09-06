@@ -47,7 +47,6 @@ def _loader_generation(
             )
         )
     else:
-
         train_loader = DataLoader(
             training_set,
             batch_size=batch_size,
