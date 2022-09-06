@@ -407,13 +407,11 @@ class DataAugmentor:
         return tensor
 
 
-def random_index_shift(start, end):
-    def shift_index(single_rep: torch.Tensor):
-        _inner_start = int(torch.randint(start, end))
-        positions = torch.tensor([pos_encoding(idx, 4) for idx in range(_inner_start, _inner_start + single_rep.shape[0])])
-        single_rep[4:8] = positions
-        return single_rep
-
+def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 1000):
+    _inner_start = int(torch.randint(start, end, size=(1,)))
+    positions = torch.tensor([pos_encoding(idx, 4) for idx in range(_inner_start, _inner_start + single_rep.shape[0])])
+    single_rep[:, 4:8] = positions
+    return single_rep
 
 def normalize_bpp(pair_rep: torch.Tensor):
     bpp = pair_rep[:, :, 0]

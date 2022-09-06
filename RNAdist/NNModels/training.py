@@ -13,7 +13,7 @@ from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, random_index_shift
+from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index
 
 
 def _loader_generation(
@@ -403,7 +403,7 @@ def train_network(fasta: str,
         aug_fcts["pair"].append(normalize_bpp)
         aug_fcts["pair_prob"].append(1)
     if config.random_shift is not None:
-        aug_fcts["single"].append(random_index_shift(0, 1000))
+        aug_fcts["single"].append(shift_index)
         aug_fcts["single_prob"].append(config.random_shift)
     if any((config.normalize_bpp, config.random_shift)):
         print("using Data Augmentation")

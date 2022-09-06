@@ -49,6 +49,7 @@ def test_training(random_fasta, train_config, expected_labels,
     else:
         expected_labels = expected_window_labels
         ml = 7
+        train_config.sample = 10
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:
         train_network(
             fasta=random_fasta,
