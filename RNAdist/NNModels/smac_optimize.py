@@ -70,7 +70,9 @@ class TrainingWorker:
             patience=config["patience"],
             lr_step_size=config["lr_step_size"],
             momentum=config["momentum"],
-            weight_decay=config["weight_decay"]
+            weight_decay=config["weight_decay"],
+            random_shift=config["random_shift"],
+            normalize_bpp=config["normalize_bpp"]
         )
         budget = budget / 100
         torch.manual_seed(seed)
@@ -127,6 +129,14 @@ def smac_that(
             "model_type",
             ["normal", "small"],
         )
+    random_shift = CategoricalHyperparameter(
+        "random_shift",
+        [0, 0.5, 1],
+    )
+    normalize_bpp = CategoricalHyperparameter(
+        "normalize_bpp",
+        [True, False],
+    )
     lr_step_size = UniformIntegerHyperparameter(
         "lr_step_size", 10, 100
     )
@@ -138,6 +148,8 @@ def smac_that(
     )
     cs.add_hyperparameters(
         [
+            random_shift,
+            normalize_bpp,
             model_type,
             learning_rate,
             batch_size,

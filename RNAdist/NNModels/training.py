@@ -130,6 +130,7 @@ def _dataset_generation(
         t = int(len(dataset) * train_val_ratio)
         v = len(dataset) - t
         training_set, validation_set = random_split(dataset, [t, v])
+        validation_set.dataset.random_shift = None
     elif mode == "window":
         training_set, validation_set = _split_fasta(
             fasta=fasta,
