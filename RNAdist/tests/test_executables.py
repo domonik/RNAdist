@@ -25,13 +25,34 @@ def test_cmd_training(random_fasta, expected_labels, tmp_path):
                    "--input", random_fasta,
                    "--label_dir", expected_labels,
                    "--output", model_file,
-                   "--data_path", tmpdir,
+                   "--dataset_path", tmpdir,
                    "--max_length", "20",
                    "--max_epochs", "1"
                    ]
         data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
         assert data.stderr.decode() == ""
         assert os.path.exists(model_file)
+
+
+def test_cmd_hpo(random_fasta, expected_labels, tmpdir):
+    model = os.path.join(tmpdir, "smac_model.pt")
+    smac_dir = os.path.join(tmpdir, "smac_dir")
+    dataset_path = os.path.join(tmpdir, "smac_dataset")
+    process = ["python", DISTATT_EXECUTABLES_FILE,
+               "optimize",
+               "--input", random_fasta,
+               "--label_dir", expected_labels,
+               "--output", model,
+               "--dataset_path", dataset_path,
+               "--run_default",
+               "--max_length", "20",
+               "--max_epochs", "1",
+               "--ta_run_limit", "5",
+               "--device", "cpu",
+               "--smac_dir", smac_dir
+               ]
+    _ = subprocess.run(process, stderr=subprocess.PIPE, env=env)
+    assert os.path.exists(model)
 
 
 def test_cmd_prediction(saved_model, random_fasta, tmp_path):

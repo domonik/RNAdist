@@ -46,13 +46,13 @@ def smac_parser(subparsers, name: str):
     group1 = parser.add_argument_group("Trainig Data")
     group2 = parser.add_argument_group("Training Settings")
     group1.add_argument(
-        '--fasta',
+        '--input',
         type=str,
         help="FASTA File used for training set generation",
         required=True
     )
     group1.add_argument(
-        '--model_output',
+        '--output',
         type=str,
         help="Path where the optimized model will be saved",
         required=True
@@ -114,6 +114,12 @@ def smac_parser(subparsers, name: str):
         default=False,
         action="store_true"
     )
+    group2.add_argument(
+        '--ta_run_limit',
+        type=int,
+        help="Maximum nr of hyper parameter configurations tested (Default: 1)",
+        default=100
+    )
     return parser
 
 
@@ -144,7 +150,7 @@ def training_parser(subparsers, name):
         help="path to the model file that will be generated"
     )
     group1.add_argument(
-        '--data_path',
+        '--dataset_path',
         type=str,
         required=True,
         help="Directory to store the pickled Dataset. "

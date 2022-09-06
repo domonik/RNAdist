@@ -228,8 +228,8 @@ def smac_that(
 
 def smac_executable_wrapper(args):
     smac_that(
-        fasta=args.fasta,
-        model_output=args.model_output,
+        fasta=args.input,
+        model_output=args.output,
         label_dir=args.label_dir,
         dataset_path=args.dataset_path,
         max_length=args.max_length,
@@ -238,7 +238,8 @@ def smac_executable_wrapper(args):
         max_epochs=args.max_epochs,
         num_threads=args.num_threads,
         run_default=args.run_default,
-        smac_dir=args.smac_dir
+        smac_dir=args.smac_dir,
+        ta_run_limit=args.ta_run_limit
     )
 
 

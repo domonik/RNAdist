@@ -467,7 +467,7 @@ def training_executable_wrapper(args):
     train_network(
         fasta=args.input,
         label_dir=args.label_dir,
-        dataset_path=args.data_path,
+        dataset_path=args.dataset_path,
         num_threads=args.num_threads,
         max_length=args.max_length,
         config=config,
