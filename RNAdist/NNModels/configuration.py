@@ -37,7 +37,7 @@ class ModelConfiguration:
         training_stats (str): Path to the training stats tsv file.
     """
     model_checkpoint: str
-    model: str = "normal"
+    model: Union[str, torch.nn.Module] = "normal"
     masking: bool = True
     nr_layers: int = 1
     optimizer: str = "adamw"
