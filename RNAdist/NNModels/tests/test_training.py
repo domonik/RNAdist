@@ -6,6 +6,7 @@ from RNAdist.NNModels.tests.data_fixtures import (
     PREFIX
 )
 import pytest
+import pandas as pd
 
 
 class TestModel(torch.nn.Module):
@@ -67,6 +68,27 @@ def test_training(random_fasta, train_config, expected_labels,
         state_dict, config = torch.load(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
         assert state_dict["output.weight"].shape[-1] == len(config.indices)
+
+
+def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):
+    train_config.training_stats = os.path.join(tmpdir, "training_stats.tsv")
+    dataset_path = os.path.join(tmpdir, "dataset")
+    epochs = 1
+    train_network(
+        fasta=random_fasta,
+        label_dir=expected_labels,
+        dataset_path=dataset_path,
+        config=train_config,
+        num_threads=1,
+        epochs=epochs,
+        max_length=20,
+        train_val_ratio=0.2,
+        device="cpu",
+        mode="normal"
+    )
+    assert os.path.exists(train_config.training_stats)
+    df = pd.read_csv(train_config.training_stats, sep="\t")
+    assert df.shape == (1, 5)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(),

@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data import random_split
 from Bio import SeqIO
 from tempfile import TemporaryDirectory
-
+import numpy as np
+import pandas as pd
 from RNAdist.NNModels.configuration import ModelConfiguration
 from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2,
@@ -263,6 +264,11 @@ def train_model(
     patience = config["patience"]
     torch.manual_seed(seed)
     out_dir = os.path.dirname(config["model_checkpoint"])
+    if config.training_stats is not None:
+        if os.path.exists(config.training_stats):
+            raise FileExistsError("Training stats file already exists. Please remove it or use another filename")
+    header = ["epoch", "training loss", "training MAE", "validation loss", "validation MAE"]
+    tstats = []
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
     if device is None:
@@ -340,8 +346,13 @@ def train_model(
                 torch.save((model.state_dict(), config), config["model_checkpoint"])
             print(
                 f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}\tValidation Loss: {val_loss:.2f}\tValidation MAE: {val_mae:.2f}")
+            tstats.append([epoch, train_loss, train_mae, val_loss, val_mae])
         else:
             print(f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}")
+            tstats.append([epoch, train_loss, train_mae, np.nan, np.nan])
+        if config.training_stats is not None:
+            df = pd.DataFrame(tstats, columns=header)
+            df.to_csv(config.training_stats, sep="\t", index=False)
         if epoch - best_epoch >= patience:
             break
         if torch.isnan(torch.tensor(train_loss)):

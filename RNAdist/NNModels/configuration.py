@@ -34,6 +34,7 @@ class ModelConfiguration:
         use_nucleotide_encoding (bool): Whether to use nucleotide encoding as a feature
         random_shift (float): probability to apply random shift in position encoding.
         normalize_bpp (bool): Whether bpp matrix is min max normalized or not.
+        training_stats (str): Path to the training stats tsv file.
     """
     model_checkpoint: str
     model: str = "normal"
@@ -54,6 +55,7 @@ class ModelConfiguration:
     use_nucleotide_encoding: bool = True
     random_shift: float = None
     normalize_bpp: bool = False
+    training_stats: str = None
 
     def __post_init__(self):
         """Check valid argument combinations
