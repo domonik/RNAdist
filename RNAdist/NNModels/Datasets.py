@@ -26,6 +26,15 @@ NUCLEOTIDE_MAPPING = {
 }
 
 
+def pos_encode_range(start, end, dim):
+    t = torch.arange(start, end)
+    ts = []
+    for k in range(int(dim / 2)):
+        dim_e = (1 / (10000 ** (2 * k / dim))) * t
+        ts.append(torch.sin(dim_e))
+        ts.append(torch.cos(dim_e))
+    return torch.stack(ts, dim=1)
+
 def pos_encoding(idx, dimension):
     enc = []
     for dim in range(int(dimension / 2)):
@@ -211,7 +220,7 @@ class RNAPairDataset(RNADataset):
             data = torch.load(file)
             x = data["x"]
             start = 0
-            positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start, start + x.shape[0])])
+            positions = pos_encode_range(start, start+x.shape[0], 4)
             x = torch.cat((x, positions), dim=1)
             if self.augmentor is not None:
                 x = self.augmentor.augment(x, mode="single")
@@ -349,7 +358,7 @@ class RNAWindowDataset(RNADataset):
             slen = x.shape[0]
             i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             start = 0
-            positions = torch.tensor([pos_encoding(idx, 4) for idx in range(start,start+ x.shape[0])])
+            positions = pos_encode_range(start, start+x.shape[0], 4)
             x = torch.cat((x, positions), dim=1)
             if self.augmentor is not None:
                 x = self.augmentor.augment(x, mode="single")
@@ -409,7 +418,7 @@ class DataAugmentor:
 
 def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 1000):
     _inner_start = int(torch.randint(start, end, size=(1,)))
-    positions = torch.tensor([pos_encoding(idx, 4) for idx in range(_inner_start, _inner_start + single_rep.shape[0])])
+    positions = pos_encode_range(_inner_start, _inner_start + + single_rep.shape[0], 4)
     single_rep[:, 4:8] = positions
     return single_rep
 

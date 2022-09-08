@@ -1,5 +1,8 @@
 #include <torch/extension.h>
 #include <stdexcept>
+#include <cmath>
+#include <vector>
+
 
 torch::Tensor scatter_triu_indices(int size, int step_size){
     if (step_size < 1){
@@ -8,19 +11,22 @@ torch::Tensor scatter_triu_indices(int size, int step_size){
     if (step_size > size){
             throw std::invalid_argument( "step_size needs to be less or equal size" );
     }
-    int m = (size / step_size) + (size % step_size != 0);
-    int full_size = ((m * m) - m) / 2 + m;
-    auto options = torch::TensorOptions().dtype(torch::kInt64).requires_grad(false);
-    torch::Tensor full_t = torch::empty({full_size, 2}, options);
-    int the_idx = 0;
+    int p = (size / step_size) + (size % step_size != 0);
+    int full_size = ((p * p) - p) / 2 + p;
+    auto options = torch::TensorOptions().dtype(torch::kInt32).requires_grad(false);
+    std::vector<int> m;
+    std::vector<int> l;
+    l.reserve(full_size);
+    m.reserve(full_size);
     for (int i = 0; i < size; i = i + step_size){
-        torch::Tensor range = torch::arange(i, size, step_size, options);
-        int cur_size = range.sizes()[0];
-        torch::Tensor indices = torch::arange(the_idx, the_idx + cur_size, options);
-        full_t.index_put_({indices, 0}, range);
-        full_t.index_put_({indices, 1}, i);
-        the_idx = the_idx + cur_size;
+        for (int j = i; j < size; j = j + step_size){
+            m.push_back(j);
+            l.push_back(i);
+        }
     }
+    torch::Tensor fm = torch::from_blob(m.data(), {full_size}, options);
+    torch::Tensor fl = torch::from_blob(l.data(), {full_size}, options);
+    torch::Tensor full_t = torch::stack({fl, fm}, {1});
     return full_t;
 }
 
