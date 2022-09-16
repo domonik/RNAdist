@@ -1,0 +1,3 @@
+[submodule "CPExpectedDistance"]
+	path = CPExpectedDistance
+	url = https://github.com/domonik/CPExpectedDistance.git

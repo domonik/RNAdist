@@ -9,12 +9,13 @@ import subprocess
 import pickle
 from Bio import SeqIO
 import pytest
+import sys
 import RNAdist
 
 DISTATT_EXECUTABLES_FILE = os.path.abspath(distattencione_executables.__file__)
 EXECUTABLES_FILE = os.path.abspath(executables.__file__)
 env = os.environ.copy()
-env["PYTHONPATH"] = os.path.abspath(os.path.dirname(os.path.dirname(RNAdist.__file__)))
+env["PYTHONPATH"] = ":".join(([os.path.abspath(os.path.dirname(os.path.dirname(RNAdist.__file__)))] + sys.path))
 
 
 def test_cmd_training(random_fasta, expected_labels, tmp_path):

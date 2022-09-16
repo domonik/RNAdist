@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 #
 import numpy as np
-from RNAdist.DPModels._dp_calulations import _fast_clote_ponty
 import RNA
+from CPExpectedDistance import expected_distance
 
 
 def dp_matrix_available():
@@ -33,13 +33,6 @@ def cp_expected_distance(sequence, md=None):
 
     https://doi.org/10.1007/s00285-011-0467-8
 
-    .. warning::
-
-        This function can only be used if your ViennaRNA (RNA) version supports
-        access to the DP matrix. You can check this using the provided
-        :func:`~RNAdist.DPModels.clote.dp_matrix_available`
-        function
-
     Args:
         sequence (str): RNA sequence of size :code:`N`
         md (RNA.md): ViennaRNA model details object
@@ -50,15 +43,10 @@ def cp_expected_distance(sequence, md=None):
             :code:`matrix[0][-1]`
 
 
-    First you have to check whether your ViennaRNA version supports DP matrix access
-
-    >>> from RNAdist.DPModels.clote import dp_matrix_available
-    >>> dp_matrix_available()
-    True
-
     .. warning::
 
-        If this does show False, it is not possible to run the following code
+        Experimental function. might not work if your numpy version doesnt match the numpy version
+        the C extension was compiled with
 
     You can calculate this using the default model details from ViennaRNA like this
 
@@ -80,13 +68,8 @@ def cp_expected_distance(sequence, md=None):
     if md is None:
         md = RNA.md()
     md.uniq_ML = 1
-    fc = RNA.fold_compound(sequence, md)
-    (ss, mfe) = fc.mfe()
-
-    fc.exp_params_rescale(mfe)
-
-    fc.pf()
-    return compute_clote(fc)
+    md_config = md_config_from_md(md)
+    return expected_distance(sequence, md_config)
 
 
 def compute_clote(fc):
@@ -100,8 +83,10 @@ def compute_clote(fc):
 
     .. warning::
 
-        This function might produce nonsense output if the fc is not set up correctly.
-        If you do not know how to do this consider using
+        This function is deprecated and only here for backward compatibility.
+        It uses the ViennaRNA C API to create a numpy array.
+        However, it messes around with the representation of the fold compound. consider using:
+
         :func:`~RNAdist.DPModels.clote.cp_expected_distance`
 
 
@@ -116,7 +101,16 @@ def compute_clote(fc):
         RuntimeError: If the DP matrices are not filled yet due to a missing fc.pf() call
 
     """
-    return _fast_clote_ponty(fc)
+    seq = str(fc).split('sequence: "')[-1].split('"')[0]
+    md_config = md_config_from_md(fc.params.model_details)
+    return expected_distance(seq, md_config)
 
 
+def md_config_from_md(md):
+    md_fields = dir(md)
+    md_config = {}
+    for name in md_fields:
+        if not name.startswith("_"):
+            md_config[name] = getattr(md, name)
+    return md_config
 
