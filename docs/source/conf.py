@@ -14,7 +14,10 @@ import os
 import sys
 # sys.path.insert(0, os.path.abspath('.'))
 __RNADISTPATH__ = os.path.abspath("../../")
+CP_PATH = os.path.join(__RNADISTPATH__, "CPExpectedDistance")
+assert os.path.exists(CP_PATH)
 sys.path.insert(1, __RNADISTPATH__)
+sys.path.append(CP_PATH)
 from RNAdist import _version
 
 # -- Project information -----------------------------------------------------

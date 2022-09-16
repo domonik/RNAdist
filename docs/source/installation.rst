@@ -26,9 +26,17 @@ The Pip Package can be installed easily via:
 
 .. warning::
 
-    Most of the required packages will be installed. However, the ViennaRNA_ package needs to be in PATH. Also, make sure that the Python API of the
-    ViennaRNA package is installed. Keep in mind that for some functionality you need a special version of this package that allows access to
-    DP matrices via the python API.
+    Most of the required packages will be installed. However, the ViennaRNA_ package needs to be in PATH.
+    For this reason we highly recommend to install ViennaRNA and check if the Python interface is installed correctly.
+    This can be achieved e.g. via
+
+    .. code-block::
+
+        conda install viennarna=2.5.1
+
+    if you have issues doing that create a fresh environment and install ViennaRNA before any other dependencies.
+    Expecially you need to install it before installing python.
+
 
     .. _ViennaRNA: https://www.tbi.univie.ac.at/RNA/
 

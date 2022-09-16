@@ -2,7 +2,7 @@
 #
 import numpy as np
 import RNA
-from CPExpectedDistance import expected_distance
+from CPExpectedDistance.p_expected_distance import expected_distance
 
 
 def dp_matrix_available():
