@@ -461,7 +461,7 @@ def run_visualization(args):
         fasta = seqs
     print("finished loading going to start server")
     _get_app_layout(app)
-    app.run(debug=True, port=args.port, host=args.host)
+    app.run(debug=False, port=args.port, host=args.host)
 
 data = {}
 fasta = {}
