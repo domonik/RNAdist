@@ -42,7 +42,8 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
     'sphinx.ext.intersphinx',
-    'sphinxarg.ext'
+    'sphinxarg.ext',
+    'sphinx_design'
 ]
 autosummary_generate = True
 # Add any paths that contain templates here, relative to this directory.
@@ -64,7 +65,6 @@ html_theme = "pydata_sphinx_theme"
 html_theme_options = {
     # Toc options
     "collapse_navigation": True,
-    "sticky_navigation": True,
     "navigation_depth": 4,
     "logo": {
         "image_light": "RNAdist4.svg",
@@ -86,5 +86,8 @@ mathjax3_config = {'chtml': {'displayAlign': 'left'}}
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = [
+    'args.css',
+]
 #html_logo = "_static/RNAdist4.svg"
 html_favicon = '_static/RNAdist_tabbar_dark.svg'

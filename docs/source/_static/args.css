@@ -4,3 +4,19 @@
 .wy-table-responsive {
     overflow: visible !important;
 }
+
+.sd-card-img-top {
+    width: 50% !important;
+    justify-content: center;
+    margin: auto;
+    padding: 10px;
+
+}
+
+.sd-card {
+    background: var(--pst-color-on-background) !important;
+}
+
+.sd-card-header {
+    font-size: var(--pst-font-size-h5) !important;
+}
