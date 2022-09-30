@@ -19,7 +19,7 @@ Therefore we picked binding-sites of PUM2 a famous RNA binding protein.
     **BindingSites** ::
 
         ENST00000261313.3	715 721
-        ENST00000431586.1	931 937
+        ENST00000261313.3	931 937
 
 First we need to set up a ViennaRNA fold compound and add the constraints at the binding sites. This will force the
 sites to be exterior on the ensemble of RNA graphs.

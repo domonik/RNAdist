@@ -1,6 +1,10 @@
 Installation
 ############
 
+
+Linux
+*****
+
 .. note::
     Best practice is to install RNAdist into an encapsulated environment e.g. via Conda:
 
@@ -32,10 +36,17 @@ The Pip Package can be installed easily via:
 
     .. code-block::
 
-        conda install viennarna=2.5.1
+        conda install viennarna=2.5.1 -c bioconda
 
     if you have issues doing that create a fresh environment and install ViennaRNA before any other dependencies.
     Expecially you need to install it before installing python.
+
+    Further if you receive compiler errors during installation we recommend to use conda g++ and gcc compilers. Both
+    should be installed if you type
+
+     .. code-block::
+
+        conda install gxx -c conda-forge
 
 
     .. _ViennaRNA: https://www.tbi.univie.ac.at/RNA/
