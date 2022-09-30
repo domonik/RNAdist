@@ -13,6 +13,8 @@
 import os
 import sys
 # sys.path.insert(0, os.path.abspath('.'))
+FPATH = os.path.abspath(__file__)
+__RNADISTPATH__ = os.path.abspath(os.path.join(FPATH, "../../"))
 __RNADISTPATH__ = os.path.abspath("../../")
 CP_PATH = os.path.join(__RNADISTPATH__, "CPExpectedDistance")
 assert os.path.exists(CP_PATH)
@@ -94,7 +96,7 @@ html_favicon = '_static/RNAdist_tabbar_dark.svg'
 autosummary_mock_imports = [
     'RNA',
     "RNAdist.NNModels.nn_helpers",
-    "RNAdist.DPModels._dp_calculations",
+    "RNAdist.DPModels._dp_calulations",
     "CPExpectedDistance.p_expected_distance",
     "networkx",
     "plotly",
