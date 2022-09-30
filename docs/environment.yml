@@ -1,0 +1,22 @@
+
+name:
+  rnadist_doc
+channels:
+  - conda-forge
+  - bioconda
+  - pytorch
+  - defaults
+dependencies:
+  - pip
+  - pip:
+    - sphinx
+    - sphinxcontrib-napoleon
+    - sphinx-argparse
+    - sphinx_rtd_theme
+    - pydata-sphinx-theme
+    - pytest-sphinx
+    - docutils
+    - doc8
+    - autodoc
+    - sphinx-autopackagesummary
+    - sphinx_design

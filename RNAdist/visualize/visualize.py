@@ -23,7 +23,7 @@ LOGO = os.path.join(ASSETS_DIR, "RNAdistVisualizer_dark.svg")
 assert os.path.exists(LOGO)
 encoded_img = base64.b64encode(open(LOGO, 'rb').read())
 
-COLORS = ["#ff8add"] + plotly.colors.qualitative.Light24
+COLORS = ["#ff8add"] + list(plotly.colors.qualitative.Light24)
 
 app = dash.Dash(
     "RNAdist Dashboard",

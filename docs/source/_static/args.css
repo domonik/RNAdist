@@ -13,6 +13,10 @@
 
 }
 
+html[data-theme="dark"] .bd-content img:not(.only-dark) {
+    background: transparent !important;
+}
+
 .sd-card {
     background: var(--pst-color-on-background) !important;
 }

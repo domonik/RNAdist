@@ -41,7 +41,6 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
-    'sphinx.ext.intersphinx',
     'sphinxarg.ext',
     'sphinx_design'
 ]
@@ -91,3 +90,23 @@ html_css_files = [
 ]
 #html_logo = "_static/RNAdist4.svg"
 html_favicon = '_static/RNAdist_tabbar_dark.svg'
+
+autosummary_mock_imports = [
+    'RNA',
+    "RNAdist.NNModels.nn_helpers",
+    "RNAdist.DPModels._dp_calculations",
+    "CPExpectedDistance.p_expected_distance",
+    "networkx",
+    "plotly",
+    "numpy",
+    "numpy.core.multiarray",
+    "Bio",
+    "pandas",
+    "torch",
+    "ConfigSpace",
+    "smac",
+    "dash_bootstrap_components",
+    "dash",
+    "plotly.colors.qualitative.Light24"
+
+]
