@@ -36,17 +36,10 @@ sites to be exterior on the ensemble of RNA graphs.
 Now that we set up the ViennaRNA fold compound object it is time to calculate the partition function and use the Python
 API of RNAdist to get the expected distance matrix
 
-.. warning::
+.. Note::
 
     At this point your ViennaRNA Python API needs to have access to the dynamic programming matrices.
-    You can run this using the following code snipped. If it returns :code:`False` please install a supported
-    ViennaRNA version
-
-    .. code-block:: python
-
-        >>> from RNAdist.DPModels.clote import dp_matrix_available
-        >>> dp_matrix_available()
-        True
+    This should be the case if you use the latest RNAdist version.
 
 .. code-block:: python
 

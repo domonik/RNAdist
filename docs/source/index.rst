@@ -12,7 +12,7 @@ RNAdist documentation
 
 **Version**: |release|
 
-.. grid:: 2
+.. grid:: 1 1 2 2
     :gutter: 3
 
     .. grid-item-card::
