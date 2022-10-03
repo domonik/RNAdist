@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-#
 import numpy as np
 import RNA
 from CPExpectedDistance.p_expected_distance import expected_distance
@@ -68,8 +66,8 @@ def cp_expected_distance(sequence, md=None):
     if md is None:
         md = RNA.md()
     md.uniq_ML = 1
-    md_config = md_config_from_md(md)
-    return expected_distance(sequence, md_config)
+    fc = RNA.fold_compound(sequence, md)
+    return compute_clote(fc)
 
 
 def compute_clote(fc):
@@ -101,16 +99,4 @@ def compute_clote(fc):
         RuntimeError: If the DP matrices are not filled yet due to a missing fc.pf() call
 
     """
-    seq = str(fc).split('sequence: "')[-1].split('"')[0]
-    md_config = md_config_from_md(fc.params.model_details)
-    return expected_distance(seq, md_config)
-
-
-def md_config_from_md(md):
-    md_fields = dir(md)
-    md_config = {}
-    for name in md_fields:
-        if not name.startswith("_"):
-            md_config[name] = getattr(md, name)
-    return md_config
-
+    return expected_distance(fc)

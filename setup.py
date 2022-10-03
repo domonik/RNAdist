@@ -83,7 +83,7 @@ setup(
             include_dirs=cpp_extension.include_paths(),
             language="c++"
         ),
-    ] + cythonize("RNAdist/DPModels/_dp_calulations.pyx") + [cp_exp_dist_extension],
+    ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",

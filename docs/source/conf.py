@@ -97,6 +97,7 @@ autosummary_mock_imports = [
     'RNA',
     "RNAdist.NNModels.nn_helpers",
     "RNAdist.DPModels._dp_calulations",
+    "RNAdist.DPModels._dp_calculations",
     "CPExpectedDistance.p_expected_distance",
     "networkx",
     "plotly",
