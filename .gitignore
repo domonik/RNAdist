@@ -13,7 +13,7 @@ papers/
 *best_models/
 /dist
 /build
-_build/
+*_build/
 *_autosummary/
 *_dp_calulations.*
 *_dp_calculations.c
