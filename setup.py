@@ -10,6 +10,8 @@ NAME = "RNAdist"
 DESCRIPTION = "Package for Calculating Expected Distances on the " \
               "ensemble of RNA structures"
 
+with open("README.md") as handle:
+    LONGDESC = handle.read()
 
 
 extra_link_args = []
@@ -59,7 +61,7 @@ setup(
     license="LICENSE",
     url="https://github.com/domonik/RNAdist",
     description=DESCRIPTION,
-    long_description=DESCRIPTION,
+    long_description=LONGDESC,
     long_description_content_type="text/markdown",
     include_package_data=True,
     package_data={"RNAdist.visualize": ["assets/*"]},
