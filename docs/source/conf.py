@@ -30,6 +30,10 @@ author = 'Domonik'
 
 # The full version, including alpha/beta/rc tags
 __version__ = _version.get_versions()["version"]
+wd_v = __version__.split("+")
+if len(wd_v) > 1:
+    if wd_v[1][0] == "0":
+        __version__ = wd_v[0]
 release = __version__
 
 
