@@ -46,11 +46,12 @@ cp_exp_dist_extension = Extension(
     include_dirs=include_dir,
 
 )
-
+cmds = versioneer.get_cmdclass()
+cmds["build_ext"] = cpp_extension.BuildExtension
 setup(
     name=NAME,
     version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    cmdclass=cmds,
     author="domonik",
     author_email="dominik.rabsch@gmail.com",
     packages=find_packages() + find_packages("CPExpectedDistance"),
@@ -77,7 +78,7 @@ setup(
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
     ext_modules=[
-        Extension(
+        cpp_extension.CppExtension(
             name="RNAdist.NNModels.nn_helpers",
             sources=["RNAdist/NNModels/nn_helpers.cpp"],
             include_dirs=cpp_extension.include_paths(),

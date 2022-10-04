@@ -1,6 +1,6 @@
 import numpy as np
 import RNA
-from RNAdist.DPModels._dp_calulations import _fast_pmcomp
+from RNAdist.DPModels._dp_calculations import _fast_pmcomp
 
 
 def pmcomp_distance(sequence, md=None):
