@@ -40,6 +40,14 @@ if not os.path.exists(os.path.join(prefix, "lib", python_l, "site-packages", "RN
                         "conda install -c bioconda viennarna"
 )
 
+bfs_extension = Extension(
+    "RNAdist.sampling.cpp.sampling",
+    sources=["RNAdist/sampling/cpp/sampling.cpp"],
+    extra_link_args=extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
+                                       "-Wl,--no-undefined"],
+    include_dir=include_dir,
+    language="c++"
+)
 
 cp_exp_dist_extension = Extension(
     "CPExpectedDistance.c_expected_distance",
@@ -86,7 +94,7 @@ setup(
             include_dirs=cpp_extension.include_paths(),
             language="c++"
         ),
-    ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension],
+    ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension, bfs_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",
