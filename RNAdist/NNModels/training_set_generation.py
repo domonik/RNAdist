@@ -1,5 +1,5 @@
 import RNA
-from RNAdist.sampling.expected_length_sampling import sample_distance
+from RNAdist.sampling.ed_sampling import sample_distance
 from torch.multiprocessing import Pool
 from Bio import SeqIO
 import os
