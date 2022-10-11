@@ -10,6 +10,8 @@ from Bio import SeqIO
 import pytest
 import torch
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "model",

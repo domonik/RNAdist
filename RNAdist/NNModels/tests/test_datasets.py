@@ -11,6 +11,8 @@ from RNAdist.NNModels.tests.data_fixtures import (
     PREFIX
 )
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
 def test_rna_pair_dataset(random_fasta, expected_labels):
     with TemporaryDirectory(prefix=PREFIX) as tmpdir:

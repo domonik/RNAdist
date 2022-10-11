@@ -11,6 +11,8 @@ import pytest
 from RNAdist.NNModels.training_set_generation import create_random_fasta, \
     training_set_from_fasta, LabelDict
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
 def test_random_fasta_generation(random_fasta):
     with open(random_fasta) as handle:

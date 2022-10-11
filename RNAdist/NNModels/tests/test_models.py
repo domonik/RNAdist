@@ -21,6 +21,8 @@ def test_triangular_update(mode, masked_pair_rep_batch):
         optimizer.step()
         assert torch.sum(inv_mask * pred) == 0
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "mode",

@@ -4,6 +4,8 @@ from RNAdist.DPModels.clote import cp_expected_distance
 from RNAdist.DPModels.pmcomp import pmcomp_distance
 import numpy as np
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "test_md",

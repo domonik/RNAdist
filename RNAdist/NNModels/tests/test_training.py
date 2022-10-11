@@ -8,8 +8,11 @@ from RNAdist.NNModels.tests.data_fixtures import (
 import pytest
 import pandas as pd
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
 
-class TestModel(torch.nn.Module):
+
+class Modeltotest(torch.nn.Module):
     def __init__(self, embedding_size):
         super().__init__()
         self.embedding_size = embedding_size
@@ -25,7 +28,7 @@ class TestModel(torch.nn.Module):
 
 
 def triangularselfattention(dim):
-    model = TestModel(dim)
+    model = Modeltotest(dim)
     return model
 
 

@@ -2,6 +2,7 @@ from setuptools import setup, find_packages, Extension
 import versioneer
 from Cython.Build import cythonize
 from torch.utils import cpp_extension
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 import numpy as np
 import os
 import sys
@@ -41,10 +42,10 @@ if not os.path.exists(os.path.join(prefix, "lib", python_l, "site-packages", "RN
                         "conda install -c bioconda viennarna"
 )
 
-samping_extension = Extension(
+samping_extension = Pybind11Extension(
     "RNAdist.sampling.cpp.sampling",
     sources=["RNAdist/sampling/cpp/sampling.cpp"],
-    extra_link_args=extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
                                        "-Wl,--no-undefined"],
     include_dir=[_include, pybind11.get_include()],
     language="c++"

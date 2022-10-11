@@ -12,6 +12,9 @@ import pytest
 import sys
 import RNAdist
 
+pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
+                  "RNAdist.NNModels.tests.data_fixtures"]
+
 DISTATT_EXECUTABLES_FILE = os.path.abspath(distattencione_executables.__file__)
 EXECUTABLES_FILE = os.path.abspath(executables.__file__)
 env = os.environ.copy()
