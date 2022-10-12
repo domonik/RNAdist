@@ -1,8 +1,10 @@
 from RNAdist.NNModels.Datasets import (
     RNAPairDataset,
     RNADATA,
-    RNAWindowDataset
+    RNAWindowDataset,
+    RNAGeometricWindowDataset
 )
+from torch_geometric.data import DataLoader as GeoDataloader
 from tempfile import TemporaryDirectory
 import torch
 
@@ -45,3 +47,23 @@ def test_rna_data_to_tensor(seq4test, expected_rna_data):
     expected_pair, expected_x = expected_rna_data
     assert torch.equal(expected_pair, pair)
     assert torch.equal(expected_x, x)
+
+
+def test_geometric_loading(random_fasta, prefix):
+    """Checks if the index dimension of the graph data is correctly loaded"""
+    ml = 9
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        dataset = RNAGeometricWindowDataset(
+            data=random_fasta,
+            label_dir=None,
+            dataset_path=tmpdir,
+            num_threads=1,
+            max_length=ml,
+            step_size=1
+        )
+        loader = GeoDataloader(
+            dataset, batch_size=2, shuffle=False
+        )
+        for batch in iter(loader):
+            assert batch["idx_info"].shape[0] == 2
+

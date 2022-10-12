@@ -13,6 +13,8 @@ import RNA
 import itertools
 import math
 import random
+from torch_geometric.data import Data as GeoData
+from torch_geometric.utils import dense_to_sparse
 import torch.multiprocessing
 from RNAdist.DPModels.viennarna_helpers import (
     fold_bppm, set_md_from_config, plfold_bppm)
@@ -382,6 +384,60 @@ class RNAWindowDataset(RNADataset):
 
     def __len__(self):
         return self.index_to_data[-1][-1]
+
+
+class RNAGeometricWindowDataset(RNAWindowDataset):
+    def __init__(self, data: str, label_dir: Union[str, os.PathLike, None], dataset_path: str = "./",
+                 num_threads: int = 1, max_length: int = 201, md_config=None, step_size: int = 1,
+                 global_mask_size: int = None, augmentor: DataAugmentor = None):
+        super().__init__(data, label_dir, dataset_path, num_threads, max_length, md_config, step_size, global_mask_size,
+                         augmentor)
+
+    def __getitem__(self, item):
+        with torch.no_grad():
+            file_index, inner_index = self.get_indes_from_ranges(item)
+            data = torch.load(self.files[file_index])
+            x = data["x"]
+            y = data["y"]
+            slen = x.shape[0]
+            i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
+            i: torch.Tensor
+            j: torch.Tensor
+            start = 0
+            positions = pos_encode_range(start, start+x.shape[0], 4)
+            x = torch.cat((x, positions), dim=1)
+            if self.augmentor is not None:
+                x = self.augmentor.augment(x, mode="single")
+            bppm = data["bppm"]
+            mask = torch.ones(*bppm.shape[0:2])
+            pad_val = int((self.max_length - 1) / 2)
+
+            # padding everything such that for the pair_rep it will match the expected shape
+            x = F.pad(x,  (0, 0, pad_val, pad_val))
+            bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
+            mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
+            bppm = bppm.squeeze()
+            edge_index, edge_weights = dense_to_sparse(bppm)
+
+            idx_information = torch.stack((torch.tensor(file_index), i, j), dim=0)
+
+            data = RNAGeoData(
+                x=x,
+                edge_index=edge_index,
+                edge_attr=edge_weights,
+                idx_info=idx_information
+            )
+            return data
+
+
+class RNAGeoData(GeoData):
+    def __cat_dim__(self, key, value, *args, **kwargs):
+        if key == 'idx_info':
+            return None
+        else:
+            return super().__cat_dim__(key, value, *args, **kwargs)
+
+
 
 
 class DataAugmentor:
