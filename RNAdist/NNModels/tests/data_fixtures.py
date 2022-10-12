@@ -6,8 +6,11 @@ from RNAdist.NNModels.configuration import ModelConfiguration
 
 TESTFILE_DIR = os.path.dirname(os.path.abspath(__file__))
 TESTDATA_DIR = os.path.join(TESTFILE_DIR, "test_data")
-PREFIX = "RNAdist_"
 
+
+@pytest.fixture()
+def prefix():
+    return "RNAdist_"
 
 
 @pytest.fixture()

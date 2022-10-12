@@ -47,7 +47,7 @@ samping_extension = Pybind11Extension(
     sources=["RNAdist/sampling/cpp/sampling.cpp"],
     extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
                                        "-Wl,--no-undefined"],
-    include_dir=[_include, pybind11.get_include()],
+    include_dirs=[_include, pybind11.get_include()],
     language="c++"
 )
 
@@ -74,7 +74,12 @@ setup(
     long_description=LONGDESC,
     long_description_content_type="text/markdown",
     include_package_data=True,
-    package_data={"RNAdist.visualize": ["assets/*"]},
+    package_data={
+        "RNAdist.visualize": ["assets/*"],
+        "RNAdist.DPModels": ["tests/*.py", "tests/test_data"],
+        "RNAdist.NNModels": ["tests/*.py", "tests/test_data/*.fa", "tests/test_data/*.pt", "tests/test_data/expected*/*"],
+        "RNAdist.sampling": ["tests/*.py", "tests/test_data"],
+    },
     install_requires=[
         "torch",
         "torchvision",
@@ -94,6 +99,7 @@ setup(
             name="RNAdist.NNModels.nn_helpers",
             sources=["RNAdist/NNModels/nn_helpers.cpp"],
             include_dirs=cpp_extension.include_paths(),
+            extra_link_args=["-Wl,--no-undefined", f"-l{python_l}"],
             language="c++"
         ),
     ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension, samping_extension],

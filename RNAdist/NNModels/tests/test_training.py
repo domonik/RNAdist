@@ -2,9 +2,6 @@ from RNAdist.NNModels.training import train_network
 from tempfile import TemporaryDirectory
 import os
 import torch
-from RNAdist.NNModels.tests.data_fixtures import (
-    PREFIX
-)
 import pytest
 import pandas as pd
 
@@ -38,7 +35,7 @@ def triangularselfattention(dim):
 @pytest.mark.parametrize("mode", ["normal", "window"])
 @pytest.mark.parametrize("random_shift", [None, 0.8])
 def test_training(random_fasta, train_config, expected_labels,
-                  model_type, use_bppm, use_pos, expected_window_labels, mode, random_shift, request):
+                  model_type, use_bppm, use_pos, expected_window_labels, mode, random_shift, prefix):
     if random_shift is not None:
         train_config.random_shift = random_shift
     train_config.use_bppm = use_bppm
@@ -54,7 +51,7 @@ def test_training(random_fasta, train_config, expected_labels,
         expected_labels = expected_window_labels
         ml = 7
         train_config.sample = 10
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         train_network(
             fasta=random_fasta,
             label_dir=expected_labels,
@@ -96,9 +93,9 @@ def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):
 
 @pytest.mark.skipif(not torch.cuda.is_available(),
                     reason="Setup does not support a cuda enabled graphics card")
-def test_cuda_training(random_fasta, train_config, expected_labels):
+def test_cuda_training(random_fasta, train_config, expected_labels, prefix):
 
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         train_network(
             fasta=random_fasta,
             label_dir=expected_labels,
@@ -118,8 +115,8 @@ def test_cuda_training(random_fasta, train_config, expected_labels):
     "epochs",
     [0, 1]
 )
-def test_pretrained(random_fasta, train_config, expected_labels, saved_model, expected_window_labels, epochs):
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+def test_pretrained(random_fasta, train_config, expected_labels, saved_model, expected_window_labels, epochs, prefix):
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         model_state_dict = train_network(
             fasta=random_fasta,
             label_dir=expected_labels,

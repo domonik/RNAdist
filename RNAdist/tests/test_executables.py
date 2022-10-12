@@ -1,8 +1,5 @@
 import os
 from RNAdist.NNModels.training_set_generation import LabelDict
-from RNAdist.NNModels.tests.data_fixtures import (
-    PREFIX
-)
 from RNAdist import distattencione_executables, executables
 from tempfile import TemporaryDirectory
 import subprocess
@@ -21,9 +18,9 @@ env = os.environ.copy()
 env["PYTHONPATH"] = ":".join(([os.path.abspath(os.path.dirname(os.path.dirname(RNAdist.__file__)))] + sys.path))
 
 
-def test_cmd_training(random_fasta, expected_labels, tmp_path):
+def test_cmd_training(random_fasta, expected_labels, tmp_path, prefix):
     model_file = os.path.join(tmp_path, "cmd_model.pt")
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         process = ["python", DISTATT_EXECUTABLES_FILE,
                    "train",
                    "--input", random_fasta,
@@ -99,9 +96,9 @@ def test_cmd_data_generation(tmp_path, random_fasta):
 @pytest.mark.parametrize(
     "command",
     [
-        "sample",
         "clote-ponty",
-        "pmcomp"
+        "pmcomp",
+        "sample",
     ]
 )
 def test_rnadist_cmd(tmp_path, random_fasta, command):

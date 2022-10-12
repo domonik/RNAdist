@@ -51,4 +51,13 @@ The Pip Package can be installed easily via:
 
     .. _ViennaRNA: https://www.tbi.univie.ac.at/RNA/
 
+.. note::
+    You can test whether everything is installed correctly if you install pytest and run the following command:
+
+    .. code-block::
+
+        pytest --pyargs RNAdist
+
+
+
 

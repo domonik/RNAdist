@@ -5,17 +5,13 @@ from RNAdist.NNModels.Datasets import (
 )
 from tempfile import TemporaryDirectory
 import torch
-from RNAdist.NNModels.tests.data_fixtures import (
-    random_fasta,
-    expected_labels,
-    PREFIX
-)
 
 pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
                   "RNAdist.NNModels.tests.data_fixtures"]
 
-def test_rna_pair_dataset(random_fasta, expected_labels):
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+
+def test_rna_pair_dataset(random_fasta, expected_labels, prefix):
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         _ = RNAPairDataset(
             data=random_fasta,
             label_dir=expected_labels,
@@ -25,9 +21,9 @@ def test_rna_pair_dataset(random_fasta, expected_labels):
         )
 
 
-def test_rna_window_dataset(random_fasta, expected_labels):
+def test_rna_window_dataset(random_fasta, expected_labels, prefix):
     ml = 9
-    with TemporaryDirectory(prefix=PREFIX) as tmpdir:
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
         dataset = RNAWindowDataset(
             data=random_fasta,
             label_dir=None,
