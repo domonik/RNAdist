@@ -1,5 +1,5 @@
 import RNA
-from RNAdist.sampling.ed_sampling import sample_distance
+from RNAdist.sampling.ed_sampling import sample_cpp
 from torch.multiprocessing import Pool
 from Bio import SeqIO
 import os
@@ -72,9 +72,9 @@ def _mp_wrapper(sequences, file, nr_samples, config):
     out = {}
     index = {}
     for description, seq in sequences:
-        y, bppm = sample_distance(seq, nr_samples)
+        y = sample_cpp(seq, nr_samples)
         y = torch.tensor(y, dtype=torch.float)
-        bppm = torch.tensor(bppm, dtype=torch.float)
+        bppm = torch.tensor(1, dtype=torch.float)
         out[description] = (y, bppm)
         index[description] = os.path.basename(file)
     torch.save(out, file)
