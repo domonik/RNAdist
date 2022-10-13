@@ -346,6 +346,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.device = device
         self.graph_attention_layers = graph_attention_layers
         self.embedding_dim = embedding_dim
+        self.input_dim = input_dim
 
         self.graph_attention = nn.ModuleList(
             GATv2Conv(
@@ -353,7 +354,12 @@ class GraphRNADISTAtteNCionE(nn.Module):
                 embedding_dim,
                 edge_dim=1,
                 fill_value="add"  # this is kinda equivalent to the unpaired probability
-            ) if idx == 0 else GATv2Conv(embedding_dim, embedding_dim)
+            ) if idx == 0 else GATv2Conv(
+                embedding_dim,
+                embedding_dim,
+                edge_dim=1,
+                fill_value="add"
+            )
             for idx, _ in enumerate(range(self.graph_attention_layers))
         )
         self.pair_updates = nn.ModuleList(
@@ -382,7 +388,11 @@ class GraphRNADISTAtteNCionE(nn.Module):
             x = self.graph_attention[idx](x, edge_index, edge_attr)
 
         # gets batch representation back
-        x = torch.stack(torch.split(x, self.nodes_per_batch))
+        try:
+            x = torch.stack(torch.split(x, self.nodes_per_batch))
+        except:
+            p = 0
+            exit()
 
         # gets batched pair_representations
         pair_rep = self.batched_pair_rep_from_single(x)

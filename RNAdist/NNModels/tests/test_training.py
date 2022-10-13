@@ -70,6 +70,27 @@ def test_training(random_fasta, train_config, expected_labels,
         assert state_dict["output.weight"].shape[-1] == len(config.indices)
 
 
+def test_graph_training(random_fasta, train_config, expected_window_labels, prefix):
+    ml = 7
+    mode = "graph"
+    train_config.model = "graph"
+    train_config.sample = 10
+
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        train_network(
+            fasta=random_fasta,
+            label_dir=expected_window_labels,
+            dataset_path=tmpdir,
+            config=train_config,
+            num_threads=1,
+            epochs=1,
+            max_length=ml,
+            train_val_ratio=0.2,
+            device="cpu",
+            mode=mode
+        )
+
+
 def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):
     train_config.training_stats = os.path.join(tmpdir, "training_stats.tsv")
     dataset_path = os.path.join(tmpdir, "dataset")

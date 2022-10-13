@@ -62,7 +62,7 @@ def test_graph_model(random_fasta, prefix):
             dataset, batch_size=2, shuffle=False
         )
         model = GraphRNADISTAtteNCionE(
-            8, 16, ml, upper_bound=dataset.upper_bound, graph_attention_layers=1
+            8, 16, ml, upper_bound=dataset.upper_bound, graph_attention_layers=2
         )
         for batch in iter(loader):
             result = model(batch)

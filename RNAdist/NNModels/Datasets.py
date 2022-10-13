@@ -459,8 +459,20 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             # now we need to cut out the bppm and the mask for the pair-rep part of the network
             bppm = bppm[i:i+self.max_length, j:j+self.max_length]
             mask = mask[i:i+self.max_length, j:j+self.max_length]
-
-        data = RNAGeoData(
+            if not isinstance(y, int):
+                y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))
+                y = y[i:i + self.max_length, j:j + self.max_length]
+                data = RNAGeoData(
+                            x=x,
+                            edge_index=edge_index,
+                            edge_attr=edge_weights,
+                            idx_info=idx_information,
+                            mask=mask,
+                            bppm=bppm,
+                            y=y
+                        )
+            else:
+                data = RNAGeoData(
                     x=x,
                     edge_index=edge_index,
                     edge_attr=edge_weights,
@@ -474,7 +486,7 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 class RNAGeoData(GeoData):
     def __cat_dim__(self, key, value, *args, **kwargs):
         keys = [
-            "idx_info", "mask", "bppm"
+            "idx_info", "mask", "bppm", "y"
         ]
         if key in keys:
             return None

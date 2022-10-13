@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple, Callable, Any
 
 import torch
 from torch.utils.data import DataLoader, RandomSampler
+from torch_geometric.data import DataLoader as GeoDataLoader
 from torch.utils.data import random_split
 from Bio import SeqIO
 from tempfile import TemporaryDirectory
@@ -12,9 +13,11 @@ from RNAdist.NNModels.configuration import ModelConfiguration
 from RNAdist.NNModels.DISTAtteNCionE import (
     DISTAtteNCionE2,
     DISTAtteNCionESmall,
-    WeightedDiagonalMSELoss
+    GraphRNADISTAtteNCionE
 )
-from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index
+from RNAdist.NNModels.Datasets import (
+    RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index, RNAGeometricWindowDataset
+)
 
 
 def _loader_generation(
@@ -24,8 +27,12 @@ def _loader_generation(
         num_threads: int = 1,
         sample: int = None
 ):
+    if isinstance(training_set, RNAGeometricWindowDataset):
+        loader = GeoDataLoader
+    else:
+        loader = DataLoader
     if sample:
-        train_loader = DataLoader(
+        train_loader = loader(
             training_set,
             batch_size=batch_size,
             num_workers=num_threads,
@@ -36,7 +43,7 @@ def _loader_generation(
                 num_samples=sample
             )
         )
-        val_loader = DataLoader(
+        val_loader = loader(
             validation_set,
             batch_size=batch_size,
             num_workers=num_threads,
@@ -48,14 +55,14 @@ def _loader_generation(
             )
         )
     else:
-        train_loader = DataLoader(
+        train_loader = loader(
             training_set,
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_threads,
             pin_memory=True,
         )
-        val_loader = DataLoader(
+        val_loader = loader(
             validation_set,
             batch_size=batch_size,
             shuffle=False,
@@ -65,7 +72,16 @@ def _loader_generation(
     return train_loader, val_loader
 
 
-def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, max_length, global_mask_size):
+def _split_fasta(
+        fasta,
+        train_val_ratio,
+        label_dir,
+        data_storage,
+        num_threads,
+        max_length,
+        global_mask_size,
+        graph: bool = False
+):
     with TemporaryDirectory(prefix="RNAdist_split") as tmpdir:
         seq_records = [seq_record for seq_record in SeqIO.parse(fasta, "fasta")]
         indices = torch.randperm(len(seq_records))
@@ -80,26 +96,52 @@ def _split_fasta(fasta, train_val_ratio, label_dir, data_storage, num_threads, m
             SeqIO.write(val_seqs, handle, "fasta")
         val_storage = os.path.join(data_storage, "validation")
         train_storage = os.path.join(data_storage, "training")
-        train_set = RNAWindowDataset(
-            data=train_file,
-            label_dir=label_dir,
-            dataset_path=train_storage,
-            num_threads=num_threads,
-            max_length=max_length,
-            step_size=1,
-            global_mask_size=global_mask_size
+        if not graph:
+            train_set = RNAWindowDataset(
+                data=train_file,
+                label_dir=label_dir,
+                dataset_path=train_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+                step_size=1,
+                global_mask_size=global_mask_size
 
-        )
-        val_set = RNAWindowDataset(
-            data=valid_file,
-            label_dir=label_dir,
-            dataset_path=val_storage,
-            num_threads=num_threads,
-            max_length=max_length,
-            step_size=1,
-            global_mask_size = global_mask_size
+            )
+            val_set = RNAWindowDataset(
+                data=valid_file,
+                label_dir=label_dir,
+                dataset_path=val_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+                step_size=1,
+                global_mask_size=global_mask_size
 
-        )
+            )
+        else:
+            train_set = RNAGeometricWindowDataset(
+                data=train_file,
+                label_dir=label_dir,
+                dataset_path=train_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+                step_size=1,
+                global_mask_size=global_mask_size,
+                local=False
+
+            )
+            val_set = RNAGeometricWindowDataset(
+                data=valid_file,
+                label_dir=label_dir,
+                dataset_path=val_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+                step_size=1,
+                global_mask_size=global_mask_size,
+                local=False
+            )
+            upper_bound = max(val_set.upper_bound, train_set.upper_bound)
+            val_set.upper_bound = upper_bound
+            train_set.upper_bound = upper_bound
         return train_set, val_set
 
 
@@ -142,6 +184,17 @@ def _dataset_generation(
             max_length=max_length,
             global_mask_size=global_mask_size
 
+        )
+    elif mode == "graph":
+        training_set, validation_set = _split_fasta(
+            fasta=fasta,
+            train_val_ratio=train_val_ratio,
+            label_dir=label_dir,
+            data_storage=data_storage,
+            num_threads=num_threads,
+            max_length=max_length,
+            global_mask_size=global_mask_size,
+            graph=True
         )
     else:
         raise ValueError("Unsupported mode")
@@ -190,18 +243,26 @@ def _setup(
 
 
 def _unpack_batch(batch, device, config):
-    if config["masking"]:
-        pair_rep, y, mask, _ = batch
+    if config["model"] == "graph":
+        pair_rep = batch
+        mask = batch["mask"]
+        y = batch["y"]
         mask = mask.to(device)
         numel = torch.count_nonzero(mask)
+        pair_rep = pair_rep.to(device)
     else:
-        pair_rep, y, _, _ = batch
-        numel = y.numel()
-        mask = None
+        if config["masking"]:
+            pair_rep, y, mask, _ = batch
+            mask = mask.to(device)
+            numel = torch.count_nonzero(mask)
+        else:
+            pair_rep, y, _, _ = batch
+            numel = y.numel()
+            mask = None
+        indices = config.indices.to(device)
+        pair_rep = pair_rep.to(device)
+        pair_rep = torch.index_select(pair_rep, -1,  indices)
     y = y.to(device)
-    pair_rep = pair_rep.to(device)
-    indices = config.indices.to(device)
-    pair_rep = torch.index_select(pair_rep, -1,  indices)
     return pair_rep, y, mask, numel
 
 
@@ -275,12 +336,23 @@ def train_model(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         assert device.startswith("cuda") or device.startswith("cpu")
-    input_dim = config.input_dim
+    input_dim = config.input_dim if config.model != "graph" else 8  # Todo: This can be adjusted if Graph approach works
 
     if config["model"] == "normal":
         model = DISTAtteNCionE2(input_dim, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(input_dim, nr_updates=config["nr_layers"])
+    elif config["model"] == "graph":
+        dataset = train_loader.dataset
+        assert isinstance(dataset, RNAGeometricWindowDataset), "Graph model only available with the Graph dataset"
+        model = GraphRNADISTAtteNCionE(
+            input_dim=input_dim,
+            embedding_dim=2*input_dim,
+            max_length=train_loader.dataset.max_length,
+            upper_bound=train_loader.dataset.upper_bound,
+            graph_attention_layers=config["graph_layers"],
+            device=device
+        )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
     else:

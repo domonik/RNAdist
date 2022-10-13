@@ -56,6 +56,7 @@ class ModelConfiguration:
     random_shift: float = None
     normalize_bpp: bool = False
     training_stats: str = None
+    graph_layers: int = 4
 
     def __post_init__(self):
         """Check valid argument combinations
