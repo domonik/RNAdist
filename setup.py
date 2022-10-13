@@ -81,7 +81,7 @@ setup(
         "RNAdist.sampling": ["tests/*.py", "tests/test_data"],
     },
     install_requires=[
-        "torch",
+        "torch==1.11",
         "torchvision",
         "torchaudio",
         "networkx",
