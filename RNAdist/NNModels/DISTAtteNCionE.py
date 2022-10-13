@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch_geometric.nn import GATv2Conv
 
 
 class SequenceMultihead(torch.nn.Module):
@@ -319,6 +320,43 @@ class DISTAtteNCionE2(nn.Module):
         self.output = nn.Linear(embedding_dim, 1)
 
     def forward(self, pair_rep, mask=None):
+        for idx in range(self.nr_updates):
+            pair_rep = self.pair_updates[idx](pair_rep, mask)
+        out = self.output(pair_rep)
+        out = torch.squeeze(out)
+        out = torch.relu(out)
+        if mask is not None:
+            out = out * mask
+        return out
+
+
+class GraphRNADISTAtteNCionE():
+    def __init__(self, input_dim, embedding_dim, fw: int = 4, graph_attention_layers: int = 4):
+        super().__init__()
+        self.nr_updates = 1
+        self.graph_attention_layers = graph_attention_layers
+
+        self.graph_attention = nn.ModuleList(
+            GATv2Conv(input_dim, embedding_dim) for _ in range(self.graph_attention_layers)
+        )
+        self.pair_updates = nn.ModuleList(
+            PairUpdate(embedding_dim, fw) for _ in range(self.nr_updates)
+        )
+        self.output = nn.Linear(embedding_dim, 1)
+
+    def pair_rep_from_single(self, x):
+        n = x.shape[0]
+        e = x.shape[1]
+        x_x = x.repeat(n, 1)
+        x_y = x.repeat(1, n).reshape(-1, e)
+        pair_rep = torch.cat((x_x, x_y), dim=1).reshape(n, n, -1)
+        return pair_rep
+
+    def forward(self, data, mask=None):
+        x, edge_index, edge_attr, idx_info = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"]
+        for idx in range(self.graph_attention_layers):
+            x = self.graph_attention[idx](x, edge_index, edge_attr)
+
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
         out = self.output(pair_rep)

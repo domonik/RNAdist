@@ -254,13 +254,15 @@ class RNAWindowDataset(RNADataset):
                  md_config=None,
                  step_size: int = 1,
                  global_mask_size: int = None,
-                 augmentor: DataAugmentor = None
+                 augmentor: DataAugmentor = None,
+                 local: bool = True
                  ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
         self.step_size = step_size
         self.global_mask_size = global_mask_size
         self.augmentor = augmentor
+        self.local = local
         if self.global_mask_size is None:
             self.global_mask_size = int((self.max_length - 1) / 2)
         if not self.step_size % 2:
@@ -282,8 +284,11 @@ class RNAWindowDataset(RNADataset):
             seq = str(seq_record.seq)
             seq_len = len(seq)
             start = total_len
-            m = math.ceil(seq_len / self.step_size)
-            matrix_elements = int(((m * m) - m) / 2 + m)
+            if self.local:
+                matrix_elements = seq_len - int((self.max_length - 1) / 2)
+            else:
+                m = math.ceil(seq_len / self.step_size)
+                matrix_elements = int(((m * m) - m) / 2 + m)
             total_len += matrix_elements
             end = total_len
             file = os.path.join(
@@ -305,7 +310,6 @@ class RNAWindowDataset(RNADataset):
     @property
     def seq_data(self):
         return self._seq_data[2]
-
 
     def generate_dataset(self):
         calls = []
@@ -335,7 +339,7 @@ class RNAWindowDataset(RNADataset):
         data = {"x": seq_embedding, "bppm": bppm, "y": label}
         torch.save(data, file)
 
-    def get_indes_from_ranges(self, index):
+    def get_index_from_ranges(self, index):
         right = len(self.index_to_data) - 1
         left = 0
         while left <= right:
@@ -351,14 +355,23 @@ class RNAWindowDataset(RNADataset):
         raise IndexError(f"File index out of range {index},"
                          f" low: {self.index_to_data[0]}, high {self.index_to_data[-1]}")
 
+    @staticmethod
+    def diagonal_offset_indices(seqlen, offset):
+        indices = torch.stack((torch.arange(0, seqlen), torch.arange(0, seqlen) + offset)).permute(1, 0)
+        return indices[:-offset]
+
     def __getitem__(self, item):
         with torch.no_grad():
-            file_index, inner_index = self.get_indes_from_ranges(item)
+            file_index, inner_index = self.get_index_from_ranges(item)
             data = torch.load(self.files[file_index])
             x = data["x"]
             y = data["y"]
             slen = x.shape[0]
-            i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
+            pad_val = int((self.max_length - 1) / 2)
+            if self.local:
+                i, j = self.diagonal_offset_indices(slen, pad_val)[inner_index, :]
+            else:
+                i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             start = 0
             positions = pos_encode_range(start, start+x.shape[0], 4)
             x = torch.cat((x, positions), dim=1)
@@ -366,7 +379,6 @@ class RNAWindowDataset(RNADataset):
                 x = self.augmentor.augment(x, mode="single")
             bppm = data["bppm"]
             mask = torch.ones(*bppm.shape[0:2])
-            pad_val = int((self.max_length - 1) / 2)
             x = F.pad(x,  (0, 0, pad_val, pad_val))
             pair_rep = self.pair_rep_from_single(x)
             pair_rep = pair_rep[i:i+self.max_length, j:j+self.max_length]
@@ -391,11 +403,11 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                  num_threads: int = 1, max_length: int = 201, md_config=None, step_size: int = 1,
                  global_mask_size: int = None, augmentor: DataAugmentor = None):
         super().__init__(data, label_dir, dataset_path, num_threads, max_length, md_config, step_size, global_mask_size,
-                         augmentor)
+                         augmentor, local=False)
 
     def __getitem__(self, item):
         with torch.no_grad():
-            file_index, inner_index = self.get_indes_from_ranges(item)
+            file_index, inner_index = self.get_index_from_ranges(item)
             data = torch.load(self.files[file_index])
             x = data["x"]
             y = data["y"]
