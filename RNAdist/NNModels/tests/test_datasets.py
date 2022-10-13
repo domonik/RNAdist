@@ -62,8 +62,11 @@ def test_geometric_loading(random_fasta, prefix):
             step_size=1
         )
         loader = GeoDataloader(
-            dataset, batch_size=2, shuffle=False
+            dataset, batch_size=2, shuffle=False, drop_last=True
         )
+        upper_bound = dataset.upper_bound
         for batch in iter(loader):
             assert batch["idx_info"].shape[0] == 2
+            assert batch["x"].shape[0] == 2 * (upper_bound + dataset.max_length - 1)
+            assert batch["bppm"].shape == torch.Size((2, ml, ml))
 

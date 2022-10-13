@@ -330,33 +330,67 @@ class DISTAtteNCionE2(nn.Module):
         return out
 
 
-class GraphRNADISTAtteNCionE():
-    def __init__(self, input_dim, embedding_dim, fw: int = 4, graph_attention_layers: int = 4):
+class GraphRNADISTAtteNCionE(nn.Module):
+    def __init__(
+            self,
+            input_dim,
+            embedding_dim,
+            max_length,
+            upper_bound: int,
+            fw: int = 4,
+            graph_attention_layers: int = 4,
+            device: str = "cpu",
+    ):
         super().__init__()
         self.nr_updates = 1
+        self.device = device
         self.graph_attention_layers = graph_attention_layers
+        self.embedding_dim = embedding_dim
 
         self.graph_attention = nn.ModuleList(
-            GATv2Conv(input_dim, embedding_dim) for _ in range(self.graph_attention_layers)
+            GATv2Conv(
+                input_dim,
+                embedding_dim,
+                edge_dim=1,
+                fill_value="add"  # this is kinda equivalent to the unpaired probability
+            ) if idx == 0 else GATv2Conv(embedding_dim, embedding_dim)
+            for idx, _ in enumerate(range(self.graph_attention_layers))
         )
         self.pair_updates = nn.ModuleList(
-            PairUpdate(embedding_dim, fw) for _ in range(self.nr_updates)
+            PairUpdate(embedding_dim * 2 + 1, fw) for _ in range(self.nr_updates)
         )
-        self.output = nn.Linear(embedding_dim, 1)
+        self.output = nn.Linear(embedding_dim * 2 + 1, 1)
+        self.max_length = torch.tensor(max_length).to(self.device)
+        self.upper_bound = torch.tensor(upper_bound).to(self.device)
+        self.nodes_per_batch = self.upper_bound + self.max_length - 1
 
-    def pair_rep_from_single(self, x):
-        n = x.shape[0]
-        e = x.shape[1]
-        x_x = x.repeat(n, 1)
-        x_y = x.repeat(1, n).reshape(-1, e)
-        pair_rep = torch.cat((x_x, x_y), dim=1).reshape(n, n, -1)
+    @staticmethod
+    def batched_pair_rep_from_single(x):
+        b, n, e = x.shape
+        n = x.shape[1]
+        e = x.shape[2]
+        x_x = x.repeat(1, n, 1)
+        x_y = x.repeat(1, 1, n).reshape(b, -1, e)
+        pair_rep = torch.cat((x_x, x_y), dim=2).reshape(b, n, n, -1)
         return pair_rep
 
     def forward(self, data, mask=None):
-        x, edge_index, edge_attr, idx_info = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"]
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["bppm"]
+        b = idx_info.shape[0]
+        i, j = idx_info[:, 1], idx_info[:, 2]
         for idx in range(self.graph_attention_layers):
             x = self.graph_attention[idx](x, edge_index, edge_attr)
 
+        # gets batch representation back
+        x = torch.stack(torch.split(x, self.nodes_per_batch))
+
+        # gets batched pair_representations
+        pair_rep = self.batched_pair_rep_from_single(x)
+        dummy = torch.empty(b, self.max_length, self.max_length, self.embedding_dim * 2).to(self.device)
+        for idx in range(b):
+            dummy[idx] = pair_rep[idx, i[idx]:i[idx]+self.max_length, j[idx]:j[idx]+self.max_length, :]
+        pair_rep = dummy
+        pair_rep = torch.concat((pair_rep, bppm.unsqueeze(-1)), dim=-1)
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
         out = self.output(pair_rep)

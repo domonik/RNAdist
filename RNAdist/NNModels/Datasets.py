@@ -401,9 +401,17 @@ class RNAWindowDataset(RNADataset):
 class RNAGeometricWindowDataset(RNAWindowDataset):
     def __init__(self, data: str, label_dir: Union[str, os.PathLike, None], dataset_path: str = "./",
                  num_threads: int = 1, max_length: int = 201, md_config=None, step_size: int = 1,
-                 global_mask_size: int = None, augmentor: DataAugmentor = None):
+                 global_mask_size: int = None, augmentor: DataAugmentor = None, local: bool = True):
         super().__init__(data, label_dir, dataset_path, num_threads, max_length, md_config, step_size, global_mask_size,
-                         augmentor, local=False)
+                         augmentor, local)
+        self.upper_bound = self.set_upper_bound()
+
+    def set_upper_bound(self):
+        upper_bound = 0
+        for desc, sequence in self.seq_data:
+            if len(sequence) > upper_bound:
+                upper_bound = len(sequence)
+        return upper_bound
 
     def __getitem__(self, item):
         with torch.no_grad():
@@ -411,8 +419,12 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             data = torch.load(self.files[file_index])
             x = data["x"]
             y = data["y"]
+            pad_val = int((self.max_length - 1) / 2)
             slen = x.shape[0]
-            i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
+            if self.local:
+                i, j = self.diagonal_offset_indices(slen, pad_val)[inner_index, :]
+            else:
+                i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             i: torch.Tensor
             j: torch.Tensor
             start = 0
@@ -422,29 +434,49 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                 x = self.augmentor.augment(x, mode="single")
             bppm = data["bppm"]
             mask = torch.ones(*bppm.shape[0:2])
-            pad_val = int((self.max_length - 1) / 2)
 
             # padding everything such that for the pair_rep it will match the expected shape
-            x = F.pad(x,  (0, 0, pad_val, pad_val))
+
+            # this is the additional padding needed to match the longest sequence
+            upper_pad_val = self.upper_bound - x.shape[0]
+            x = F.pad(x,  (0, 0, pad_val, pad_val + upper_pad_val))
+
+            # this doesnt need to be padded to the upper_bound since indices of nodes shouldnt change and padded
+            # nodes won't have edges anyway. Also just like the mask the bppm shape will match others once we
+            # cut it out
             bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
+
+            # for the mask we dont need that kind of padding since we can just use the cut out mask
             mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
             bppm = bppm.squeeze()
+
+
+
             edge_index, edge_weights = dense_to_sparse(bppm)
 
             idx_information = torch.stack((torch.tensor(file_index), i, j), dim=0)
 
-            data = RNAGeoData(
-                x=x,
-                edge_index=edge_index,
-                edge_attr=edge_weights,
-                idx_info=idx_information
-            )
-            return data
+            # now we need to cut out the bppm and the mask for the pair-rep part of the network
+            bppm = bppm[i:i+self.max_length, j:j+self.max_length]
+            mask = mask[i:i+self.max_length, j:j+self.max_length]
+
+        data = RNAGeoData(
+                    x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_weights,
+                    idx_info=idx_information,
+                    mask=mask,
+                    bppm=bppm
+                )
+        return data
 
 
 class RNAGeoData(GeoData):
     def __cat_dim__(self, key, value, *args, **kwargs):
-        if key == 'idx_info':
+        keys = [
+            "idx_info", "mask", "bppm"
+        ]
+        if key in keys:
             return None
         else:
             return super().__cat_dim__(key, value, *args, **kwargs)
