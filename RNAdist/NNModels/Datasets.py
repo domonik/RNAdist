@@ -270,7 +270,10 @@ class RNAWindowDataset(RNADataset):
         if not self.max_length % 2:
             raise ValueError(f"max_length must be uneven for window mode")
         if not self._dataset_generated([file for file in self.files]):
+            print("dataset not yet generated starting to generate")
             self.generate_dataset()
+        else:
+            print("Dataset already existing - skip generation")
 
     @cached_property
     def _seq_data(self):
@@ -358,7 +361,9 @@ class RNAWindowDataset(RNADataset):
     @staticmethod
     def diagonal_offset_indices(seqlen, offset):
         indices = torch.stack((torch.arange(0, seqlen), torch.arange(0, seqlen) + offset)).permute(1, 0)
-        return indices[:-offset]
+        if offset != 0:
+            indices = indices[:-offset]
+        return indices
 
     def __getitem__(self, item):
         with torch.no_grad():
@@ -433,6 +438,11 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             if self.augmentor is not None:
                 x = self.augmentor.augment(x, mode="single")
             bppm = data["bppm"]
+            # now we will add the backbone to the bppm
+            t = torch.ones(x.shape[0] - 1)
+            backbone = (torch.diag(t, 1) + torch.diag(t, -1)).unsqueeze(-1)
+            bppm = torch.concat((bppm, backbone), -1)
+
             mask = torch.ones(*bppm.shape[0:2])
 
             # padding everything such that for the pair_rep it will match the expected shape
@@ -448,16 +458,19 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 
             # for the mask we dont need that kind of padding since we can just use the cut out mask
             mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
-            bppm = bppm.squeeze()
 
 
 
-            edge_index, edge_weights = dense_to_sparse(bppm)
+            sparse_graph = bppm.to_sparse(bppm.shape[-1])
+            edge_index = sparse_graph.indices()
+            edge_weights = sparse_graph.values()
+
 
             idx_information = torch.stack((torch.tensor(file_index), i, j), dim=0)
 
             # now we need to cut out the bppm and the mask for the pair-rep part of the network
-            bppm = bppm[i:i+self.max_length, j:j+self.max_length]
+            # we index 0 here since we only want to have the bpp not the backbone anymore
+            bppm = bppm[i:i+self.max_length, j:j+self.max_length, 0]
             mask = mask[i:i+self.max_length, j:j+self.max_length]
             if not isinstance(y, int):
                 y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))

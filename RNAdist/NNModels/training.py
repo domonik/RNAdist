@@ -347,7 +347,8 @@ def train_model(
         assert isinstance(dataset, RNAGeometricWindowDataset), "Graph model only available with the Graph dataset"
         model = GraphRNADISTAtteNCionE(
             input_dim=input_dim,
-            embedding_dim=2*input_dim,
+            embedding_dim=64,
+            nr_heads=1,
             max_length=train_loader.dataset.max_length,
             upper_bound=train_loader.dataset.upper_bound,
             graph_attention_layers=config["graph_layers"],

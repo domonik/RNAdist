@@ -339,6 +339,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             upper_bound: int,
             fw: int = 4,
             graph_attention_layers: int = 4,
+            nr_heads: int = 1,
             device: str = "cpu",
     ):
         super().__init__()
@@ -347,28 +348,36 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.graph_attention_layers = graph_attention_layers
         self.embedding_dim = embedding_dim
         self.input_dim = input_dim
+        self.nr_heads = nr_heads
+        assert not self.embedding_dim % self.nr_heads, "Embedding dim must be divisible by nr heads"
 
         self.graph_attention = nn.ModuleList(
             GATv2Conv(
-                input_dim,
-                embedding_dim,
-                edge_dim=1,
-                fill_value="add"  # this is kinda equivalent to the unpaired probability
-            ) if idx == 0 else GATv2Conv(
-                embedding_dim,
-                embedding_dim,
-                edge_dim=1,
-                fill_value="add"
+                self.embedding_dim,
+                self.embedding_dim,
+                edge_dim=2,
+                add_self_loops=False,
+                heads=self.nr_heads
             )
+            for idx, _ in enumerate(range(self.graph_attention_layers))
+        )
+        self.graph_attention_adjust = nn.ModuleList(
+            nn.Linear(self.embedding_dim * self.nr_heads, self.embedding_dim)
             for idx, _ in enumerate(range(self.graph_attention_layers))
         )
         self.pair_updates = nn.ModuleList(
             PairUpdate(embedding_dim * 2 + 1, fw) for _ in range(self.nr_updates)
         )
-        self.output = nn.Linear(embedding_dim * 2 + 1, 1)
+        self.input_lin = nn.Linear(input_dim, self.embedding_dim)
         self.max_length = torch.tensor(max_length).to(self.device)
         self.upper_bound = torch.tensor(upper_bound).to(self.device)
         self.nodes_per_batch = self.upper_bound + self.max_length - 1
+        self.output = nn.Sequential(
+            nn.Linear(embedding_dim * 2 + 1, 32),
+            nn.Linear(32, 16),
+            nn.Linear(16, 1)
+        )
+
 
     @staticmethod
     def batched_pair_rep_from_single(x):
@@ -384,15 +393,16 @@ class GraphRNADISTAtteNCionE(nn.Module):
         x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["bppm"]
         b = idx_info.shape[0]
         i, j = idx_info[:, 1], idx_info[:, 2]
+
+        x = self.input_lin(x)
+
         for idx in range(self.graph_attention_layers):
-            x = self.graph_attention[idx](x, edge_index, edge_attr)
+            x = self.graph_attention[idx](x, edge_index, edge_attr) + x
+            #x = torch.relu(self.graph_attention_adjust[idx](self.graph_attention[idx](x, edge_index, edge_attr))) + x
 
         # gets batch representation back
-        try:
-            x = torch.stack(torch.split(x, self.nodes_per_batch))
-        except:
-            p = 0
-            exit()
+        x = torch.stack(torch.split(x, self.nodes_per_batch))
+
 
         # gets batched pair_representations
         pair_rep = self.batched_pair_rep_from_single(x)
