@@ -1,6 +1,11 @@
+import os
+from contextlib import redirect_stdout
 import numpy as np
 import RNA
 from CPExpectedDistance.p_expected_distance import expected_distance
+from typing import List, Tuple
+from tempfile import NamedTemporaryFile
+from io import TextIOBase
 
 
 def dp_matrix_available():
@@ -79,15 +84,6 @@ def compute_clote(fc):
 
     https://doi.org/10.1007/s00285-011-0467-8
 
-    .. warning::
-
-        This function is deprecated and only here for backward compatibility.
-        It uses the ViennaRNA C API to create a numpy array.
-        However, it messes around with the representation of the fold compound. consider using:
-
-        :func:`~RNAdist.DPModels.clote.cp_expected_distance`
-
-
     Args:
         fc (RNA.fold_compund): Fold compound object of ViennaRNA
 
@@ -95,8 +91,56 @@ def compute_clote(fc):
         np.ndarray : :code:`N x N` matrix
             containing expected distance from nucleotide :code:`0` to :code:`n` at
             :code:`matrix[0][-1]`
-    Raises:
-        RuntimeError: If the DP matrices are not filled yet due to a missing fc.pf() call
-
     """
     return expected_distance(fc)
+
+
+def binding_site_distance(fc: RNA.fold_compound, binding_sites: List[Tuple[int, int]]) -> float:
+    """Calculates the expected distance between binding sites.
+
+    Will force the binding sites to be in unstructured regions of the RNA (exterior or multi loop).
+    Thus the expected distance using clote-ponty approach will be correct.
+
+    See Also:
+        :func:`~cp_expected_distance`, :func:`~compute_clote`
+
+    Args:
+        fc (RNA.fold_compund): Fold compound object of ViennaRNA
+        binding_sites List(Tuple(int, int)): Two intervals of binding sites. (Zero based end non inclusive (BED style)
+
+    Returns:
+        float:
+            expected distance between those binding sites (end of first, start of second)
+
+    """
+    binding_sites = sorted(binding_sites)
+    _add_interval_constraints(fc, binding_sites)
+    ed = expected_distance(fc)
+    return float(ed[binding_sites[0][1]-1, binding_sites[1][0]])
+
+
+def _add_interval_constraints(fc: RNA.fold_compound, binding_sites):
+    with NamedTemporaryFile(mode="w+", suffix="RNAdist_commands") as tmpfile:
+        _write_commands_to_file(binding_sites, fc.length, tmpfile)
+        fc.file_commands_apply(tmpfile.name)
+    return fc
+
+
+def _write_commands_to_file(binding_sites: List[Tuple[int, int]], seq_len: int, file: TextIOBase):
+    sites1 = _bed_to_vrna_interval(binding_sites[0])
+    sites2 = _bed_to_vrna_interval(binding_sites[1])
+    assert sites1[1] < sites2[0], "This method does not support overlapping sites"
+    if sites1[0] > 1:
+        # permits spanning from before into that interval
+        file.write(f"P 1-{sites1[0]-1} {sites1[1]+1}-{sites2[0]-1}\n")
+    if sites2[1] < seq_len:
+        # permits span f behind into interval
+        file.write(f"P {sites1[1]+1}-{sites2[0]-1} {sites2[1]+1}-{seq_len}\n")
+    file.write(f"P {sites1[0]} 0 {sites1[1]- sites1[0] + 1}\n")
+    file.write(f"P {sites2[0]} 0 {sites2[1] - sites2[0] + 1}\n")
+    file.seek(0)
+
+
+def _bed_to_vrna_interval(bed_interval: Tuple[int, int]):
+    interval = (bed_interval[0]+1, bed_interval[1])
+    return interval
