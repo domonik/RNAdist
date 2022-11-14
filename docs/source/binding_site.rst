@@ -16,7 +16,7 @@ Therefore we picked binding-sites of PUM2 a famous RNA binding protein.
 .. note::
 
     The binding sites were extracted from an publically available e-CLIP dataset and processed to find the most likely
-    transcript variant they originated from using the tool `Peakhood <https://github.com/BackofenLab/Peakhood>`_.
+    transcript variant. They originated from using the tool `Peakhood <https://github.com/BackofenLab/Peakhood>`_.
     Also we shrank the binding site to mainly contain a learned interaction motif of PUM2 using
     `RNAProt <https://github.com/BackofenLab/RNAProt>`_.
 
