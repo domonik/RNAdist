@@ -1,3 +1,5 @@
+import pytest
+
 from RNAdist.nn.Datasets import (
     RNAPairDataset,
     RNADATA,
@@ -21,7 +23,13 @@ def test_rna_pair_dataset(random_fasta, expected_labels, prefix):
         )
 
 
-def test_rna_window_dataset(random_fasta, expected_labels, prefix):
+@pytest.mark.parametrize(
+    "local", (True, False),
+)
+@pytest.mark.parametrize(
+    "step_size", (5, 1),
+)
+def test_rna_window_dataset(random_fasta, expected_labels, prefix, local, step_size):
     ml = 9
     with TemporaryDirectory(prefix=prefix) as tmpdir:
         dataset = RNAWindowDataset(
@@ -30,7 +38,8 @@ def test_rna_window_dataset(random_fasta, expected_labels, prefix):
             dataset_path=tmpdir,
             num_threads=1,
             max_length=ml,
-            step_size=1
+            step_size=step_size,
+            local=local
         )
         for x in range(len(dataset)):
             pair_matrix, y, mask, indices = dataset[x]

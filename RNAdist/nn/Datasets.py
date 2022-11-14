@@ -252,21 +252,27 @@ class RNAWindowDataset(RNADataset):
                  md_config=None,
                  step_size: int = 1,
                  global_mask_size: int = None,
-                 augmentor: DataAugmentor = None
+                 augmentor: DataAugmentor = None,
+                 local: bool = True
                  ):
         super().__init__(
             data, label_dir, dataset_path, num_threads, max_length, md_config)
         self.step_size = step_size
         self.global_mask_size = global_mask_size
         self.augmentor = augmentor
+        self.local = local
+        self.pad_val = int((self.max_length - 1) / 2)
         if self.global_mask_size is None:
             self.global_mask_size = int((self.max_length - 1) / 2)
         if not self.step_size % 2:
-            raise NotImplementedError("uneven step size is not implemented yet")
+            raise NotImplementedError("even step size is not implemented yet")
         if not self.max_length % 2:
             raise ValueError(f"max_length must be uneven for window mode")
         if not self._dataset_generated([file for file in self.files]):
+            print("dataset not yet generated starting to generate")
             self.generate_dataset()
+        else:
+            print("Dataset already existing - skip generation")
 
     @cached_property
     def _seq_data(self):
@@ -280,8 +286,11 @@ class RNAWindowDataset(RNADataset):
             seq = str(seq_record.seq)
             seq_len = len(seq)
             start = total_len
-            m = math.ceil(seq_len / self.step_size)
-            matrix_elements = int(((m * m) - m) / 2 + m)
+            if self.local:
+                matrix_elements = math.ceil(seq_len / self.step_size)
+            else:
+                m = math.ceil(seq_len / self.step_size)
+                matrix_elements = int(((m * m) - m) / 2 + m)
             total_len += matrix_elements
             end = total_len
             file = os.path.join(
@@ -304,12 +313,11 @@ class RNAWindowDataset(RNADataset):
     def seq_data(self):
         return self._seq_data[2]
 
-
     def generate_dataset(self):
         calls = []
         for idx, file in enumerate(self.files):
-                desc, seq = self.seq_data[idx]
-                calls.append((seq, desc, file, self.label_dict, self.md_config))
+            desc, seq = self.seq_data[idx]
+            calls.append((seq, desc, file, self.label_dict, self.md_config))
         if self.num_threads == 1:
             for call in calls:
                 self.mp_create_wrapper(*call)
@@ -333,7 +341,7 @@ class RNAWindowDataset(RNADataset):
         data = {"x": seq_embedding, "bppm": bppm, "y": label}
         torch.save(data, file)
 
-    def get_indes_from_ranges(self, index):
+    def get_index_from_ranges(self, index):
         right = len(self.index_to_data) - 1
         left = 0
         while left <= right:
@@ -349,14 +357,23 @@ class RNAWindowDataset(RNADataset):
         raise IndexError(f"File index out of range {index},"
                          f" low: {self.index_to_data[0]}, high {self.index_to_data[-1]}")
 
+    @staticmethod
+    def diagonal_indices(seqlen, stepsize):
+        indices = torch.stack((torch.arange(0, seqlen, stepsize), torch.arange(0, seqlen, stepsize))).permute(1, 0)
+        return indices
+
     def __getitem__(self, item):
         with torch.no_grad():
-            file_index, inner_index = self.get_indes_from_ranges(item)
+            file_index, inner_index = self.get_index_from_ranges(item)
             data = torch.load(self.files[file_index])
             x = data["x"]
             y = data["y"]
             slen = x.shape[0]
-            i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
+            pad_val = self.pad_val
+            if self.local:
+                i, j = self.diagonal_indices(slen, self.step_size)[inner_index, :]
+            else:
+                i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             start = 0
             positions = pos_encode_range(start, start+x.shape[0], 4)
             x = torch.cat((x, positions), dim=1)
@@ -364,7 +381,6 @@ class RNAWindowDataset(RNADataset):
                 x = self.augmentor.augment(x, mode="single")
             bppm = data["bppm"]
             mask = torch.ones(*bppm.shape[0:2])
-            pad_val = int((self.max_length - 1) / 2)
             x = F.pad(x,  (0, 0, pad_val, pad_val))
             pair_rep = self.pair_rep_from_single(x)
             pair_rep = pair_rep[i:i+self.max_length, j:j+self.max_length]
@@ -421,6 +437,7 @@ def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 1000):
     positions = pos_encode_range(_inner_start, _inner_start + + single_rep.shape[0], 4)
     single_rep[:, 4:8] = positions
     return single_rep
+
 
 def normalize_bpp(pair_rep: torch.Tensor):
     bpp = pair_rep[:, :, 0]

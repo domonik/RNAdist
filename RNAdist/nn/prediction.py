@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import DataLoader
 from Bio import SeqIO
 import numpy as np
+
+import RNAdist.nn.configuration
 from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE, DISTAtteNCionESmall
 )
@@ -61,6 +63,7 @@ def model_predict(
         pin_memory=False,
     )
     model, config = _load_model(saved_model, device)
+    model.eval()
     output = {}
     for element in iter(data_loader):
         with torch.no_grad():
@@ -95,9 +98,15 @@ def model_window_predict(
         device: str = "cpu",
         max_length: int = 200,
         md_config: Dict = None,
-        global_mask_size: int = 1,
-        dataset_dir: str = None
+        global_mask_size: int = None,
+        dataset_dir: str = None,
+        step_size: int = 1
 ):
+    model, config = _load_model(saved_model, device)
+    model.eval()
+
+    config: RNAdist.nn.configuration.ModelConfiguration
+
     if dataset_dir is None:
         tmpdir = TemporaryDirectory()
         workdir = tmpdir.name
@@ -111,7 +120,7 @@ def model_window_predict(
         num_threads=num_threads,
         max_length=max_length,
         md_config=md_config,
-        step_size=global_mask_size * 2 + 1,
+        step_size=step_size,
         global_mask_size=global_mask_size
     )
     data_loader = DataLoader(
@@ -121,13 +130,12 @@ def model_window_predict(
         num_workers=num_threads,
         pin_memory=True,
     )
-    model, config = _load_model(saved_model, device)
     output_data = {
         # this pads the sequence just like the dataset does in __getitem__
         desc: np.zeros((len(seq) + dataset.max_length - 1, len(seq) + dataset.max_length - 1))
         for desc, seq in dataset.seq_data
     }
-    gms = global_mask_size
+    gms = global_mask_size if global_mask_size is not None else int((max_length - 1) / 2)
     mid = int((max_length-1) / 2)
     pred_s, pred_e = mid - gms, mid + gms + 1
     for element in iter(data_loader):
@@ -146,7 +154,7 @@ def model_window_predict(
                 i, j = index_data[batch_index][1:] + mid
                 description, _ = dataset.seq_data[file_idx]
                 pred = batched_pred[batch_index]
-                output_data[description][i-gms:i+gms+1,j-gms:j+gms+1] = pred[pred_s:pred_e, pred_s:pred_e]
+                output_data[description][i-gms:i+gms+1, j-gms:j+gms+1] = pred[pred_s:pred_e, pred_s:pred_e]
     for key, value in output_data.items():
         output_data[key] = value[mid:-mid, mid:-mid]
     if tmpdir is not None:
@@ -156,38 +164,6 @@ def model_window_predict(
         os.makedirs(out_dir, exist_ok=True)
     with open(outfile, "wb") as handle:
         pickle.dump(output_data, handle)
-
-
-def _handle_current_data(current_data, dataset, sr_data, max_length, output):
-    keys = []
-    for key, inner_dict in current_data.items():
-        expected_indices = dataset.index_mapping[key]
-        if len(expected_indices) == len(inner_dict):
-            whole_pred = _puzzle_output(
-                inner_dict,
-                sr_data[key],
-                max_length
-            )
-            output[key] = whole_pred
-            keys.append(key)
-    for key in keys:
-        del current_data[key]
-
-
-def _puzzle_output(predictions, seq_record, max_length):
-    seq_len = len(seq_record.seq)
-    whole_prediction = np.empty((seq_len, seq_len, len(predictions)))
-    whole_prediction[:] = np.nan
-    for i, (index, array) in enumerate(predictions.items()):
-        end = index + max_length
-        if end > seq_len:
-            end = seq_len
-            array_end = seq_len - index
-            assert i == max(list(predictions.keys()))
-            array = array[:array_end, :array_end]
-        whole_prediction[index:end, index:end, i] = array
-    whole_prediction = np.nanmean(whole_prediction, axis=-1)
-    return whole_prediction
 
 
 def _load_model(model_path, device):
