@@ -3,8 +3,8 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 import os
-from RNAdist.NNModels.training_set_generation import LabelDict
-from RNAdist.NNModels.nn_helpers import _scatter_triu_indices
+from RNAdist.nn.training_set_generation import LabelDict
+from RNAdist.nn.nn_helpers import _scatter_triu_indices
 from functools import cached_property
 from typing import List, Union, Callable
 from Bio import SeqIO
@@ -14,7 +14,7 @@ import itertools
 import math
 import random
 import torch.multiprocessing
-from RNAdist.DPModels.viennarna_helpers import (
+from RNAdist.dp.viennarna_helpers import (
     fold_bppm, set_md_from_config, plfold_bppm)
 
 

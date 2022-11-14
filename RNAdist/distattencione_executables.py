@@ -1,10 +1,10 @@
 import argparse
 import math
 
-from RNAdist.NNModels.prediction import prediction_executable_wrapper
-from RNAdist.NNModels.smac_optimize import smac_executable_wrapper
-from RNAdist.NNModels.training import training_executable_wrapper
-from RNAdist.NNModels.training_set_generation import generation_executable_wrapper
+from RNAdist.nn.prediction import prediction_executable_wrapper
+from RNAdist.nn.smac_optimize import smac_executable_wrapper
+from RNAdist.nn.training import training_executable_wrapper
+from RNAdist.nn.training_set_generation import generation_executable_wrapper
 from RNAdist.executables import add_md_parser
 
 

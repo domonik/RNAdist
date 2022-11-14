@@ -1,9 +1,9 @@
 from Bio import SeqIO
-from RNAdist.DPModels.pmcomp import pmcomp_distance
-from RNAdist.DPModels.clote import cp_expected_distance
+from RNAdist.dp.pmcomp import pmcomp_distance
+from RNAdist.dp.cpedistance import cp_expected_distance
 from RNAdist.sampling.ed_sampling import sample_cpp
 from multiprocessing import Pool
-from RNAdist.DPModels.viennarna_helpers import set_md_from_config
+from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
 from typing import Dict, Any, Callable
 import pickle

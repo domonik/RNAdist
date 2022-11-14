@@ -1,5 +1,5 @@
 import pytest
-from RNAdist.NNModels.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate
+from RNAdist.nn.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate
 import torch
 
 
@@ -21,8 +21,8 @@ def test_triangular_update(mode, masked_pair_rep_batch):
         optimizer.step()
         assert torch.sum(inv_mask * pred) == 0
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "mode",

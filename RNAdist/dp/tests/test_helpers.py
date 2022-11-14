@@ -1,10 +1,10 @@
-from RNAdist.DPModels.viennarna_helpers import structural_probabilities, fold_bppm, plfold_bppm
+from RNAdist.dp.viennarna_helpers import structural_probabilities, fold_bppm, plfold_bppm
 import pytest
 import RNA
 import numpy as np
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "test_md",

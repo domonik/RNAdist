@@ -5,7 +5,7 @@ from Bio import SeqIO
 import os
 import torch
 import random
-from RNAdist.DPModels.viennarna_helpers import set_md_from_config
+from RNAdist.dp.viennarna_helpers import set_md_from_config
 from typing import Dict, Any
 
 from RNAdist.fasta_wrappers import md_config_from_args

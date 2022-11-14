@@ -1,7 +1,7 @@
 Binding Site Distance
 #####################
 
-.. currentmodule:: RNAdist.DPModels.clote
+.. currentmodule:: RNAdist.dp.cpedistance
 
 
 Just like discussed in the corresponding paper, we showed that the clote-ponty algorithm is capable of
@@ -40,11 +40,11 @@ Now that we set up the ViennaRNA fold compound object and the binding sites list
 
 .. code-block:: python
 
-    >>> from RNAdist.DPModels.clote import binding_site_distance
+    >>> from RNAdist.dp.cpedistance import binding_site_distance
     >>> interesting_distance = binding_site_distance(fc, binding_sites)
 
 
-We finally got the expected distance between nucleotides :code:`720` and  :code:`937.
+We finally got the expected distance between nucleotides :code:`720` and  :code:`937`.
 
 
 

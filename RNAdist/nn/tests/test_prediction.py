@@ -1,5 +1,5 @@
-from RNAdist.NNModels.prediction import model_predict, model_window_predict
-from RNAdist.NNModels.tests.data_fixtures import (
+from RNAdist.nn.prediction import model_predict, model_window_predict
+from RNAdist.nn.tests.data_fixtures import (
     saved_model,
     saved_model_no_bpp,
     random_fasta
@@ -10,8 +10,8 @@ from Bio import SeqIO
 import pytest
 import torch
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "model",

@@ -16,5 +16,5 @@ You can train a DISTAttenCioNE neural network via the command line by simply typ
 Python API
 ----------
 
-The documentation for the python API can be found :doc:`here <_autosummary/RNAdist.NNModels.training.train_network>`
+The documentation for the python API can be found :doc:`here <_autosummary/RNAdist.nn.training.train_network>`
 

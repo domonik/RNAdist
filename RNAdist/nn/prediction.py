@@ -6,10 +6,10 @@ import torch
 from torch.utils.data import DataLoader
 from Bio import SeqIO
 import numpy as np
-from RNAdist.NNModels.DISTAtteNCionE import (
+from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE, DISTAtteNCionESmall
 )
-from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset
 from RNAdist.fasta_wrappers import md_config_from_args
 
 

@@ -1,5 +1,5 @@
 import os
-from RNAdist.NNModels.training_set_generation import LabelDict
+from RNAdist.nn.training_set_generation import LabelDict
 from RNAdist import distattencione_executables, executables
 from tempfile import TemporaryDirectory
 import subprocess
@@ -9,8 +9,8 @@ import pytest
 import sys
 import RNAdist
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 DISTATT_EXECUTABLES_FILE = os.path.abspath(distattencione_executables.__file__)
 EXECUTABLES_FILE = os.path.abspath(executables.__file__)

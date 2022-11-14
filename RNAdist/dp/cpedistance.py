@@ -78,7 +78,7 @@ def cp_expected_distance(sequence, md=None):
 def compute_clote(fc):
     """Uses a ViennaRNA fold_compound to calculate the clote-ponty matrix.
 
-     Clote, P., Ponty, Y., & Steyaert, J. M. (2012).
+    Clote, P., Ponty, Y., & Steyaert, J. M. (2012).
     Expected distance between terminal nucleotides of RNA secondary structures.
     Journal of mathematical biology, 65(3), 581-599.
 
@@ -91,6 +91,7 @@ def compute_clote(fc):
         np.ndarray : :code:`N x N` matrix
             containing expected distance from nucleotide :code:`0` to :code:`n` at
             :code:`matrix[0][-1]`
+
     """
     return expected_distance(fc)
 

@@ -99,9 +99,9 @@ html_favicon = '_static/RNAdist_tabbar_dark.svg'
 
 autosummary_mock_imports = [
     'RNA',
-    "RNAdist.NNModels.nn_helpers",
-    "RNAdist.DPModels._dp_calulations",
-    "RNAdist.DPModels._dp_calculations",
+    "RNAdist.nn.nn_helpers",
+    "RNAdist.dp._dp_calulations",
+    "RNAdist.dp._dp_calculations",
     "RNAdist.sampling.cpp",
     "CPExpectedDistance.p_expected_distance",
     "networkx",

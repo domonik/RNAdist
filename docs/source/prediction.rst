@@ -17,9 +17,9 @@ This you can achieve via using the following command line call:
 Python API
 ----------
 
-If you want to use the python API for prediction have a look at the documentation of the
-:doc:`normal prediction mode <_autosummary/RNAdist.NNModels.prediction.model_predict>`
-as well as the
-:doc:`window prediction mode <_autosummary/RNAdist.NNModels.prediction.model_window_predict>`
+If you want to use the python API for prediction have a look at the documentation of the normal prediction
+(:func:`~RNAdist.nn.prediction.model_predict`)
+as well as the window prediction
+(:func:`~RNAdist.nn.prediction.model_window_predict`)
 
 

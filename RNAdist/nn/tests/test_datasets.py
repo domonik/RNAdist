@@ -1,4 +1,4 @@
-from RNAdist.NNModels.Datasets import (
+from RNAdist.nn.Datasets import (
     RNAPairDataset,
     RNADATA,
     RNAWindowDataset
@@ -6,8 +6,8 @@ from RNAdist.NNModels.Datasets import (
 from tempfile import TemporaryDirectory
 import torch
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 
 def test_rna_pair_dataset(random_fasta, expected_labels, prefix):

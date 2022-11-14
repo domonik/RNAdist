@@ -1,6 +1,6 @@
 import numpy as np
 import RNA
-from RNAdist.DPModels._dp_calculations import _fast_pmcomp
+from RNAdist.dp._dp_calculations import _fast_pmcomp
 
 
 def pmcomp_distance(sequence, md=None):
@@ -62,7 +62,7 @@ def pmcomp_dist_from_fc(fc):
 
         This function might produce nonsense output if the fc is not set up correctly.
         If you do not know how to do this consider using
-        :func:`~RNAdist.DPModels.pmcomp.pmcomp_distance`
+        :func:`~RNAdist.dp.pmcomp.pmcomp_distance`
 
     Args:
         fc (RNA.fold_compund): Fold compound object of ViennaRNA

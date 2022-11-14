@@ -1,12 +1,12 @@
-from RNAdist.NNModels.training import train_network
+from RNAdist.nn.training import train_network
 from tempfile import TemporaryDirectory
 import os
 import torch
 import pytest
 import pandas as pd
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 
 class Modeltotest(torch.nn.Module):
@@ -70,6 +70,8 @@ def test_training(random_fasta, train_config, expected_labels,
         )
         assert os.path.exists(train_config["model_checkpoint"])
         state_dict, config = torch.load(train_config["model_checkpoint"])
+        if not use_bppm:
+            p=0
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
         assert state_dict["output.weight"].shape[-1] == len(config.indices)
 

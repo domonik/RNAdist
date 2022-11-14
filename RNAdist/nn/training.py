@@ -8,13 +8,13 @@ from Bio import SeqIO
 from tempfile import TemporaryDirectory
 import numpy as np
 import pandas as pd
-from RNAdist.NNModels.configuration import ModelConfiguration
-from RNAdist.NNModels.DISTAtteNCionE import (
+from RNAdist.nn.configuration import ModelConfiguration
+from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE,
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
-from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index
+from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index
 
 
 def _loader_generation(
@@ -390,7 +390,7 @@ def train_network(fasta: str,
         fasta (str): Path to the Fasta file containing training sequences
         dataset_path (str): Path where the Dataset object will be stored 
         label_dir (str): Path to the directory created via
-            :func:`~RNAdist.NNModels.training_set_generation.training_set_from_fasta`
+            :func:`~RNAdist.nn.training_set_generation.training_set_from_fasta`
         config (ModelConfiguration): configuration of training process
         num_threads (int): number of parallel processes to use
         epochs (int): maximum number of epochs
@@ -405,11 +405,11 @@ def train_network(fasta: str,
 
     Examples:
         You can train a network using the following lines  of code. The
-        :class:`~RNAdist.NNModels.configuration.ModelConfiguration` object is mandatory but has only
+        :class:`~RNAdist.nn.configuration.ModelConfiguration` object is mandatory but has only
         default values except for the path to the output file
 
-        >>> from RNAdist.NNModels.training import train_network
-        >>> from RNAdist.NNModels.configuration import ModelConfiguration
+        >>> from RNAdist.nn.training import train_network
+        >>> from RNAdist.nn.configuration import ModelConfiguration
         >>> config = ModelConfiguration(model_checkpoint="path_to_output_model.pckl")
         >>> train_network("fasta.fa", "dataset_path", "label_directory", config=config)
 

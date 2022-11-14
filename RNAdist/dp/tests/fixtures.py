@@ -1,6 +1,6 @@
 import pytest
 import RNA
-from RNAdist.DPModels.clote import dp_matrix_available
+from RNAdist.dp.cpedistance import dp_matrix_available
 
 
 @pytest.fixture(scope="session")

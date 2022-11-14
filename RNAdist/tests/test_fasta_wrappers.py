@@ -2,8 +2,8 @@ import pytest
 from RNAdist.fasta_wrappers import clote_ponty_from_fasta, pmcomp_from_fasta, sampled_distance_from_fasta
 from Bio import SeqIO
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "function",

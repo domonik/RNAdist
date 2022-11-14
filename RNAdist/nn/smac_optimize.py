@@ -9,12 +9,12 @@ import torch
 from smac.facade.smac_mf_facade import SMAC4MF
 from smac.scenario.scenario import Scenario
 from smac.utils.constants import MAXINT
-from RNAdist.NNModels.training import (
+from RNAdist.nn.training import (
     train_model,
     _dataset_generation,
     _loader_generation
 )
-from RNAdist.NNModels.configuration import ModelConfiguration
+from RNAdist.nn.configuration import ModelConfiguration
 import numpy as np
 from torch.utils.data import random_split
 from tempfile import TemporaryDirectory

@@ -1,11 +1,11 @@
 import pytest
 import RNA
-from RNAdist.DPModels.clote import cp_expected_distance, _add_interval_constraints, binding_site_distance
-from RNAdist.DPModels.pmcomp import pmcomp_distance
+from RNAdist.dp.cpedistance import cp_expected_distance, _add_interval_constraints, binding_site_distance
+from RNAdist.dp.pmcomp import pmcomp_distance
 import numpy as np
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 @pytest.mark.parametrize(
     "test_md",

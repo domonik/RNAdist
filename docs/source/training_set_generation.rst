@@ -21,5 +21,5 @@ If you want to train a model for a different setting, consider using the Python 
 Python API
 ----------
 
-The documentation for the python API can be found :doc:`here <_autosummary/RNAdist.NNModels.training_set_generation.training_set_from_fasta>`
+The documentation for the python API can be found :doc:`here <_autosummary/RNAdist.nn.training_set_generation.training_set_from_fasta>`
 

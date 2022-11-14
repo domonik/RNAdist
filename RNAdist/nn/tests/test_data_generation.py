@@ -2,11 +2,11 @@ import os
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 import pytest
 
-from RNAdist.NNModels.training_set_generation import create_random_fasta, \
+from RNAdist.nn.training_set_generation import create_random_fasta, \
     training_set_from_fasta, LabelDict
 
-pytest_plugins = ["RNAdist.DPModels.tests.fixtures",
-                  "RNAdist.NNModels.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures",
+                  "RNAdist.nn.tests.data_fixtures"]
 
 def test_random_fasta_generation(random_fasta, prefix):
     with open(random_fasta) as handle:
@@ -37,7 +37,6 @@ def test_window_set_from_fasta(random_fasta, window_config, expected_window_labe
         actual = LabelDict(tmpdir)
         for key, _ in expected.items():
             assert key in actual
-
 
 
 def test_dataset_from_fasta(random_fasta, generation_config, expected_labels, prefix):

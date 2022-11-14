@@ -2,7 +2,7 @@ import os
 import pytest
 import torch
 import math
-from RNAdist.NNModels.configuration import ModelConfiguration
+from RNAdist.nn.configuration import ModelConfiguration
 
 TESTFILE_DIR = os.path.dirname(os.path.abspath(__file__))
 TESTDATA_DIR = os.path.join(TESTFILE_DIR, "test_data")
