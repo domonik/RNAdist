@@ -76,8 +76,8 @@ setup(
     include_package_data=True,
     package_data={
         "RNAdist.visualize": ["assets/*"],
-        "RNAdist.DPModels": ["tests/*.py", "tests/test_data"],
-        "RNAdist.NNModels": ["tests/*.py", "tests/test_data/*.fa", "tests/test_data/*.pt", "tests/test_data/expected*/*"],
+        "RNAdist.dp": ["tests/*.py", "tests/test_data"],
+        "RNAdist.nn": ["tests/*.py", "tests/test_data/*.fa", "tests/test_data/*.pt", "tests/test_data/expected*/*"],
         "RNAdist.sampling": ["tests/*.py", "tests/test_data"],
     },
     install_requires=[
@@ -96,13 +96,13 @@ setup(
     tests_require=["pytest"],
     ext_modules=[
         cpp_extension.CppExtension(
-            name="RNAdist.NNModels.nn_helpers",
-            sources=["RNAdist/NNModels/nn_helpers.cpp"],
+            name="RNAdist.nn.nn_helpers",
+            sources=["RNAdist/nn/nn_helpers.cpp"],
             include_dirs=cpp_extension.include_paths(),
             extra_link_args=["-Wl,--no-undefined", f"-l{python_l}"],
             language="c++"
         ),
-    ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension, samping_extension],
+    ] + cythonize("RNAdist/dp/_dp_calculations.pyx") + [cp_exp_dist_extension, samping_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",

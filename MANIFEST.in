@@ -1,6 +1,6 @@
 include versioneer.py
 include RNAdist/_version.py
-include RNAdist/DPModels/_dp_calculations.pyx
+include RNAdist/dp/_dp_calculations.pyx
 include *.pyx
 include RNAdist/sampling/cpp/*.h
 global-include tests/*.py
