@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from RNAdist.NNModels.configuration import ModelConfiguration
 from RNAdist.NNModels.DISTAtteNCionE import (
-    DISTAtteNCionE2,
+    RNADISTAtteNCionE,
     DISTAtteNCionESmall,
     WeightedDiagonalMSELoss
 )
@@ -278,9 +278,17 @@ def train_model(
     input_dim = config.input_dim
 
     if config["model"] == "normal":
-        model = DISTAtteNCionE2(input_dim, nr_updates=config["nr_layers"])
+        model = RNADISTAtteNCionE(
+            input_dim,
+            nr_updates=config["nr_layers"],
+            checkpointing=config.gradient_checkpointing
+        )
     elif config["model"] == "small":
-        model = DISTAtteNCionESmall(input_dim, nr_updates=config["nr_layers"])
+        model = DISTAtteNCionESmall(
+            input_dim,
+            nr_updates=config["nr_layers"],
+            checkpointing=config.gradient_checkpointing
+        )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
     else:
@@ -472,7 +480,8 @@ def training_executable_wrapper(args):
         use_bppm=not args.exclude_bppm,
         use_position=not args.exclude_position,
         normalize_bpp=args.normalize_bppm,
-        random_shift=args.random_shift
+        random_shift=args.random_shift,
+        gradient_checkpointing=args.gradient_checkpointing
     )
 
     train_network(

@@ -299,6 +299,12 @@ def training_parser(subparsers, name):
         default=False,
         action="store_true"
     )
+    group2.add_argument(
+        '--gradient_checkpointing',
+        help="Enables gradient checkpointing to reduce memory consumption",
+        default=False,
+        action="store_true"
+    )
     return parser
 
 

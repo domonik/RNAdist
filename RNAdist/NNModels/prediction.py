@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from Bio import SeqIO
 import numpy as np
 from RNAdist.NNModels.DISTAtteNCionE import (
-    DISTAtteNCionE2, DISTAtteNCionESmall
+    RNADISTAtteNCionE, DISTAtteNCionESmall
 )
 from RNAdist.NNModels.Datasets import RNAPairDataset, RNAWindowDataset
 from RNAdist.fasta_wrappers import md_config_from_args
@@ -193,7 +193,7 @@ def _puzzle_output(predictions, seq_record, max_length):
 def _load_model(model_path, device):
     state_dict, config = torch.load(model_path, map_location="cpu")
     if config["model"] == "normal":
-        model = DISTAtteNCionE2(config.input_dim, nr_updates=config["nr_layers"])
+        model = RNADISTAtteNCionE(config.input_dim, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(config.input_dim, nr_updates=config["nr_layers"])
     elif isinstance(config["model"], torch.nn.Module):

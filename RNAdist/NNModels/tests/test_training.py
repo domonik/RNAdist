@@ -34,13 +34,17 @@ def triangularselfattention(dim):
 @pytest.mark.parametrize("use_pos", [True, False])
 @pytest.mark.parametrize("mode", ["normal", "window"])
 @pytest.mark.parametrize("random_shift", [None, 0.8])
+@pytest.mark.parametrize("gradient_cp", [True, False])
 def test_training(random_fasta, train_config, expected_labels,
-                  model_type, use_bppm, use_pos, expected_window_labels, mode, random_shift, prefix):
+                  model_type, use_bppm, use_pos, expected_window_labels, mode, random_shift, prefix, gradient_cp):
     if random_shift is not None:
         train_config.random_shift = random_shift
+    train_config.gradient_checkpointing = gradient_cp
     train_config.use_bppm = use_bppm
     train_config.use_position = use_pos
     if model_type not in ["small", "normal"]:
+        if gradient_cp:  # Not necessary to check for that configuration
+            return
         model_type = model_type(train_config.input_dim)
     train_config.model = model_type
 
