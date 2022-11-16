@@ -48,8 +48,12 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx_rtd_theme",
     'sphinxarg.ext',
-    'sphinx_design'
+    'sphinx_design',
+    'sphinxcontrib.bibtex'
 ]
+bibtex_bibfiles = ['refs.bib']
+bibtex_default_style = 'unsrt'
+bibtex_reference_style = "author_year"
 autosummary_generate = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
