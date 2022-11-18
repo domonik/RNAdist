@@ -42,11 +42,15 @@ if not os.path.exists(os.path.join(prefix, "lib", python_l, "site-packages", "RN
                         "conda install -c bioconda viennarna"
 )
 
-samping_extension = Pybind11Extension(
+sampling_extension = Pybind11Extension(
     "RNAdist.sampling.cpp.sampling",
-    sources=["RNAdist/sampling/cpp/sampling.cpp"],
+    sources=[
+        "RNAdist/sampling/cpp/edsampling.cpp",
+        "RNAdist/sampling/cpp/RNAGraph.cpp",
+        "RNAdist/sampling/cpp/pyedsampling.cpp"
+    ],
     extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
-                                       "-Wl,--no-undefined"],
+                                                                         "-Wl,--no-undefined"],
     include_dirs=[_include, pybind11.get_include()],
     language="c++"
 )
@@ -56,10 +60,22 @@ cp_exp_dist_extension = Extension(
     sources=["CPExpectedDistance/CPExpectedDistance/c_expected_distance.c"],
     extra_link_args=extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}", "-Wl,--no-undefined"],
     include_dirs=include_dir,
-
+    language="c"
 )
+
+
+class CustomBuildExtension(cpp_extension.BuildExtension):
+
+    def __init__(self, *args, **kwargs):
+        # This has to stay until I rewrite the Clote-Ponty Extension or find out how to force ninja not to use
+        # a c++ compiler for that extension
+        kwargs["use_ninja"] = False
+        super().__init__(*args, **kwargs)
+
+
+
 cmds = versioneer.get_cmdclass()
-cmds["build_ext"] = cpp_extension.BuildExtension
+cmds["build_ext"] = CustomBuildExtension
 setup(
     name=NAME,
     version=versioneer.get_version(),
@@ -102,7 +118,7 @@ setup(
             extra_link_args=["-Wl,--no-undefined", f"-l{python_l}"],
             language="c++"
         ),
-    ] + cythonize("RNAdist/dp/_dp_calculations.pyx") + [cp_exp_dist_extension, samping_extension],
+    ] + cythonize("RNAdist/dp/_dp_calculations.pyx") + [sampling_extension, cp_exp_dist_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",

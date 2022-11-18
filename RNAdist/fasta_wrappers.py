@@ -1,7 +1,7 @@
 from Bio import SeqIO
 from RNAdist.dp.pmcomp import pmcomp_distance
 from RNAdist.dp.cpedistance import cp_expected_distance
-from RNAdist.sampling.ed_sampling import sample_cpp
+from RNAdist.sampling.ed_sampling import sample
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
@@ -44,7 +44,7 @@ def _cp_mp_wrapper(seq, md_config):
 def _sampling_mp_wrapper(seq, md_config, nr_samples):
     md = RNA.md()
     md = set_md_from_config(md, config=md_config)
-    return sample_cpp(seq, nr_samples, md)
+    return sample(seq, nr_samples, md)
 
 
 def pmcomp_from_fasta(fasta: str, md_config: Dict[str, Any], num_threads: int = 1):

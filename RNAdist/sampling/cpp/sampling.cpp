@@ -88,7 +88,7 @@ py::array_t<double> sample_non_redundant(vrna_fold_compound_t *fc, double cutoff
     return foo;
 }
 
-void add_distances_redundant_callback(const char *structure, void *data)
+void addDistancesRedundantCallback(const char *structure, void *data)
 {
     if (structure) {
         struct r_data     *d      = (struct r_data *)data;
@@ -149,7 +149,7 @@ static py::array_t<double> sampling(py::args args)
 }
 
 
-PYBIND11_MODULE(sampling, m) {
+PYBIND11_MODULE(sampling2, m) {
   m.def("cpp_nr_sampling", nr_sampling, "Samples non redundant from possible RNA structures");
   m.def("cpp_sampling", sampling, "Samples redundant from possible RNA structures");
 }

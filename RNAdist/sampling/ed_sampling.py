@@ -5,7 +5,7 @@ import subprocess
 import os
 import networkx as nx
 from typing import List, Dict, Iterable
-from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling
+from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling
 
 
 def undirected_distance(structure, data):
@@ -60,7 +60,7 @@ def sample_distance(sequence, nr_samples, md=None):
     return data, bppm
 
 
-def sample_cpp(sequence, nr_samples: int, md=None):
+def sample(sequence, nr_samples: int, md=None):
     """Samples structures for a sequence redundantly
 
     Draws :code:`nr_samples` structures and calculates the expected distance for all
@@ -83,7 +83,7 @@ def sample_cpp(sequence, nr_samples: int, md=None):
     return sample_fc(fc, nr_samples)
 
 
-def sample_nr_cpp(sequence, cutoff: float = 0.99, md=None):
+def sample_pthreshold(sequence, cutoff: float = 0.99, md=None):
     """Samples structures for a sequence non-redundantly
 
     Draws structures (:code:`S`)  via non redundant sampling from the ensemble of Structures (:code:`ES`)
@@ -111,7 +111,7 @@ def sample_nr_cpp(sequence, cutoff: float = 0.99, md=None):
     md.uniq_ML = 1
     md.pf_smooth = 0
     fc = RNA.fold_compound(sequence, md)
-    return nr_sample_fc(fc, cutoff)
+    return pthreshold_sample_fc(fc, cutoff)
 
 
 def sample_fc(fc: RNA.fold_compound, nr_samples: int):
@@ -136,7 +136,7 @@ def sample_fc(fc: RNA.fold_compound, nr_samples: int):
     return cpp_sampling(fc.this, nr_samples)
 
 
-def nr_sample_fc(fc: RNA.fold_compound, cutoff: float = 0.99):
+def pthreshold_sample_fc(fc: RNA.fold_compound, threshold: float = 0.99):
     """Samples structures for a sequence non-redundantly
 
     .. warning::
@@ -147,17 +147,42 @@ def nr_sample_fc(fc: RNA.fold_compound, cutoff: float = 0.99):
 
     Args:
         fc (RNA.fold_compound): ViennaRNA fold compound.
-        cutoff (float): Probability cutoff. If sum of probability of samples structures reaches this sampling stops
+        threshold (float): Probability cutoff. If sum of probability of samples structures reaches this sampling stops
 
     Returns:
          np.ndarray : :code:`N x N` matrix
             containing approximated expected distances from nucleotide :code:`i` to :code:`j` at
             :code:`matrix[i][j]`
     """
-    assert 0 < cutoff < 1, "Cutoff needs to be in range (0, 1)"
+    assert 0 < threshold < 1, "Cutoff needs to be in range (0, 1)"
     assert fc.params.model_details.pf_smooth == 0, "PF smooth needs to be set to 0 for this mode please do so before" \
                                                    "filling the partition function"
-    return cpp_nr_sampling(fc.this, cutoff)
+    fc.params.model_details.uniq_ML = 1
+    return cpp_pthreshold_sampling(fc.this, threshold)
+
+
+def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1):
+    """Samples structures for a sequence non-redundantly
+
+    .. warning::
+
+        This function might produce nonsense output if the fc is not set up correctly.
+        If you do not know how to do this consider using
+        :func:`~RNAdist.sampling.ed_sampling.sample_nr_cpp`
+
+    Args:
+        fc (RNA.fold_compound): ViennaRNA fold compound.
+        nr_samples (float): Number of non-redundant structures to draw
+
+    Returns:
+         np.ndarray : :code:`N x N` matrix
+            containing approximated expected distances from nucleotide :code:`i` to :code:`j` at
+            :code:`matrix[i][j]`
+    """
+    assert fc.params.model_details.pf_smooth == 0, "PF smooth needs to be set to 0 for this mode please do so before" \
+                                                   "filling the partition function"
+    fc.params.model_details.uniq_ML = 1
+    return cpp_nr_sampling(fc.this, nr_samples)
 
 
 def rna_shortest_paths(s, data: List[np.ndarray]):
