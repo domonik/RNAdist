@@ -92,7 +92,8 @@ setup(
     include_package_data=True,
     package_data={
         "RNAdist.visualize": ["assets/*"],
-        "RNAdist.dp": ["tests/*.py", "tests/test_data"],
+        "RNAdist": ["tests/*.py", "tests/test_data/*"],
+        "RNAdist.dp": ["tests/*.py", "tests/test_data/*"],
         "RNAdist.nn": ["tests/*.py", "tests/test_data/*.fa", "tests/test_data/*.pt", "tests/test_data/expected*/*"],
         "RNAdist.sampling": ["tests/*.py", "tests/test_data"],
     },
