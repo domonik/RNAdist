@@ -75,6 +75,7 @@ html_theme_options = {
     # Toc options
     "collapse_navigation": True,
     "navigation_depth": 4,
+    "show_prev_next": False,
     "logo": {
         "image_light": "RNAdist4.svg",
         "image_dark": "RNAdist4_dark.svg",

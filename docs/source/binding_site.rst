@@ -1,6 +1,8 @@
 Binding Site Distance
 #####################
 
+
+
 .. currentmodule:: RNAdist.dp.cpedistance
 
 
@@ -8,7 +10,13 @@ Just like discussed in the corresponding paper, we showed that the clote-ponty a
 calculating expected distances of exterior nucleotides. Since interaction of mRNA with molecules such as RNA binding
 proteins or regulatory RNAs prevents the binding-site from forming intramolecular hydrogen bonds, the binding-sites
 are forced to be in unstructured regions such as in a multi loop or as exterior nucleotides. In both cases the mentioned
-algorithm will have no error since no basepairs span into the interval between two binding sites.
+algorithm will have no error since no basepairs span into the interval between two binding sites. in the following
+paragraphs we will show how to calculate expected distances between binding sites using either the Python API
+or the Command Line Interface
+
+
+Python API
+***********
 
 Here we will shortly describe how to calulate the expected distance of two binding-sites using the RNAdist Python API.
 Therefore we picked binding-sites of PUM2 a famous RNA binding protein.
@@ -78,3 +86,58 @@ Now we just use the binding site indices to get the mfe distance
 
 This time the expected distance is only a bit different from the MFE distance. However, depending on the RNA and
 binding sites this might change.
+
+
+Command Line Interface
+**********************
+
+The command line interface uses `FASTA` as well as `BED` files to calculate distances between binding sites.
+We will consider the same example as the one used in the Tutorial for the Python API. Thus you must have a BED file
+which looks the following
+
+**BED** ::
+
+	ENST00000261313.3	715 721
+	ENST00000261313.3	931 937
+
+
+As well as a FASTA file that has got sequences sharing its description with entries in the first column of the bed file.
+
+**FASTA** ::
+
+	>ENST00000261313.3
+	AGUGUGCUGAGCUCUCCGCGUCGCCUCUGUCGCCCGCGCCUGGCCUACCGCGGCACUCCCGGCUGCACGCUCUGCUUGGCCUCGCCAUGCCGGUGGACCUCAGCAAGUGGUCCGGGCCCUUGAGCCUGCAAGAAGUGGACGAGCAGCCGCAGCACCCGCUGCAUGUCACCUACGCCGGGGCGGCGGUGGACGAGCUGGGCAAAGUGCUGACGCCCACCCAGGUUAAGAAUAGACCCACCAGCAUUUCGUGGGAUGGUCUUGAUUCAGGGAAGCUCUACACCUUGGUCCUGACAGACCCGGAUGCUCCCAGCAGGAAGGAUCCCAAAUACAGAGAAUGGCAUCAUUUCCUGGUGGUCAACAUGAAGGGCAAUGACAUCAGCAGUGGCACAGUCCUCUCCGAUUAUGUGGGCUCGGGGCCUCCCAAGGGCACAGGCCUCCACCGCUAUGUCUGGCUGGUUUACGAGCAGGACAGGCCGCUAAAGUGUGACGAGCCCAUCCUCAGCAACCGAUCUGGAGACCACCGUGGCAAAUUCAAGGUGGCGUCCUUCCGUAAAAAGUAUGAGCUCAGGGCCCCGGUGGCUGGCACGUGUUACCAGGCCGAGUGGGAUGACUAUGUGCCCAAACUGUACGAGCAGCUGUCUGGGAAGUAGGGGGUUAGCUUGGGGACCUGAACUGUCCUGGAGGCCCCAAGCCAUGUUCCCCAGUUCAGUGUUGCAUGUAUAAUAGAUUUCUCCUCUUCCUGCCCCCCUUGGCAUGGGUGAGACCUGACCAGUCAGAUGGUAGUUGAGGGUGACUUUUCCUGCUGCCUGGCCUUUAUAAUUUUACUCACUCACUCUGAUUUAUGUUUUGAUCAAAUUUGAACUUCAUUUUGGGGGGUAUUUUGGUACUGUGAUGGGGUCAUCAAAUUAUUAAUCUGAAAAUAGCAACCCAGAAUGUAAAAAAGAAAAAACUGGGGGGAAAAAGACCAGGUCUACAGUGAUAGAGCAAAGCAUCAAAGAAUCUUUAAGGGAGGUUUAAAAAAAAAAAAAAAAAAAAAGAUUGGUUGCCUCUGCCUUUGUGAUCCUGAGUCCAGAAUGGUACACAAUGUGAUUUUAUGGUGAUGUCACUCACCUAGACAACCAGAGGCUGGCAUUGAGGCUAACCUCCAACACAGUGCAUCUCAGAUGCCUCAGUAGGCAUCAGUAUGUCACUCUGGUCCCUUUAAAGAGCAAUCCUGGAAGAAGCAGGAGGGAGGGUGGCUUUGCUGUUGUUGGGACAUGGCAAUCUAGACCGGUAGCAGCGCUCGCUGACAGCUUGGGAGGAAACCUGAGAUCUGUGUUUUUUAAAUUGAUCGUUCUUCAUGGGGGUAAGAAAAGCUGGUCUGGAGUUGCUGAAUGUUGCAUUAAUUGUGCUGUUUGCUUGUAGUUGAAUAAAAAUAGAAACCUGAAUGAAGGAA
+
+.. note::
+
+	It is possible to have multiple different sequence identifiers in the BED and FASTA files. However, the FASTA file must
+	contain all the entries in the first column of the bed file.
+
+The following command line call will produce a TSV with the expected distance between those binding sites
+
+.. code-block:: bash
+
+	RNAdist binding-site --input my.fasta --bed_files my.bed --ouput my_output.tsv --num_threads 5
+
+
+.. note::
+
+	You can use as many bed files as you want by separating them using whitespaces.
+
+.. warning::
+
+	RNAdist will automatically filter overlapping sites since the expected distance will be zero
+
+
+Output
+++++++
+
+The output TSV will have the following structure
+
+**TSV** ::
+
+	sequence_name	name1	start1	stop1	name2	start2	stop2	expected_distance
+	ENST00000261313.3	foo.bed	715	721	foo.bed	931	937	26.263341302657103
+
+Where :code:`sequence_name` is the fasta header as well as the bed first column. The following columns originate from the
+BED files and are the names of the files (or custom names specified via :code:`--names` flag) as well as the intervals.
