@@ -17,6 +17,34 @@ extern "C"
 
 
 
+void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_distances, double weight) {
+    for (int i = 1; i<=pairtable[0]; i++) {
+        for (int j = i + 1; j<=pairtable[0]; j++) {
+            double distance = 0.;
+            int k = j;
+            while (k > i){
+                if (pairtable[k] == 0){
+                    distance += e_distances[i-1][k-2] + 1;
+                    break;
+                } else if ((j > pairtable[k]) && (pairtable[k] >= i)){
+                    k = pairtable[k];
+                    distance += 1;
+                    if (k > i){
+                        k -= 1;
+                        distance += 1;
+                    }
+                } else {
+                    k -= 1;
+                    distance += 1;
+                }
+            }
+            e_distances[i-1][j-1] += distance * weight;
+
+        }
+    }
+}
+
+
 void addDistancesRedundantCallback(const char *structure, void *data)
 {
 
@@ -24,10 +52,16 @@ void addDistancesRedundantCallback(const char *structure, void *data)
         struct sampling_data     *d      = (struct sampling_data *)data;
         vrna_fold_compound_t  *fc     = d->fc;
         vector <vector<double>>*  exp_d = d->expected_distance;
+        bool undirected = d->undirected;
         short *pt = vrna_ptable(structure);
-        Graph g(pt);
-        g.addDistances(*exp_d, 1/d->nr_samples);
-        free(pt);
+        if (undirected){
+            Graph g(pt);
+            g.addDistances(*exp_d, 1/d->nr_samples);
+            free(pt);
+        } else {
+            addShortestPathDirected(pt, *exp_d, 1/d->nr_samples);
+        }
+
     }
 }
 
@@ -44,17 +78,24 @@ void addDistancesNonRedundantCallback(const char *structure, void *data)
 
         double                e         = vrna_eval_structure(fc, structure);
         double                prob      = exp((ens_en - e) / kT);
+        bool undirected = d->undirected;
         prob_sum[0] += prob;
         short *pt = vrna_ptable(structure);
-        Graph g(pt);
-        g.addDistances(*exp_d, prob);
-        free(pt);
+        if (undirected) {
+            Graph g(pt);
+            g.addDistances(*exp_d, prob);
+            free(pt);
+        } else {
+            addShortestPathDirected(pt, *exp_d, prob);
+
+        }
+
 
     }
 }
 
 
-vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples) {
+vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected) {
     vector <vector<double>> e_distance(fc->length, vector<double>(fc->length));
     double mfe = (double)vrna_mfe(fc, NULL);
     vrna_exp_params_rescale(fc, &mfe);
@@ -63,6 +104,7 @@ vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_sampl
     data.fc = fc;
     data.expected_distance = &e_distance;
     data.nr_samples = nr_samples;
+    data.undirected = undirected;
 
     vrna_pbacktrack_cb(
             fc,
@@ -74,7 +116,7 @@ vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_sampl
     return e_distance;
 }
 
-vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples) {
+vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected) {
     vector <vector<double>> e_distance(fc->length, vector<double>(fc->length));
     double mfe = (double)vrna_mfe(fc, NULL);
     vrna_exp_params_rescale(fc, &mfe);
@@ -89,6 +131,7 @@ vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_sa
     data.ens_en = ens_en;
     data.kT = kT;
     data.prob_sum = &prob_sum;
+    data.undirected = undirected;
 
     vrna_pbacktrack_cb(
             fc,
@@ -100,7 +143,7 @@ vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_sa
     return e_distance;
 }
 
-vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold) {
+vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold, bool undirected) {
     vector <vector<double>> e_distance(fc->length, vector<double>(fc->length));
     double mfe = (double)vrna_mfe(fc, NULL);
     vrna_exp_params_rescale(fc, &mfe);
@@ -115,6 +158,8 @@ vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double thre
     data.ens_en = ens_en;
     data.kT = kT;
     data.prob_sum = &prob_sum;
+    data.undirected = undirected;
+
     vrna_pbacktrack_mem_t nonredundant_memory = NULL;
 
     int nr_structures = 1;

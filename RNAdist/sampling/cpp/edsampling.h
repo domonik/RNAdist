@@ -23,16 +23,18 @@ extern "C"
 
 void addDistancesRedundantCallback(const char *structure, void *data);
 void addDistancesNonRedundantCallback(const char *structure, void *data);
+void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_distances, double weight);
 
 
-vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples);
-vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples);
-vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold);
+vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
+vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
+vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold, bool undirected);
 
 struct sampling_data {
     vrna_fold_compound_t  *fc;
     vector<vector<double>>  *expected_distance;
     double nr_samples;
+    bool undirected;
 };
 
 
@@ -42,4 +44,5 @@ struct nr_sampling_data {
     double                      ens_en;
     double                      *prob_sum;
     vector<vector<double>>      *expected_distance;
+    bool                        undirected;
 };

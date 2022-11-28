@@ -114,8 +114,8 @@ def sample_pthreshold(sequence, cutoff: float = 0.99, md=None):
     return pthreshold_sample_fc(fc, cutoff)
 
 
-def sample_fc(fc: RNA.fold_compound, nr_samples: int):
-    """Samples structures for a sequence non-redundantly
+def sample_fc(fc: RNA.fold_compound, nr_samples: int, undirected: bool = True):
+    """Samples structures for a sequence and returns pairwise distances of nucleotides
 
     .. warning::
 
@@ -126,6 +126,8 @@ def sample_fc(fc: RNA.fold_compound, nr_samples: int):
     Args:
         fc (RNA.fold_compound): ViennaRNA fold compound.
         nr_samples (int): How many samples should be drawn
+        undirected (bool): Whether to use undirected or directed Graph to calculate distances
+
 
     Returns:
          np.ndarray : :code:`N x N` matrix
@@ -133,11 +135,11 @@ def sample_fc(fc: RNA.fold_compound, nr_samples: int):
             :code:`matrix[i][j]`
     """
     fc.params.model_details.uniq_ML = 1
-    return cpp_sampling(fc.this, nr_samples)
+    return cpp_sampling(fc.this, nr_samples, undirected)
 
 
-def pthreshold_sample_fc(fc: RNA.fold_compound, threshold: float = 0.99):
-    """Samples structures for a sequence non-redundantly
+def pthreshold_sample_fc(fc: RNA.fold_compound, threshold: float = 0.99, undirected: bool = True):
+    """Samples structures for a sequence non-redundantly and returns weighted pairwise nt distances.
 
     .. warning::
 
@@ -148,6 +150,7 @@ def pthreshold_sample_fc(fc: RNA.fold_compound, threshold: float = 0.99):
     Args:
         fc (RNA.fold_compound): ViennaRNA fold compound.
         threshold (float): Probability cutoff. If sum of probability of samples structures reaches this sampling stops
+        undirected (bool): Whether to use undirected or directed Graph to calculate distances
 
     Returns:
          np.ndarray : :code:`N x N` matrix
@@ -158,11 +161,11 @@ def pthreshold_sample_fc(fc: RNA.fold_compound, threshold: float = 0.99):
     assert fc.params.model_details.pf_smooth == 0, "PF smooth needs to be set to 0 for this mode please do so before" \
                                                    "filling the partition function"
     fc.params.model_details.uniq_ML = 1
-    return cpp_pthreshold_sampling(fc.this, threshold)
+    return cpp_pthreshold_sampling(fc.this, threshold, undirected)
 
 
-def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1):
-    """Samples structures for a sequence non-redundantly
+def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1, undirected: bool = True):
+    """Samples structures for a sequence non-redundantly and returns pairwise distances of nucleotides
 
     .. warning::
 
@@ -173,6 +176,7 @@ def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1):
     Args:
         fc (RNA.fold_compound): ViennaRNA fold compound.
         nr_samples (float): Number of non-redundant structures to draw
+        undirected (bool): Whether to use undirected or directed Graph to calculate distances
 
     Returns:
          np.ndarray : :code:`N x N` matrix
@@ -182,7 +186,7 @@ def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1):
     assert fc.params.model_details.pf_smooth == 0, "PF smooth needs to be set to 0 for this mode please do so before" \
                                                    "filling the partition function"
     fc.params.model_details.uniq_ML = 1
-    return cpp_nr_sampling(fc.this, nr_samples)
+    return cpp_nr_sampling(fc.this, nr_samples, undirected)
 
 
 def rna_shortest_paths(s, data: List[np.ndarray]):

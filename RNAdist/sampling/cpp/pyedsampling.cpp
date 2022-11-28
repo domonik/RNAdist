@@ -35,7 +35,8 @@ static py::array edSampling(py::args args){
     vrna_fold_compound_t *fc = swigFcToFc(args[0].ptr());
 
     int nr_samples = args[1].cast<int>();
-    vector <vector<double>> ed_vector =  edSampleRedundant(fc, nr_samples);
+    bool undirected = args[2].cast<bool>();
+    vector <vector<double>> ed_vector =  edSampleRedundant(fc, nr_samples, undirected);
     py::array ed_array =  py::cast(ed_vector);
     return ed_array;
 }
@@ -44,7 +45,9 @@ static py::array edNRSampling(py::args args){
     vrna_fold_compound_t *fc = swigFcToFc(args[0].ptr());
 
     int nr_samples = args[1].cast<int>();
-    vector <vector<double>> ed_vector =  edSampleNonRedundant(fc, nr_samples);
+    bool undirected = args[2].cast<bool>();
+
+    vector <vector<double>> ed_vector =  edSampleNonRedundant(fc, nr_samples, undirected);
     py::array ed_array =  py::cast(ed_vector);
     return ed_array;
 }
@@ -53,7 +56,9 @@ static py::array edPThresholdSampling(py::args args){
     vrna_fold_compound_t *fc = swigFcToFc(args[0].ptr());
 
     double threshold = args[1].cast<double>();
-    vector <vector<double>> ed_vector =  edPThresholdSample(fc, threshold);
+    bool undirected = args[2].cast<bool>();
+
+    vector <vector<double>> ed_vector =  edPThresholdSample(fc, threshold, undirected);
     py::array ed_array =  py::cast(ed_vector);
     return ed_array;
 }
