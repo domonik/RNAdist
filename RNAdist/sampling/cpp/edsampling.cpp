@@ -18,13 +18,14 @@ extern "C"
 
 
 void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_distances, double weight) {
+    vector <vector<double>> tmp_distances(pairtable[0], vector<double>(pairtable[0]));
     for (int i = 1; i<=pairtable[0]; i++) {
         for (int j = i + 1; j<=pairtable[0]; j++) {
             double distance = 0.;
             int k = j;
             while (k > i){
                 if (pairtable[k] == 0){
-                    distance += e_distances[i-1][k-2] + 1;
+                    distance += tmp_distances[i-1][k-2] + 1;
                     break;
                 } else if ((j > pairtable[k]) && (pairtable[k] >= i)){
                     k = pairtable[k];
@@ -38,10 +39,16 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
                     distance += 1;
                 }
             }
-            e_distances[i-1][j-1] += distance * weight;
+            tmp_distances[i-1][j-1] += distance;
 
         }
     }
+    for (int i = 1; i<=pairtable[0]; i++) {
+        for (int j = i + 1; j<=pairtable[0]; j++) {
+            e_distances[i-1][j-1] += tmp_distances[i-1][j-1] * weight;
+        }
+    }
+
 }
 
 
