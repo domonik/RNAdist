@@ -9,8 +9,8 @@ Binding Site Distance
 Just like discussed in the corresponding paper, we showed that the clote-ponty algorithm is capable of
 calculating expected distances of exterior nucleotides. Since interaction of mRNA with molecules such as RNA binding
 proteins or regulatory RNAs prevents the binding-site from forming intramolecular hydrogen bonds, the binding-sites
-are forced to be in unstructured regions such as in a multi loop or as exterior nucleotides. In both cases the mentioned
-algorithm will have no error since no basepairs span into the interval between two binding sites. in the following
+are forced to be in unstructured regions hence  exterior nucleotides. In such cases the mentioned
+algorithm will have no error since no structures span the interval between two binding sites. in the following
 paragraphs we will show how to calculate expected distances between binding sites using either the Python API
 or the Command Line Interface
 
@@ -82,10 +82,9 @@ Now we just use the binding site indices to get the mfe distance
 .. code-block:: python
 
     >>> ed_matrix[720][931]
-    29
+    135.0
 
-This time the expected distance is only a bit different from the MFE distance. However, depending on the RNA and
-binding sites this might change.
+You can see the mfe distance on this RNA is much different from the expected distance.
 
 
 Command Line Interface

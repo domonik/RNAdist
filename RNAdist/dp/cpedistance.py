@@ -132,11 +132,11 @@ def _write_commands_to_file(binding_sites: List[Tuple[int, int]], seq_len: int, 
     sites2 = _bed_to_vrna_interval(binding_sites[1])
     assert sites1[1] < sites2[0], "This method does not support overlapping sites"
     if sites1[0] > 1:
-        # permits spanning from before into that interval
-        file.write(f"P 1-{sites1[0]-1} {sites1[1]+1}-{sites2[0]-1}\n")
+        # permits spanning from before to back
+        file.write(f"P 1-{sites1[0]-1} {sites1[1]+1}-{seq_len}\n")
     if sites2[1] < seq_len:
-        # permits span f behind into interval
-        file.write(f"P {sites1[1]+1}-{sites2[0]-1} {sites2[1]+1}-{seq_len}\n")
+        # permits span f behind to front
+        file.write(f"P 1-{sites2[0]-1} {sites2[1]+1}-{seq_len}\n")
     file.write(f"P {sites1[0]} 0 {sites1[1]- sites1[0] + 1}\n")
     file.write(f"P {sites2[0]} 0 {sites2[1] - sites2[0] + 1}\n")
     file.seek(0)

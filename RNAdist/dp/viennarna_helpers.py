@@ -51,22 +51,11 @@ def set_md_from_config(md, config):
         setattr(md, key, value)
 
 
-def structural_probabilities(sequence, md=None):
-
-    # Check input.
-
-    # Output files.
-    # Calculate base pair and structural elements probabilities.
-    plfold_l = plfold_w = len(sequence)
-    if md is None:
-        md = RNA.md()
-    md.max_bp_span = plfold_l
-    md.window_size = plfold_w
+def structural_probabilities(fc: RNA.fold_compound):
 
     # Different loop context probabilities.
     data_split = {'ext': [], 'hp': [], 'int': [], 'mb': [] }
 
-    fc = RNA.fold_compound(sequence, md, RNA.OPTION_WINDOW)
     # Get different loop context probabilities.
     fc.probs_window(1, RNA.PROBS_WINDOW_UP | RNA.PROBS_WINDOW_UP_SPLIT, up_split_callback, data_split)
 
@@ -77,8 +66,7 @@ def structural_probabilities(sequence, md=None):
     ups_i = []
     ups_m = []
     ups_s = []
-
-    for i,e in enumerate(sequence):
+    for i in range(fc.length):
         p_e = 0
         p_h = 0
         p_i = 0
