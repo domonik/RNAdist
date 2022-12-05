@@ -13,7 +13,8 @@ pytest_plugins = ["RNAdist.dp.tests.fixtures",
     )
 )
 def test_structural_probabilities(seq4test, test_md):
-    probabilities = structural_probabilities(seq4test, test_md)
+    fc = RNA.fold_compound(seq4test, test_md)
+    probabilities = structural_probabilities(fc)
     assert isinstance(probabilities, dict)
     assert "exterior" in probabilities
 
