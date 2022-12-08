@@ -161,9 +161,10 @@ class PairUpdate(nn.Module):
         return pair_rep
 
     def forward_cp(self, pair_rep: torch.Tensor, mask: torch.Tensor = None):
-        pair_rep.requires_grad = True
-        if mask is not None:
-            mask.requires_grad = True
+        if not pair_rep.requires_grad:
+            pair_rep.requires_grad = True
+            if mask is not None:
+                mask.requires_grad = True
         pair_rep = checkpoint(self.triangular_update_in, pair_rep, mask, use_reentrant=False) + pair_rep
         pair_rep = checkpoint(self.triangular_update_out, pair_rep, mask, use_reentrant=False) + pair_rep
         pair_rep = checkpoint(self.triangular_attention_in, pair_rep, mask, use_reentrant=False) + pair_rep
@@ -198,9 +199,10 @@ class PairUpdateSmall(nn.Module):
         return pair_rep
 
     def forward_cp(self, pair_rep, mask=None):
-        pair_rep.requires_grad = True
-        if mask is not None:
-            mask.requires_grad = True
+        if not pair_rep.requires_grad:
+            pair_rep.requires_grad = True
+            if mask is not None:
+                mask.requires_grad = True
         pair_rep = checkpoint(self.triangular_update_in, pair_rep, mask, preserve_rng_state=False) + pair_rep
         pair_rep = checkpoint(self.triangular_update_out, pair_rep, mask, preserve_rng_state=False) + pair_rep
         pair_rep = self.transition(pair_rep) + pair_rep
