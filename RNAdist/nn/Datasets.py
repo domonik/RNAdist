@@ -226,7 +226,10 @@ class RNAPairDataset(RNADataset):
                 x = self.augmentor.augment(x, mode="single")
             pad_val = self.max_length - x.shape[0]
             pair_rep = self.pair_rep_from_single(x)
-            bppm = data["bppm"]
+            bppm = data["bppm"]#.squeeze()
+            # diag = 1 - torch.sum(bppm, dim=1)
+            # bppm = bppm + torch.diag_embed(diag)
+            # bppm = bppm.unsqueeze(-1)
             pair_matrix = torch.cat((bppm, pair_rep), dim=-1)
             pair_matrix = F.pad(pair_matrix, (0, 0, 0, pad_val, 0, pad_val),
                                 "constant", 0)
@@ -441,6 +444,9 @@ def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 1000):
 
 def normalize_bpp(pair_rep: torch.Tensor):
     bpp = pair_rep[:, :, 0]
+    means = bpp.mean()
+    stds = bpp.std()
+    pair_rep[:, :, 0] = (bpp - means) / stds
     pair_rep[:, :, 0] = (bpp - torch.min(bpp)) / (torch.max(bpp) - torch.min(bpp))
     return pair_rep
 

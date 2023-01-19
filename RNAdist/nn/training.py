@@ -12,11 +12,12 @@ from RNAdist.nn.configuration import ModelConfiguration
 from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE,
     DISTAtteNCionESmall,
-    WeightedDiagonalMSELoss
+    DISTAtteNCionEDual
 )
 from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, DataAugmentor, normalize_bpp, shift_index
+import torch.nn.functional as F
 
-
+torch.autograd.set_detect_anomaly(True)
 def _loader_generation(
         training_set,
         validation_set,
@@ -208,7 +209,9 @@ def _unpack_batch(batch, device, config):
 def _run_prediction(data_loader, model, losses, device, config, optimizer, train: bool = True):
     total_loss = 0
     total_mae = 0
+    total_subloss = 0
     batch_idx = 0
+    probloss = torch.nn.BCELoss(reduction="none")
     if train:
         model.train()
     else:
@@ -226,26 +229,49 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         i_start = i_end = None
     for batch_idx, batch in enumerate(iter(data_loader)):
         pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
+
         pred = model(pair_rep, mask=mask)
+        bpp_pred = None
+        if isinstance(model, DISTAtteNCionEDual):
+            pred, bpp_pred = pred
         if global_mask is not None:
             pred = pred * global_mask
             y = y * global_mask
             numel = int((i_end - i_start) ** 2) * pred.shape[0]
         multi_loss = 0
-        for criterion, weight, elementwise in losses:
-            loss = criterion(y, pred)
-            if not elementwise:
-                loss = loss / numel  # adjusts the loss to be elementwise
-            multi_loss = multi_loss + loss * weight
-            multi_loss = multi_loss / config["gradient_accumulation"]
+        if isinstance(model, DISTAtteNCionEDual):
+            loss = bpp_pred
+            #l2 = F.mse_loss(torch.sum(bpp_pred, dim=1), torch.sum(bpp_y, dim=1))
+            #l3 = F.mse_loss(torch.sum(bpp_pred, dim=0), torch.sum(bpp_y, dim=0))
+            # if batch_idx == 0:
+            #     print(bpp_pred[0, 15, :])
+            #     print(bpp_y[0, 15, :])
+            #     print(torch.max(bpp_pred[0, 15, :]), torch.max(bpp_y[0, 15, :]))
+            multi_loss += loss
+        else:
+            for criterion, weight, elementwise in losses:
+                loss = criterion(y, pred)
+                if not elementwise:
+                    loss = loss / numel  # adjusts the loss to be elementwise
+                multi_loss = multi_loss + loss * weight
+        multi_loss = multi_loss / config["gradient_accumulation"]
         if train:
             multi_loss.backward()
+            torch.nn.utils.clip_grad_norm(model.parameters(), 10)
+            if torch.rand(size=(1,)) < 0.01:
+                print("___")
+                print(model.resize.weight.grad.abs().max())
+                print(model.pair_updates[0].triangular_update_in.left_edges.weight.grad.abs().max())
+                print(model.pair_updates[-1].transition[-1].weight.grad.abs().max())
+                print(model.masked_nt_lin[0].weight.grad.abs().max())
+
             if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (batch_idx + 1 == len(data_loader)):
                 optimizer.step()
                 optimizer.zero_grad()
         total_loss += multi_loss.item() * config["gradient_accumulation"]
         absolute_error = torch.sum(torch.abs(pred - y)) / numel
         total_mae += absolute_error.item()
+
     total_mae /= min((batch_idx + 1), len(data_loader.dataset) / config["batch_size"])
     total_loss /= min((batch_idx + 1), len(data_loader.dataset) / config["batch_size"])
     return total_loss, total_mae
@@ -286,6 +312,12 @@ def train_model(
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(
             input_dim,
+            nr_updates=config["nr_layers"],
+            checkpointing=config.gradient_checkpointing
+        )
+    elif config["model"] == "dual":
+        model = DISTAtteNCionEDual(
+            input_dim - 1,
             nr_updates=config["nr_layers"],
             checkpointing=config.gradient_checkpointing
         )
@@ -353,7 +385,7 @@ def train_model(
                 best_epoch = epoch
                 torch.save((model.state_dict(), config), config["model_checkpoint"])
             print(
-                f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}\tValidation Loss: {val_loss:.2f}\tValidation MAE: {val_mae:.2f}")
+                f"Epoch: {epoch}\tTraining Loss: {train_loss:.4f}\tTraining MAE: {train_mae:.2f}\tValidation Loss: {val_loss:.4f}\tValidation MAE: {val_mae:.2f}")
             tstats.append([epoch, train_loss, train_mae, val_loss, val_mae])
         else:
             print(f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}")
