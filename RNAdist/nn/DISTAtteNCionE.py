@@ -249,40 +249,126 @@ class RNADISTAtteNCionE(nn.Module):
             out = out * mask
         return out
 
+class SequenceMultihead(torch.nn.Module):
+    def __init__(self, embed_size, heads, head_dim):
+        super().__init__()
+        self.embed_size = embed_size
+        self.heads = heads  # := c in alpha
+        self.head_dim = head_dim
+
+        self.values = nn.Linear(self.embed_size, self.head_dim * heads, bias=False)
+        self.keys = nn.Linear(self.embed_size, self.head_dim * heads, bias=False)
+        self.queries = nn.Linear(self.embed_size, self.head_dim * heads, bias=False)
+
+    def forward(self, values, keys, query):
+        N = query.shape[0]
+
+        value_len, key_len, query_len = values.shape[1], keys.shape[1], query.shape[1]
+        values = self.values(values)
+        keys = self.keys(keys)
+        query = self.queries(query) * self.head_dim ** (-0.5)
+        values = values.reshape(N, value_len, self.heads, self.head_dim)
+        keys = keys.reshape(N, key_len, self.heads, self.head_dim)
+        query = query.reshape(N, query_len, self.heads, self.head_dim)
+        dpa = torch.einsum("nqhc,nvhc->nqvh", [query, keys])
+        return values, dpa
+
+class SelfAttentionWPairBias(nn.Module):
+    def __init__(self, embed_size, pair_dim, heads, head_dim):
+        super().__init__()
+        self.sequence_norm = nn.LayerNorm(embed_size)
+        self.seq_multihead = SequenceMultihead(embed_size, heads, head_dim)
+        self.pair_dim = pair_dim
+        self.head_dim = head_dim
+        self.heads = heads
+        self.embed_size = embed_size
+
+
+        self.value_transform = nn.Linear(self.head_dim * self.heads, self.embed_size)
+        self.pair_norm = nn.LayerNorm(self.pair_dim)
+        self.pair_transform = nn.Linear(self.pair_dim, self.heads, bias=False)
+
+    def forward(self, embedding, pair_rep):
+        N = embedding.shape[0]
+        seq_len = embedding.shape[1]
+        embedding = self.sequence_norm(embedding)
+        values, dpa = self.seq_multihead(embedding, embedding, embedding)
+        pair_bias = self.pair_transform(self.pair_norm(pair_rep))
+        attention_weights = torch.softmax(pair_bias + dpa, dim=2)
+        #attention_weights = torch.softmax(dpa, dim=2)
+
+        # attention.shape = (N, seq_len (q), seq_len (v), heads (h))
+        # values.shape = (N, seq_len (v), heads (h), head_dim (c))
+        # out.shape (N, seq_len (q), heads (h), head_dim(c))
+        out = torch.einsum("nqvh,nvhc->nqhc", [attention_weights, values])
+        out = out.reshape(N, seq_len, self.heads * self.head_dim)
+        out = self.value_transform(out)
+        return out
+
+
+class SequenceTransition(nn.Module):
+    def __init__(self, embedding_dim: int, fw: int = 4):
+        super().__init__()
+        self.fw = fw
+        self.embedding_dim = embedding_dim
+        self.transition = nn.Sequential(
+            nn.Linear(self.embedding_dim, self.fw * self.embedding_dim),
+            nn.ReLU(),
+            nn.Linear(self.embedding_dim * self.fw, self.embedding_dim)
+        )
+
+    def forward(self, x):
+        return self.transition(x)
+
+class OuterProduct(nn.Module):
+    def __init__(self, embedding_dim, pair_rep_dim: int, c: int = 32):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.norm = nn.LayerNorm(self.embedding_dim)
+        self.right_lin = nn.Linear(embedding_dim, c)
+        self.left_lin = nn.Linear(embedding_dim, c)
+        self.out_lin = nn.Linear(c, pair_rep_dim)
+    def forward(self, x):
+        x = self.norm(x)
+        left_x, right_x = self.left_lin(x), self.right_lin(x)
+        act = torch.einsum('bic,bjc -> bijc', left_x, right_x)
+        pair_update = self.out_lin(act)
+        return pair_update
+
+
+
 
 class DISTAtteNCionEDual(nn.Module):
 
     def __init__(self, embedding_dim, nr_updates: int = 1, fw: int = 4, checkpointing: bool = False):
         super().__init__()
         self.nr_updates = nr_updates
-        self.mask_perc = 0.1
+        self.mask_perc = 0.05
         self.nr_inital_updates = 1
-        inner_dim = embedding_dim * 2
-        edhalf = int(embedding_dim / 2) + 1
-        ed4 = 4 * embedding_dim
-        self.keys = nn.ModuleList(nn.Linear(edhalf if x == 0 else ed4, ed4) for x in range(self.nr_inital_updates))
-        self.values = nn.ModuleList(nn.Linear(edhalf if x == 0 else ed4, ed4) for x in range(self.nr_inital_updates))
-        self.queries = nn.ModuleList(nn.Linear(edhalf if x == 0 else ed4, ed4) for x in range(self.nr_inital_updates))
-        self.mha = nn.ModuleList(torch.nn.MultiheadAttention(embedding_dim * 4, 4, batch_first=True) for x in range(self.nr_inital_updates))
-        self.gates = nn.ModuleList(
-            nn.Sequential(nn.Linear(edhalf if x == 0 else ed4, ed4), nn.Sigmoid()) for x in range(self.nr_inital_updates)
-        )
-        #assert self.nr_updates >= 2, "Needs to have multiple update layers for DualMode"
+        self.pair_dim = 32
+        self.single_dim = 16
+        self.resize = nn.Linear(embedding_dim + 1, self.pair_dim)
+        self.resize_y = nn.Linear(9, self.single_dim)
+
         self.pair_updates = nn.ModuleList(
-            PairUpdate(inner_dim * 4, fw, checkpointing) for _ in range(self.nr_updates)
+            PairUpdate(self.pair_dim, fw, checkpointing) for _ in range(self.nr_updates)
         )
-        self.layer_norms = nn.ModuleList(
-            nn.LayerNorm(ed4) for _ in range(self.nr_inital_updates)
+        self.x_updates = nn.ModuleList(
+            SelfAttentionWPairBias(self.single_dim, self.pair_dim, 4, self.single_dim) for _ in range(self.nr_updates)
         )
-        self.output = nn.Linear(inner_dim * 4, 1)
-        self.head2 = nn.Linear(inner_dim *  4, 1)
-        self.masked_nt_lin = nn.Sequential(nn.Linear(inner_dim * 4, inner_dim), nn.Sigmoid(),
-                                           nn.Linear(inner_dim, int(inner_dim / 2)), nn.Sigmoid(),
-                                           nn.Linear(int(inner_dim / 2), 4), nn.ReLU())
+        self.x_transitions = nn.ModuleList(
+            SequenceTransition(self.single_dim, 4) for _ in range(self.nr_updates)
+        )
+        self.outer_products = nn.ModuleList(
+            OuterProduct(self.single_dim, self.pair_dim) for _ in range(self.nr_updates)
+        )
+        self.masked_nt_lin = nn.Sequential(
+            nn.Linear(self.single_dim, self.single_dim), nn.ReLU(), nn.Linear(self.single_dim, 4)
+        )
         self.masked_loss = nn.CrossEntropyLoss(reduction="none")
-        self.test = nn.Linear(inner_dim * 4, inner_dim * 4)
-        self.resize = nn.Linear(embedding_dim + 1, inner_dim * 4)
         self.apply(self._init_weights)
+
+
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear) :
@@ -292,52 +378,46 @@ class DISTAtteNCionEDual(nn.Module):
         return self.mha[x](q, k, v, key_padding_mask = mask[:, :, 0])
 
     def forward(self, pair_rep, mask=None):
-        y = torch.diagonal(pair_rep, dim1=2, dim2=1).permute(0, 2, 1)
+        x = torch.diagonal(pair_rep, dim1=2, dim2=1).permute(0, 2, 1)
 
-        y = y[:, :,  0:9]
+        x = x[:, :,  0:9]
 
         if mask is not None:
             y_mask = torch.diagonal(mask, dim1=2, dim2=1)
-            y_dropout, pair_rep_dropout = self.get_random_mask(y, y_mask)
-            y_only_nt = y[:, :, 1:5]
+            y_dropout, pair_rep_dropout = self.get_random_mask(x, y_mask)
+            y_only_nt = x[:, :, 1:5]
             pair_rep_old = pair_rep
             pair_rep = torch.concat((pair_rep[:, :, :, 1:] * pair_rep_dropout.unsqueeze(-1), pair_rep[:, :, :, 0].unsqueeze(-1)), dim=-1)
-            y = y * y_dropout.unsqueeze(-1)
+            #pair_rep = pair_rep * pair_rep_dropout.unsqueeze(-1)
+            x = x * y_dropout.unsqueeze(-1)
 
         # for x in range(self.nr_inital_updates):
         #     k, v, q = self.keys[x](y), self.values[x](y), self.queries[x](y)
         #     y = checkpoint(self.mha_wrapper, x, q, k, v, mask, preserve_rng_state=True)[0] + self.gates[x](y)
-        #     #y = self.layer_norms[x](y)
+        #     #y = self.layer_norms[x](y)S
         #     #y, _ = self.mha(q, k, v, key_padding_mask = mask[:, :, 0])
-        old_pr = self.resize(pair_rep_old)
-        pair_rep = old_pr
+        #old_pr = self.resize(pair_rep_old)
+        x = self.resize_y(x)
+        pair_rep = self.resize(pair_rep)
 
         head2_out = None
         for idx in range(self.nr_updates):
-            pair_rep = self.pair_updates[idx](pair_rep, mask ) + pair_rep
+            x = self.x_updates[idx](x, pair_rep) + x
+            x = self.x_transitions[idx](x) + x
+            #pair_rep = self.outer_products[idx](x) + pair_rep
+            pair_rep = self.pair_updates[idx](pair_rep, mask) + pair_rep
             # if idx == self.nr_updates - 2:
             #     head2_out = self.head2(pair_rep + old_pr)
-        pair_rep = pair_rep
-        #print(torch.histogram(old_pr, 10), old_pr.min(), old_pr.max())
-        #print(torch.histogram(pair_rep, 10), pair_rep.min(), pair_rep.max())
-        pair_rep = F.sigmoid(self.test(pair_rep))
-
-        y = torch.sum(pair_rep, dim=-2)
-        masked_y_pred = self.masked_nt_lin(y)
+        masked_y_pred = self.masked_nt_lin(x)
         l1 = self.masked_nt_pred(masked_y_pred, y_only_nt, y_dropout, y_mask)
 
-        # head2_out = torch.squeeze(head2_out)
-        # head2_out = torch.sigmoid(head2_out)
-        out = self.output(pair_rep)
-        out = torch.squeeze(out)
-        out = torch.relu(out)
-        if mask is not None:
-            out = out * mask
-            #head2_out = head2_out * mask
-        return out, l1
+        return l1, l1
 
     def get_random_mask(self, y, y_mask):
-        y_dropout = (torch.rand((y.shape[0], y.shape[1]), device=y_mask.device) > self.mask_perc) * y_mask
+        d = True
+        while d:
+            y_dropout = (torch.rand((y.shape[0], y.shape[1]), device=y_mask.device) > self.mask_perc) * y_mask
+            d = torch.all(y_dropout == y_mask)
         pair_rep_dropout = torch.bmm(y_dropout.unsqueeze(-1), y_dropout.unsqueeze(-1).permute(0, 2, 1))
         return y_dropout, pair_rep_dropout
 
@@ -347,6 +427,7 @@ class DISTAtteNCionEDual(nn.Module):
         loss = loss * y_drop
         if torch.rand(size=(1,)) < 0.01:
             print((F.softmax(x, -1) * y_drop.unsqueeze(-1))[0][y_drop[0] != 0])
+            print(y[0][y_drop[0] != 0])
         loss = torch.sum(loss) / loss.count_nonzero()
         return loss
 

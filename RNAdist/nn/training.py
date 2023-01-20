@@ -257,13 +257,16 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         multi_loss = multi_loss / config["gradient_accumulation"]
         if train:
             multi_loss.backward()
-            torch.nn.utils.clip_grad_norm(model.parameters(), 10)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
             if torch.rand(size=(1,)) < 0.01:
-                print("___")
-                print(model.resize.weight.grad.abs().max())
-                print(model.pair_updates[0].triangular_update_in.left_edges.weight.grad.abs().max())
-                print(model.pair_updates[-1].transition[-1].weight.grad.abs().max())
-                print(model.masked_nt_lin[0].weight.grad.abs().max())
+                try:
+                    print("___")
+                    print(model.resize.weight.grad.abs().max())
+                    print(model.pair_updates[0].triangular_update_in.left_edges.weight.grad.abs().max())
+                    print(model.pair_updates[-1].transition[-1].weight.grad.abs().max())
+                    print(model.masked_nt_lin[0].weight.grad.abs().max())
+                except AttributeError:
+                    pass
 
             if ((batch_idx + 1) % config["gradient_accumulation"] == 0) or (batch_idx + 1 == len(data_loader)):
                 optimizer.step()
