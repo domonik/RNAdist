@@ -1,6 +1,7 @@
 Command Line Interface
 ######################
 
+.. _datt-cli-doc:
 DISTAtteNCioNE
 ++++++++++++++
 
@@ -8,7 +9,7 @@ DISTAtteNCioNE
    :ref: RNAdist.distattencione_executables.documentation_wrapper
    :prog: DISTAtteNCionE
 
-
+.. _cli-doc:
 RNAdist
 +++++++
 

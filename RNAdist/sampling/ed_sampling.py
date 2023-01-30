@@ -121,7 +121,7 @@ def sample_fc(fc: RNA.fold_compound, nr_samples: int, undirected: bool = True):
 
         This function might produce nonsense output if the fc is not set up correctly.
         If you do not know how to do this consider using
-        :func:`~RNAdist.sampling.ed_sampling.sample_cpp`
+        :func:`~RNAdist.sampling.ed_sampling.sample`
 
     Args:
         fc (RNA.fold_compound): ViennaRNA fold compound.
@@ -133,6 +133,16 @@ def sample_fc(fc: RNA.fold_compound, nr_samples: int, undirected: bool = True):
          np.ndarray : :code:`N x N` matrix
             containing approximated expected distances from nucleotide :code:`i` to :code:`j` at
             :code:`matrix[i][j]`
+
+    It is possible to sample expected distances using the ViennaRNA fold compound as follows. Please make sure
+    to enable unique multiloop decomposition via :code:`uniq_ML=1`.
+
+    >>> import RNA
+    >>> seq = "GGGCUAUUAGCUCAGUUGGUUAGAGCGCACCCCUGAUAAGGGUGAGGUCGCUGAUUCGAAUUCAGCAUAGCCCA"
+    >>> fc = RNA.fold_compound(seq, RNA.md(uniq_ML=1))
+    >>> x = sample_fc(fc)
+    >>> x[0, -1]
+    2.004000000000001
     """
     fc.params.model_details.uniq_ML = 1
     return cpp_sampling(fc.this, nr_samples, undirected)

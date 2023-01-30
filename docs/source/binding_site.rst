@@ -6,7 +6,7 @@ Binding Site Distance
 .. currentmodule:: RNAdist.dp.cpedistance
 
 
-Just like discussed in the corresponding paper, we showed that the clote-ponty algorithm is capable of
+We showed that the clote-ponty algorithm is capable of
 calculating expected distances of exterior nucleotides. Since interaction of mRNA with molecules such as RNA binding
 proteins or regulatory RNAs prevents the binding-site from forming intramolecular hydrogen bonds, the binding-sites
 are forced to be in unstructured regions hence  exterior nucleotides. In such cases the mentioned

@@ -49,7 +49,7 @@ extensions = [
     "sphinx_rtd_theme",
     'sphinxarg.ext',
     'sphinx_design',
-    'sphinxcontrib.bibtex'
+    'sphinxcontrib.bibtex',
 ]
 bibtex_bibfiles = ['refs.bib']
 bibtex_default_style = 'unsrt'
