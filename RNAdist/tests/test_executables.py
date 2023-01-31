@@ -142,3 +142,17 @@ def test_binding_site_executable(tmp_path, bed_test_fasta, bed_test_bed, names):
     assert df.shape[0] >= 1
     assert df.shape[1] == 8
 
+
+def test_rnadist_extract(tmp_path, example_output, example_output_path):
+    process = [
+        "python", EXECUTABLES_FILE, "extract",
+        "--data_file", example_output_path,
+        "--outdir", tmp_path,
+    ]
+    data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
+    assert data.stderr.decode() == ""
+    for key in example_output.keys():
+        expected_path = os.path.join(tmp_path, f"{key}.tsv")
+        assert os.path.exists(expected_path)
+        df = pd.read_csv(expected_path, sep="\t")
+        assert len(df != 0)

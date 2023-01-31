@@ -1,5 +1,6 @@
 import multiprocessing
 
+import numpy as np
 from Bio import SeqIO
 from RNAdist.dp.pmcomp import pmcomp_distance
 import pandas as pd
@@ -8,7 +9,7 @@ from RNAdist.sampling.ed_sampling import sample
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
-from typing import Dict, Any, Callable, List, Tuple
+from typing import Dict, Any, Callable, List, Tuple, Union
 import pickle
 import os
 
@@ -242,3 +243,32 @@ def md_config_from_args(args):
         "noGU": args.noGU,
     }
     return md_config
+
+
+def export_array(array: np.ndarray, file: str):
+    df = pd.DataFrame(array)
+    df.to_csv(file, sep="\t")
+
+
+def export_all(output_data: Dict[str, np.ndarray], outdir: Union[str, os.PathLike]):
+    """Extracts expected distances from a pickled output file and stores them in TSV files.
+    Therefore, it uses the original FASTA identifiers as filenames.
+
+    Args:
+        output_data (Dict): The Data from which the output should be extracted.
+        outdir (str, PathLike): The directory where TSV output files will be stored
+    """
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    if not os.path.isdir(outdir):
+        raise FileExistsError("The specified path does not look like a directory")
+    for key, value in output_data.items():
+        key = key.replace(" ", "_")
+        out_path = os.path.join(outdir, f"{key}.tsv")
+        export_array(value, out_path)
+
+
+def _export_all_cmd(args):
+    with open(args.data_file, "rb") as handle:
+        output_data = pickle.load(handle)
+    export_all(output_data, args.outdir)

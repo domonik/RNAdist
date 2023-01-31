@@ -1,7 +1,7 @@
 import argparse
 from RNAdist.visualize.visualize import run_visualization
 from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, \
-    _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper
+    _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd
 
 
 def add_md_parser(parser):
@@ -168,6 +168,26 @@ def visualization_parser(subparsers, name):
     )
     return parser
 
+def extract_parser(subparsers, name):
+    parser = subparsers.add_parser(
+        name,
+        description="Extracts TSV files from the prediction output that was generated via one of the "
+                    "prediction mechanisms"
+    )
+    parser.add_argument(
+        '--data_file',
+        type=str,
+        help="Path to the prediction files generated using one of the prediction mechansims.",
+        required=True
+    )
+    parser.add_argument(
+        '--outdir',
+        type=str,
+        help="Path to the output directory, where TSV files will be exported to",
+        required=True
+    )
+    return parser
+
 
 class RNAdistParser:
     def __init__(self):
@@ -181,7 +201,8 @@ class RNAdistParser:
             "clote-ponty": (cp_parser, _cp_executable_wrapper),
             "pmcomp": (cp_parser, _pmcomp_executable_wrapper),
             "sample": (sampling_parser, _sampled_distance_executable_wrapper),
-            "binding-site": (_bs_parser, _bs_bed_executable_wrapper)
+            "binding-site": (_bs_parser, _bs_bed_executable_wrapper),
+            "extract": (extract_parser, _export_all_cmd),
         }
         self.subparsers = self.parser.add_subparsers()
         self.__addparsers()
