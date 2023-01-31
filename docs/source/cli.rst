@@ -9,9 +9,10 @@ DISTAtteNCioNE
    :ref: RNAdist.distattencione_executables.documentation_wrapper
    :prog: DISTAtteNCionE
 
-.. _cli-doc:
 RNAdist
 +++++++
+.. _cli-doc:
+
 
 .. argparse::
    :ref: RNAdist.executables.rnadist_documentation_wrapper

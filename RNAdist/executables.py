@@ -183,7 +183,7 @@ def extract_parser(subparsers, name):
     parser.add_argument(
         '--outdir',
         type=str,
-        help="Path to the output directory, where TSV files will be exported to",
+        help="Path to the output directory, where TSV files will be saved",
         required=True
     )
     return parser
