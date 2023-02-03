@@ -15,7 +15,8 @@ class Modeltotest(torch.nn.Module):
         self.embedding_size = embedding_size
         self.output = torch.nn.Linear(self.embedding_size, 1)
 
-    def forward(self, pair_rep, mask):
+    def forward(self, batch, mask):
+        pair_rep = batch["pair_rep"]
         out = self.output(pair_rep)
         out = torch.squeeze(out)
         out = torch.relu(out)

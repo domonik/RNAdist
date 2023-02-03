@@ -220,7 +220,8 @@ class DISTAtteNCionESmall(nn.Module):
         )
         self.output = nn.Linear(embedding_dim, 1)
 
-    def forward(self, pair_rep, mask=None):
+    def forward(self, batch, mask=None):
+        pair_rep = batch["pair_rep"]
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
         out = self.output(pair_rep)
@@ -240,7 +241,8 @@ class RNADISTAtteNCionE(nn.Module):
         )
         self.output = nn.Linear(embedding_dim, 1)
 
-    def forward(self, pair_rep, mask=None):
+    def forward(self, batch, mask=None):
+        pair_rep = batch["pair_rep"]
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
         out = self.output(pair_rep)

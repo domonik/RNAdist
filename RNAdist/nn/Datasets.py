@@ -240,7 +240,13 @@ class RNAPairDataset(RNADataset):
                                         "constant", 0)
             mask = torch.zeros(self.max_length, self.max_length)
             mask[:x.shape[0], :x.shape[0]] = 1
-        return pair_matrix, y, mask, item
+            data = RNAGeoData(
+                pair_rep=pair_matrix,
+                mask=mask,
+                item=item,
+                y=y
+            )
+        return data
 
 
 class RNAWindowDataset(RNADataset):
@@ -395,7 +401,14 @@ class RNAWindowDataset(RNADataset):
                 y = y[i:i + self.max_length, j:j + self.max_length]
             file_index = torch.tensor(file_index)
             idx_information = torch.stack((file_index, i, j), dim=0)
-        return pair_rep, y, mask, idx_information
+            data = RNAGeoData(
+                pair_rep=pair_rep,
+                mask=mask,
+                item=item,
+                y=y,
+                idx_info=idx_information
+            )
+        return data
 
     def __len__(self):
         return self.index_to_data[-1][-1]
@@ -500,7 +513,7 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 class RNAGeoData(GeoData):
     def __cat_dim__(self, key, value, *args, **kwargs):
         keys = [
-            "idx_info", "mask", "bppm", "y"
+            "idx_info", "mask", "bppm", "y", "pair_rep", "item"
         ]
         if key in keys:
             return None

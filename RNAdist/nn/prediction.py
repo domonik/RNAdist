@@ -3,7 +3,7 @@ import pickle
 from tempfile import TemporaryDirectory
 from typing import Dict, Union
 import torch
-from torch.utils.data import DataLoader
+from torch_geometric.loader import DataLoader
 from Bio import SeqIO
 import numpy as np
 
@@ -14,7 +14,7 @@ from RNAdist.nn.DISTAtteNCionE import (
 from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset
 from RNAdist.fasta_wrappers import md_config_from_args
 
-
+@torch.no_grad()
 def model_predict(
         fasta: Union[str, os.PathLike],
         saved_model: Union[str, os.PathLike],
@@ -65,18 +65,18 @@ def model_predict(
     model, config = _load_model(saved_model, device)
     model.eval()
     output = {}
-    for element in iter(data_loader):
-        with torch.no_grad():
-            pair_rep, y, mask, indices = element
-            pair_rep = pair_rep.to(device)
-            use = config.indices.to(device)
+    use = config.indices.to(device)
+    for batch in iter(data_loader):
+            batch = batch.to(device)
+            pair_rep = batch["pair_rep"]
             pair_rep = torch.index_select(pair_rep, -1, use)
-            mask = mask.to(device)
+            batch["pair_rep"] = pair_rep
+            mask = batch["mask"]
             if not config["masking"]:
                 mask = None
-            pred = model(pair_rep, mask=mask).cpu()
+            pred = model(batch, mask=mask).cpu()
             pred = pred.numpy()
-            for e_idx, idx in enumerate(indices):
+            for e_idx, idx in enumerate(batch["item"]):
                 description, seq = dataset.rna_graphs[idx]
                 e_pred = pred[e_idx][:len(seq), :len(seq)]
                 output[description] = e_pred
@@ -138,16 +138,19 @@ def model_window_predict(
     gms = global_mask_size if global_mask_size is not None else int((max_length - 1) / 2)
     mid = int((max_length-1) / 2)
     pred_s, pred_e = mid - gms, mid + gms + 1
-    for element in iter(data_loader):
+    use = config.indices.to(device)
+
+    for batch in iter(data_loader):
         with torch.no_grad():
-            pair_rep, _, mask, index_data = element
-            pair_rep = pair_rep.to(device)
-            use = config.indices.to(device)
+            batch = batch.to(device)
+            pair_rep = batch["pair_rep"]
             pair_rep = torch.index_select(pair_rep, -1, use)
-            mask = mask.to(device)
+            batch["pair_rep"] = pair_rep
+            mask = batch["mask"]
+            index_data = batch["idx_info"]
             if not config["masking"]:
                 mask = None
-            batched_pred = model(pair_rep, mask=mask).cpu()
+            batched_pred = model(batch, mask=mask).cpu()
             batched_pred = batched_pred.numpy()
             for batch_index, _ in enumerate(index_data):
                 file_idx = index_data[batch_index][0]
@@ -193,3 +196,25 @@ def prediction_executable_wrapper(args):
                   max_length=args.max_length,
                   md_config=md_config
                   )
+
+
+if __name__ == '__main__':
+    from tempfile import TemporaryDirectory
+    saved_model = "/home/rabsch/PythonProjects/RNAdist/RNAdist/nn/tests/test_data/test_model.pt"
+    random_fasta = "/home/rabsch/PythonProjects/RNAdist/RNAdist/nn/tests/test_data/random_test.fa"
+    desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
+    with TemporaryDirectory() as tmp_path:
+        outfile = os.path.join(tmp_path, "predictions")
+        model_predict(
+            fasta=random_fasta,
+            outfile=outfile,
+            saved_model=saved_model,
+            batch_size=4,
+            num_threads=os.cpu_count(),
+            max_length=20
+        )
+        assert os.path.exists(outfile)
+        with open(outfile, "rb") as handle:
+            data = pickle.load(handle)
+        for key in desc:
+            assert key in data

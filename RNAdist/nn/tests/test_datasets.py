@@ -16,13 +16,19 @@ pytest_plugins = ["RNAdist.dp.tests.fixtures",
 
 def test_rna_pair_dataset(random_fasta, expected_labels, prefix):
     with TemporaryDirectory(prefix=prefix) as tmpdir:
-        _ = RNAPairDataset(
+        dataset = RNAPairDataset(
             data=random_fasta,
             label_dir=expected_labels,
             dataset_path=tmpdir,
             num_threads=1,
             max_length=100
         )
+        for x in range(len(dataset)):
+            batch = dataset[x]
+            pair_matrix, y, mask, indices = batch["pair_rep"], batch["y"], batch["mask"], batch["item"]
+            assert pair_matrix.shape[0] == dataset.max_length
+            assert pair_matrix.shape[1] == dataset.max_length
+            assert not torch.any(torch.isnan(pair_matrix))
 
 
 @pytest.mark.parametrize(
@@ -44,7 +50,8 @@ def test_rna_window_dataset(random_fasta, expected_labels, prefix, local, step_s
             local=local
         )
         for x in range(len(dataset)):
-            pair_matrix, y, mask, indices = dataset[x]
+            batch = dataset[x]
+            pair_matrix, y, mask, indices = batch["pair_rep"], batch["y"], batch["mask"], batch["idx_info"]
             assert pair_matrix.shape[0] == ml
             assert pair_matrix.shape[1] == ml
             assert not torch.any(torch.isnan(pair_matrix))

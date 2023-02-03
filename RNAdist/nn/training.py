@@ -2,7 +2,8 @@ import os
 from typing import Dict, List, Tuple, Callable, Any
 
 import torch
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import RandomSampler
+from torch_geometric.loader import DataLoader
 from torch.utils.data import random_split
 from Bio import SeqIO
 from tempfile import TemporaryDirectory
@@ -190,19 +191,19 @@ def _setup(
 
 
 def _unpack_batch(batch, device, config):
+    batch = batch.to(device)
     if config["masking"]:
-        pair_rep, y, mask, _ = batch
-        mask = mask.to(device)
+        mask = batch["mask"].to(device)
         numel = torch.count_nonzero(mask)
     else:
-        pair_rep, y, _, _ = batch
-        numel = y.numel()
+        numel = batch["y"].numel()
         mask = None
-    y = y.to(device)
+    pair_rep = batch["pair_rep"]
     pair_rep = pair_rep.to(device)
     indices = config.indices.to(device)
     pair_rep = torch.index_select(pair_rep, -1,  indices)
-    return pair_rep, y, mask, numel
+    batch["pair_rep"] = pair_rep
+    return batch, mask, numel
 
 
 def _run_prediction(data_loader, model, losses, device, config, optimizer, train: bool = True):
@@ -225,8 +226,9 @@ def _run_prediction(data_loader, model, losses, device, config, optimizer, train
         global_mask = None
         i_start = i_end = None
     for batch_idx, batch in enumerate(iter(data_loader)):
-        pair_rep, y, mask, numel = _unpack_batch(batch, device, config)
-        pred = model(pair_rep, mask=mask)
+        batch, mask, numel = _unpack_batch(batch, device, config)
+        pred = model(batch, mask=mask)
+        y = batch["y"]
         if global_mask is not None:
             pred = pred * global_mask
             y = y * global_mask

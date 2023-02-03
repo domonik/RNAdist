@@ -2,24 +2,27 @@ name:
   RNAdist
 channels:
   - pytorch
+  - nvidia
   - pyg
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python >=3.6
-  - pip
   - pytorch
   - torchvision
   - torchaudio
+  - pytorch-cuda =11.6
+  - smac >=1.4
+  - pyg
+  - viennarna
   - networkx
   - biopython
   - pandas
-  - smac >=1.4
   - plotly
   - dash >=2.5
   - dash-bootstrap-components
-  - viennarna >=2.4
   - pybind11
-  - pyg
   - cython
+  - python >=3.8
+  - pip
+  - versioneer
