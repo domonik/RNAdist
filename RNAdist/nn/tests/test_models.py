@@ -1,6 +1,9 @@
 import pytest
-from RNAdist.nn.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate
+from RNAdist.nn.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate, GraphRNADISTAtteNCionE
+from RNAdist.nn.Datasets import RNAGeometricWindowDataset
+from torch_geometric.loader import DataLoader as GeoDataLoader
 import torch
+from tempfile import TemporaryDirectory
 
 
 @pytest.mark.parametrize(
@@ -41,3 +44,26 @@ def test_triangular_attention(mode, masked_pair_rep_batch):
         loss.backward()
         optimizer.step()
         assert torch.sum(inv_mask * pred) == 0
+
+
+def test_graph_model(random_fasta, prefix):
+    ml = 9
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        dataset = RNAGeometricWindowDataset(
+            data=random_fasta,
+            label_dir=None,
+            dataset_path=tmpdir,
+            num_threads=1,
+            max_length=ml,
+            step_size=1
+        )
+        batch_size = 2
+        loader = GeoDataLoader(
+            dataset, batch_size=batch_size, shuffle=False, drop_last=True
+        )
+        model = GraphRNADISTAtteNCionE(
+            9, 16, ml, upper_bound=dataset.upper_bound, graph_layers=2
+        )
+        for batch in iter(loader):
+            result = model(batch)
+            assert result.shape == torch.Size((batch_size, ml, ml))

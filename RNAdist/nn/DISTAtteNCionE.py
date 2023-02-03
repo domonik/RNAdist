@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
+from torch_geometric.nn import GINEConv
 
 
 class TriangularUpdate(nn.Module):
@@ -335,5 +336,106 @@ class WeightedDiagonalMSELoss(nn.Module):
         return loss + loss2
 
 
+class GraphRNADISTAtteNCionE(nn.Module):
+    def __init__(
+            self,
+            input_dim,
+            embedding_dim,
+            max_length,
+            upper_bound: int,
+            fw: int = 4,
+            graph_layers: int = 4,
+            dropout: float = 0.1,
+            device: str = "cpu",
+            checkpointing: bool = False
+    ):
+        super().__init__()
+        self.nr_updates = 1
+        self.edge_dim = 2
+        self.device = device
+        self.graph_layers = graph_layers
+        self.embedding_dim = embedding_dim
+        self.input_dim = input_dim
+        self.dropout = dropout
+
+        self.graph_convolutions = nn.ModuleList(
+            GINEConv(
+                nn.Sequential(
+                    nn.Linear(self.embedding_dim, self.embedding_dim),
+                    nn.LayerNorm(self.embedding_dim),
+                    nn.ReLU(),
+                    nn.Linear(self.embedding_dim, self.embedding_dim),
+                    nn.ReLU()
+                ),
+                edge_dim=self.edge_dim,
+                aggr="sum"
+            )
+            for idx, _ in enumerate(range(self.graph_layers))
+        )
+        self.pair_updates = nn.ModuleList(
+            PairUpdate(self.embedding_dim * 2 + self.edge_dim, fw, checkpointing=checkpointing) for _
+            in range(self.nr_updates)
+        )
+        self.input_lin = nn.Sequential(
+            nn.Linear(self.input_dim, self.embedding_dim),
+            nn.ReLU()
+        )
+        self.max_length = torch.tensor(max_length).to(self.device)
+        self.upper_bound = torch.tensor(upper_bound).to(self.device)
+        self.nodes_per_batch = self.upper_bound + self.max_length - 1
+
+        self.intermediate_rescale = nn.Sequential(
+            nn.Linear(self.graph_layers * self.embedding_dim, self.embedding_dim),
+            nn.LayerNorm(self.embedding_dim),
+            nn.ReLU()
+        )
+        self.output = nn.Sequential(
+            nn.Linear(embedding_dim * 2 + self.edge_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.ReLU()
+        )
+
+    @staticmethod
+    def batched_pair_rep_from_single(x):
+        b, n, e = x.shape
+        n = x.shape[1]
+        e = x.shape[2]
+        x_x = x.repeat(1, n, 1)
+        x_y = x.repeat(1, 1, n).reshape(b, -1, e)
+        pair_rep = torch.cat((x_x, x_y), dim=2).reshape(b, n, n, -1)
+        return pair_rep
+
+    def forward(self, data, mask=None):
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["bppm"]
+        b = idx_info.shape[0]
+        i, j = idx_info[:, 1], idx_info[:, 2]
+        x = self.input_lin(x)
+        graph_embeddings = []
+        for idx in range(self.graph_layers):
+            graph_embeddings.append(self.graph_convolutions[idx](x, edge_index, edge_attr))
+        x = torch.concat(graph_embeddings, dim=1)
+
+        # gets batch representation back and rescales to embedding_dim
+        x = self.intermediate_rescale(x)
+        x = torch.stack(torch.split(x, self.nodes_per_batch))
+
+        # gets batched pair_representations
+        pair_rep = self.batched_pair_rep_from_single(x)
+
+        # this strange part cuts out a part of the pair_representation that is used for distance_calculation
+        dummy = torch.empty(b, self.max_length, self.max_length, self.embedding_dim * 2, device=self.device)
+        for idx in range(b):
+            dummy[idx] = pair_rep[idx, i[idx]:i[idx]+self.max_length, j[idx]:j[idx]+self.max_length, :]
+        pair_rep = dummy
+        pair_rep = torch.concat((pair_rep, bppm), dim=-1)
+        for idx in range(self.nr_updates):
+            pair_rep = self.pair_updates[idx](pair_rep, mask)
+
+        out = self.output(pair_rep)
+        out = torch.squeeze(out)
+        if mask is not None:
+            out = out * mask
+        return out
 
 

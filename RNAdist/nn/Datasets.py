@@ -434,18 +434,16 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             bppm = data["bppm"]
             up = ((1 - torch.sum(bppm, dim=1)))
             positions = pos_encode_range(start, start+x.shape[0], 4)
-            positions = torch.arange(start, start+x.shape[0]).unsqueeze(-1)
             x = torch.cat((x, positions, up), dim=1)
-            if self.augmentor is not None:
-                x = self.augmentor.augment(x, mode="single")
             up = up.squeeze()
             up[1:-1] = up[1:-1] / 2
             bppm += torch.diag_embed(up[0:-1], offset=1).unsqueeze(-1)
             bppm += torch.diag_embed(up[1:], offset=-1).unsqueeze(-1)
+
             # now we will add the backbone to the bppm
             t = torch.ones(x.shape[0] - 1)
-            #backbone = (torch.diag(t, 1) + torch.diag(t, -1)).unsqueeze(-1)
-            #bppm = torch.concat((bppm, backbone), -1)
+            backbone = (torch.diag(t, 1) + torch.diag(t, -1)).unsqueeze(-1)
+            bppm = torch.concat((bppm, backbone), -1)
 
             mask = torch.ones(*bppm.shape[0:2])
 
@@ -464,7 +462,7 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 
 
             bppm = bppm.squeeze()
-            sparse_graph = bppm.to_sparse()
+            sparse_graph = bppm.to_sparse(2)
             edge_index = sparse_graph.indices()
             edge_weights = sparse_graph.values()
 

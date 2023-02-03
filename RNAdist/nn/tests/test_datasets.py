@@ -69,6 +69,7 @@ def test_geometric_loading(random_fasta, prefix):
             max_length=ml,
             step_size=1
         )
+        batch_size = 2
         loader = GeoDataloader(
             dataset, batch_size=2, shuffle=False, drop_last=True
         )
@@ -76,4 +77,5 @@ def test_geometric_loading(random_fasta, prefix):
         for batch in iter(loader):
             assert batch["idx_info"].shape[0] == 2
             assert batch["x"].shape[0] == 2 * (upper_bound + dataset.max_length - 1)
-            assert batch["bppm"].shape == torch.Size((2, ml, ml))
+            assert batch["bppm"].shape == torch.Size((2, ml, ml, 2))
+            assert batch["edge_index"].shape[0] == 2
