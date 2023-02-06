@@ -9,9 +9,9 @@ import numpy as np
 
 import RNAdist.nn.configuration
 from RNAdist.nn.DISTAtteNCionE import (
-    RNADISTAtteNCionE, DISTAtteNCionESmall
+    RNADISTAtteNCionE, DISTAtteNCionESmall, GraphRNADISTAtteNCionE
 )
-from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset
+from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, RNAGeometricWindowDataset
 from RNAdist.fasta_wrappers import md_config_from_args
 
 @torch.no_grad()
@@ -100,29 +100,49 @@ def model_window_predict(
         md_config: Dict = None,
         global_mask_size: int = None,
         dataset_dir: str = None,
-        step_size: int = 1
+        step_size: int = 1,
+        mode: str = "window"
 ):
-    model, config = _load_model(saved_model, device)
-    model.eval()
-
-    config: RNAdist.nn.configuration.ModelConfiguration
-
     if dataset_dir is None:
         tmpdir = TemporaryDirectory()
         workdir = tmpdir.name
     else:
         tmpdir = None
         workdir = dataset_dir
-    dataset = RNAWindowDataset(
-        data=fasta,
-        label_dir=None,
-        dataset_path=workdir,
-        num_threads=num_threads,
-        max_length=max_length,
-        md_config=md_config,
-        step_size=step_size,
-        global_mask_size=global_mask_size
-    )
+    if mode == "window":
+        dataset = RNAWindowDataset(
+            data=fasta,
+            label_dir=None,
+            dataset_path=workdir,
+            num_threads=num_threads,
+            max_length=max_length,
+            md_config=md_config,
+            step_size=step_size,
+            global_mask_size=global_mask_size
+        )
+        ml = upper_bound = None
+    elif mode == "graph":
+        dataset = RNAGeometricWindowDataset(
+            data=fasta,
+            label_dir=None,
+            dataset_path=workdir,
+            num_threads=num_threads,
+            max_length=max_length,
+            md_config=md_config,
+            step_size=step_size,
+            global_mask_size=global_mask_size
+        )
+        ml = dataset.max_length
+        upper_bound = dataset.upper_bound
+    else:
+        raise ValueError("Unsupported mode")
+    model, config = _load_model(saved_model, device, ml, upper_bound)
+    model.eval()
+
+    config: RNAdist.nn.configuration.ModelConfiguration
+
+
+
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -169,12 +189,22 @@ def model_window_predict(
         pickle.dump(output_data, handle)
 
 
-def _load_model(model_path, device):
+def _load_model(model_path, device, ml: int = None, upper_bound: int = None):
     state_dict, config = torch.load(model_path, map_location="cpu")
     if config["model"] == "normal":
         model = RNADISTAtteNCionE(config.input_dim, nr_updates=config["nr_layers"])
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(config.input_dim, nr_updates=config["nr_layers"])
+    elif config.model == "graph":
+        model = GraphRNADISTAtteNCionE(
+            input_dim=9,
+            embedding_dim=32,
+            pair_dim=config.input_dim,
+            max_length=ml,
+            upper_bound=upper_bound,
+            checkpointing=config.gradient_checkpointing,
+            graph_layers=config.nr_layers
+        )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
     else:

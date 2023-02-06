@@ -73,6 +73,9 @@ def train_config(tmp_path):
 def saved_model():
     return os.path.join(TESTDATA_DIR, "test_model.pt")
 
+@pytest.fixture()
+def saved_graph_model():
+    return os.path.join(TESTDATA_DIR, "graph_model.pt")
 
 @pytest.fixture()
 def saved_model_no_bpp():

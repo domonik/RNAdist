@@ -84,7 +84,7 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "model", ["saved_model", "saved_model_no_bpp"]
+    "model", ["saved_model", "saved_model_no_bpp", "saved_graph_model"]
 )
 @pytest.mark.parametrize("step_size", [1, 3])
 @pytest.mark.parametrize("global_mask_size", [None, 3])
@@ -93,6 +93,7 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
     desc = [sr for sr in SeqIO.parse(random_fasta, "fasta")]
     outfile = os.path.join(tmp_path, "predictions")
     ml = 11
+    mode = "graph" if model == "saved_graph_model" else "window"
     model_window_predict(
         fasta=random_fasta,
         outfile=outfile,
@@ -102,7 +103,8 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
         max_length=ml,
         device="cpu",
         global_mask_size=global_mask_size,
-        step_size=step_size
+        step_size=step_size,
+        mode=mode
     )
     assert os.path.exists(outfile)
     gms = global_mask_size if global_mask_size is not None else int((ml - 1) / 2)
