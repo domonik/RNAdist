@@ -343,6 +343,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             self,
             input_dim,
             embedding_dim,
+            pair_dim,
             max_length,
             upper_bound: int,
             fw: int = 4,
@@ -359,6 +360,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.embedding_dim = embedding_dim
         self.input_dim = input_dim
         self.dropout = dropout
+        self.pair_dim = pair_dim
 
         self.graph_convolutions = nn.ModuleList(
             GINEConv(
@@ -375,7 +377,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             for idx, _ in enumerate(range(self.graph_layers))
         )
         self.pair_updates = nn.ModuleList(
-            PairUpdate(self.embedding_dim * 2 + self.edge_dim, fw, checkpointing=checkpointing) for _
+            PairUpdate(self.embedding_dim * 2 + self.pair_dim, fw, checkpointing=checkpointing) for _
             in range(self.nr_updates)
         )
         self.input_lin = nn.Sequential(
@@ -392,7 +394,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             nn.ReLU()
         )
         self.output = nn.Sequential(
-            nn.Linear(embedding_dim * 2 + self.edge_dim, 32),
+            nn.Linear(embedding_dim * 2 + self.pair_dim, 32),
             nn.ReLU(),
             nn.Linear(32, 1),
             nn.ReLU()
@@ -409,7 +411,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         return pair_rep
 
     def forward(self, data, mask=None):
-        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["bppm"]
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
         b = idx_info.shape[0]
         i, j = idx_info[:, 1], idx_info[:, 2]
         x = self.input_lin(x)

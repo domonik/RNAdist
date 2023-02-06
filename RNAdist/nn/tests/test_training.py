@@ -71,10 +71,42 @@ def test_training(random_fasta, train_config, expected_labels,
         )
         assert os.path.exists(train_config["model_checkpoint"])
         state_dict, config = torch.load(train_config["model_checkpoint"])
-        if not use_bppm:
-            p=0
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
         assert state_dict["output.weight"].shape[-1] == len(config.indices)
+
+@pytest.mark.parametrize(
+    "local",
+    [
+        True,
+        False
+    ]
+)
+def test_graph_training(expected_window_labels, train_config, random_fasta, prefix, local):
+    expected_labels = expected_window_labels
+    ml = 7
+    train_config.sample = 10
+    train_config.model = "graph"
+    train_config.learning_rate = 0.001
+    train_config.patience = 1000
+    train_config.local = local
+    torch.set_printoptions(precision=3, linewidth=200)
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        train_network(
+            fasta=random_fasta,
+            label_dir=expected_labels,
+            dataset_path=tmpdir,
+            config=train_config,
+            num_threads=1,
+            epochs=1,
+            max_length=13,
+            train_val_ratio=0.8,
+            device="cpu",
+            mode="graph",
+        )
+        assert os.path.exists(train_config["model_checkpoint"])
+        state_dict, config = torch.load(train_config["model_checkpoint"])
+        assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
+        assert state_dict["output.0.weight"].shape[-1] == 32*2+len(config.indices)
 
 
 def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):

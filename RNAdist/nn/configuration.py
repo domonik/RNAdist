@@ -35,6 +35,7 @@ class ModelConfiguration:
         random_shift (float): probability to apply random shift in position encoding.
         normalize_bpp (bool): Whether bpp matrix is min max normalized or not.
         training_stats (str): Path to the training stats tsv file.
+        local (bool): Only applied in window or graph mode. Whether to use local or global window mode.
     """
     model_checkpoint: str
     model: Union[str, torch.nn.Module] = "normal"
@@ -56,7 +57,8 @@ class ModelConfiguration:
     random_shift: float = None
     normalize_bpp: bool = False
     training_stats: str = None
-    gradient_checkpointing: bool = False
+    gradient_checkpointing: bool = False,
+    local: bool = True
 
     def __post_init__(self):
         """Check valid argument combinations

@@ -84,5 +84,5 @@ def test_geometric_loading(random_fasta, prefix):
         for batch in iter(loader):
             assert batch["idx_info"].shape[0] == 2
             assert batch["x"].shape[0] == 2 * (upper_bound + dataset.max_length - 1)
-            assert batch["bppm"].shape == torch.Size((2, ml, ml, 2))
+            assert batch["pair_rep"].shape == torch.Size((2, ml, ml, 18))
             assert batch["edge_index"].shape[0] == 2

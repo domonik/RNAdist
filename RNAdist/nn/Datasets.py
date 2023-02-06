@@ -466,15 +466,15 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             upper_pad_val = self.upper_bound - x.shape[0]
             x = F.pad(x,  (0, 0, pad_val, pad_val + upper_pad_val))
 
-            # this doesnt need to be padded to the upper_bound since indices of nodes shouldnt change and padded
+            pair_rep = self.pair_rep_from_single(x[:, 0:8])
+            # this doesn't need to be padded to the upper_bound since indices of nodes shouldnt change and padded
             # nodes won't have edges anyway. Also just like the mask the bppm shape will match others once we
             # cut it out
             bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
-            # for the mask we dont need that kind of padding since we can just use the cut out mask
+            # for the mask we don't need that kind of padding since we can just use the cut out mask
             mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
 
 
-            bppm = bppm.squeeze()
             sparse_graph = bppm.to_sparse(2)
             edge_index = sparse_graph.indices()
             edge_weights = sparse_graph.values()
@@ -484,7 +484,10 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 
             # now we need to cut out the bppm and the mask for the pair-rep part of the network
             # we index 0 here since we only want to have the bpp not the backbone anymore
+            pair_rep = pair_rep[i:i+self.max_length, j:j+self.max_length]
             bppm = bppm[i:i+self.max_length, j:j+self.max_length]
+            pair_rep = torch.concat((bppm, pair_rep), dim=-1)
+
             mask = mask[i:i+self.max_length, j:j+self.max_length]
             if not isinstance(y, int):
                 y = F.pad(y, (pad_val, pad_val, pad_val, pad_val))
@@ -495,7 +498,7 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                     edge_attr=edge_weights,
                     idx_info=idx_information,
                     mask=mask,
-                    bppm=bppm,
+                    pair_rep=pair_rep,
                     y=y
                 )
             else:
@@ -505,7 +508,7 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                     edge_attr=edge_weights,
                     idx_info=idx_information,
                     mask=mask,
-                    bppm=bppm
+                    pair_rep=pair_rep
                 )
         return data
 
