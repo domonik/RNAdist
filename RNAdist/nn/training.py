@@ -332,7 +332,8 @@ def train_model(
             max_length=train_loader.dataset.max_length,
             upper_bound=train_loader.dataset.upper_bound,
             checkpointing=config.gradient_checkpointing,
-            graph_layers=config.nr_layers
+            graph_layers=config.nr_layers,
+            device=device
         )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]

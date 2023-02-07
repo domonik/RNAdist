@@ -203,7 +203,8 @@ def _load_model(model_path, device, ml: int = None, upper_bound: int = None):
             max_length=ml,
             upper_bound=upper_bound,
             checkpointing=config.gradient_checkpointing,
-            graph_layers=config.nr_layers
+            graph_layers=config.nr_layers,
+            device=device
         )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
