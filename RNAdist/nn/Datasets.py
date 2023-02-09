@@ -87,7 +87,7 @@ class RNADATA():
             bppm = plfold_bppm(self.sequence, self.md.window_size, self.md.max_bp_span)
         else:
             raise ValueError(f"mode must be one of [fold, plfold] but is {mode}")
-        bppm = torch.tensor(bppm, dtype=torch.float)
+        bppm = torch.as_tensor(bppm, dtype=torch.float)
         seq_embedding = [NUCLEOTIDE_MAPPING[m][:] for m in self.sequence]
         seq_embedding = torch.tensor(seq_embedding, dtype=torch.float)
         bppm = bppm[:, :, None]

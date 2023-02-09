@@ -75,20 +75,20 @@ def test_training(random_fasta, train_config, expected_labels,
         assert state_dict["output.weight"].shape[-1] == len(config.indices)
 
 @pytest.mark.parametrize(
-    "local",
+    "local,graph_layers",
     [
-        True,
-        False
+        (True, 0),
+        (False, 1)
     ]
 )
-def test_graph_training(expected_window_labels, train_config, random_fasta, prefix, local):
+def test_graph_training(expected_window_labels, train_config, random_fasta, prefix, local, graph_layers):
     expected_labels = expected_window_labels
-    ml = 7
     train_config.sample = 10
     train_config.model = "graph"
     train_config.learning_rate = 0.001
     train_config.patience = 1000
     train_config.local = local
+    train_config.nr_layers = graph_layers
     torch.set_printoptions(precision=3, linewidth=200)
     with TemporaryDirectory(prefix=prefix) as tmpdir:
         train_network(
@@ -106,7 +106,7 @@ def test_graph_training(expected_window_labels, train_config, random_fasta, pref
         assert os.path.exists(train_config["model_checkpoint"])
         state_dict, config = torch.load(train_config["model_checkpoint"])
         assert isinstance(torch.load(train_config["model_checkpoint"]), tuple)
-        assert state_dict["output.0.weight"].shape[-1] == 32*2+len(config.indices)
+        assert state_dict["output.0.weight"].shape[-1] == 32
 
 
 def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):

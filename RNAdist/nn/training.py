@@ -13,7 +13,8 @@ from RNAdist.nn.configuration import ModelConfiguration
 from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE,
     DISTAtteNCionESmall,
-    GraphRNADISTAtteNCionE
+    GraphRNADISTAtteNCionE,
+    DiagOffsetLoss
 )
 from RNAdist.nn.Datasets import (
     RNAPairDataset,

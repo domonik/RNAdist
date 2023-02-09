@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
-from torch_geometric.nn import GINEConv
+from torch_geometric.nn import GINEConv, GATv2Conv
 
 
 class TriangularUpdate(nn.Module):
@@ -301,6 +301,20 @@ class CovarianceLoss(nn.Module):
         return bcov
 
 
+class DiagOffsetLoss(nn.Module):
+    def __init__(self, max_length, device):
+        super().__init__()
+        self.weights = torch.zeros(max_length, max_length, device=device)
+        for x in range(max_length):
+            i = torch.diag_embed(torch.ones(max_length-x, device=device) * (x+1), offset = x)
+            self.weights += i
+            if x != 0:
+                self.weights += i.T
+
+    def forward(self, x, y):
+        return torch.sum(torch.square(x - y) * self.weights)
+
+
 class WeightedDiagonalMSELoss(nn.Module):
     def __init__(self, alpha: float, device: str, offset: int = 0, reduction: str = "sum"):
         super().__init__()
@@ -353,7 +367,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             checkpointing: bool = False
     ):
         super().__init__()
-        self.nr_updates = 1
+        self.nr_updates = 2
         self.edge_dim = 2
         self.device = device
         self.graph_layers = graph_layers
@@ -361,21 +375,28 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.input_dim = input_dim
         self.dropout = dropout
         self.pair_dim = pair_dim
+        self.heads = 4
+
 
         self.graph_convolutions = nn.ModuleList(
-            GINEConv(
-                nn.Sequential(
-                    nn.Linear(self.embedding_dim, self.embedding_dim),
-                    nn.LayerNorm(self.embedding_dim),
-                    nn.ReLU(),
-                    nn.Linear(self.embedding_dim, self.embedding_dim),
-                    nn.ReLU()
-                ),
-                edge_dim=self.edge_dim,
-                aggr="sum"
-            )
-            for idx, _ in enumerate(range(self.graph_layers))
+                GATv2Conv(
+                    in_channels=self.embedding_dim,
+                    out_channels=self.embedding_dim,
+                    heads=self.heads,
+                    add_self_loops=False,
+                    edge_dim=2
+                )
+                for idx, _ in enumerate(range(self.graph_layers))
         )
+        self.graph_conv_adjust = nn.ModuleList(
+            nn.Sequential(
+                nn.Linear(self.heads * self.embedding_dim, self.embedding_dim),
+                nn.LeakyReLU(),
+                nn.LayerNorm(self.embedding_dim)
+            )
+                for idx, _ in enumerate(range(self.graph_layers))
+        )
+
         self.pair_updates = nn.ModuleList(
             PairUpdate(self.embedding_dim * 2 + self.pair_dim, fw, checkpointing=checkpointing) for _
             in range(self.nr_updates)
@@ -389,13 +410,17 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.nodes_per_batch = self.upper_bound + self.max_length - 1
 
         self.intermediate_rescale = nn.Sequential(
-            nn.Linear(self.graph_layers * self.embedding_dim, self.embedding_dim),
+            nn.Linear((self.graph_layers + 1) * self.embedding_dim, self.embedding_dim),
             nn.LayerNorm(self.embedding_dim),
             nn.ReLU()
         )
+        self.out_conv = nn.Conv2d(
+            in_channels=self.embedding_dim * 2 + self.pair_dim,
+            out_channels=32,
+            kernel_size=5,
+            padding=2
+        )
         self.output = nn.Sequential(
-            nn.Linear(embedding_dim * 2 + self.pair_dim, 32),
-            nn.ReLU(),
             nn.Linear(32, 1),
             nn.ReLU()
         )
@@ -415,9 +440,11 @@ class GraphRNADISTAtteNCionE(nn.Module):
         b = idx_info.shape[0]
         i, j = idx_info[:, 1], idx_info[:, 2]
         x = self.input_lin(x)
-        graph_embeddings = []
+        graph_embeddings = [x]
         for idx in range(self.graph_layers):
-            graph_embeddings.append(self.graph_convolutions[idx](x, edge_index, edge_attr))
+            x = self.graph_convolutions[idx](x, edge_index, edge_attr)
+            x = self.graph_conv_adjust[idx](x)
+            graph_embeddings.append(x)
         x = torch.concat(graph_embeddings, dim=1)
 
         # gets batch representation back and rescales to embedding_dim
@@ -436,6 +463,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
 
+        pair_rep = self.out_conv(pair_rep.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
         out = self.output(pair_rep)
         out = torch.squeeze(out)
         if mask is not None:
