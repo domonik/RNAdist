@@ -4,6 +4,15 @@ import os
 import torch
 import pytest
 import pandas as pd
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    TENSORBOARD = True
+except ImportError:
+    TENSORBOARD = False
+
+
+def tensorboard_installed():
+    return TENSORBOARD
 
 pytest_plugins = ["RNAdist.dp.tests.fixtures",
                   "RNAdist.nn.tests.data_fixtures"]
@@ -129,6 +138,28 @@ def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):
     df = pd.read_csv(train_config.training_stats, sep="\t")
     assert df.shape == (1, 5)
 
+
+@pytest.mark.skipif(not tensorboard_installed(),
+                    reason="Tensorboard is not installed")
+def test_tensorboard(random_fasta, expected_labels, tmpdir, train_config):
+    logdir = os.path.join(tmpdir, "training_stats/run4")
+    train_config.training_stats = SummaryWriter(log_dir=logdir)
+    train_config.sample = 1
+    dataset_path = os.path.join(tmpdir, "dataset")
+    epochs = 1
+    train_network(
+        fasta=random_fasta,
+        label_dir=expected_labels,
+        dataset_path=dataset_path,
+        config=train_config,
+        num_threads=1,
+        epochs=epochs,
+        max_length=20,
+        train_val_ratio=0.8,
+        device="cpu",
+        mode="normal"
+    )
+    assert os.path.isdir(logdir)
 
 @pytest.mark.skipif(not torch.cuda.is_available(),
                     reason="Setup does not support a cuda enabled graphics card")

@@ -34,7 +34,7 @@ class ModelConfiguration:
         use_nucleotide_encoding (bool): Whether to use nucleotide encoding as a feature
         random_shift (float): probability to apply random shift in position encoding.
         normalize_bpp (bool): Whether bpp matrix is min max normalized or not.
-        training_stats (str): Path to the training stats tsv file.
+        training_stats (Union[str, tensorboard.SummaryWriter]): Path to the training stats tsv file.
         local (bool): Only applied in window or graph mode. Whether to use local or global window mode.
     """
     model_checkpoint: str
@@ -56,7 +56,7 @@ class ModelConfiguration:
     use_nucleotide_encoding: bool = True
     random_shift: float = None
     normalize_bpp: bool = False
-    training_stats: str = None
+    training_stats = None
     gradient_checkpointing: bool = False,
     local: bool = True
 

@@ -306,9 +306,15 @@ def train_model(
     patience = config["patience"]
     torch.manual_seed(seed)
     out_dir = os.path.dirname(config["model_checkpoint"])
-    if config.training_stats is not None:
+    if isinstance(config.training_stats, str):
         if os.path.exists(config.training_stats):
             raise FileExistsError("Training stats file already exists. Please remove it or use another filename")
+    elif config.training_stats is None:
+        pass
+    else:
+        print("Assuming logging via Tensorboard.")
+        tb_writer = config.training_stats
+        config.training_stats = "Tensorboard"
     header = ["epoch", "training loss", "training MAE", "validation loss", "validation MAE"]
     tstats = []
     if out_dir != "":
@@ -411,7 +417,12 @@ def train_model(
         else:
             print(f"Epoch: {epoch}\tTraining Loss: {train_loss:.2f}\tTraining MAE: {train_mae:.2f}")
             tstats.append([epoch, train_loss, train_mae, np.nan, np.nan])
-        if config.training_stats is not None:
+        if config.training_stats == "Tensorboard":
+            tb_writer.add_scalar("Training_Loss", train_loss, epoch)
+            tb_writer.add_scalar("Training MAE", train_mae, epoch)
+            tb_writer.add_scalar("Validation_Loss", val_loss, epoch)
+            tb_writer.add_scalar("Validation MAE", val_mae, epoch)
+        elif isinstance(config.training_stats, str):
             df = pd.DataFrame(tstats, columns=header)
             df.to_csv(config.training_stats, sep="\t", index=False)
         if epoch - best_epoch >= patience:
