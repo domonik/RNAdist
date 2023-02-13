@@ -411,8 +411,9 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
         self.intermediate_rescale = nn.Sequential(
             nn.Linear((self.graph_layers + 1) * self.embedding_dim, self.embedding_dim),
+            nn.LeakyReLU(),
             nn.LayerNorm(self.embedding_dim),
-            nn.ReLU()
+
         )
         self.out_conv = nn.Conv2d(
             in_channels=self.embedding_dim * 2 + self.pair_dim,
@@ -420,6 +421,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             kernel_size=5,
             padding=2
         )
+        self.out_norm = nn.LayerNorm(32)
         self.output = nn.Sequential(
             nn.Linear(32, 1),
             nn.ReLU()
@@ -464,6 +466,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
 
         pair_rep = self.out_conv(pair_rep.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
+        pair_rep = self.out_norm(torch.relu(pair_rep))
         out = self.output(pair_rep)
         out = torch.squeeze(out)
         if mask is not None:

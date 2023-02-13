@@ -31,14 +31,17 @@ def _loader_generation(
         validation_set,
         batch_size: int,
         num_threads: int = 1,
-        sample: int = None
+        sample: int = None,
+        device: str = "cpu",
 ):
+    pin = False if "cpu" in device else True
     if sample:
         train_loader = DataLoader(
             training_set,
             batch_size=batch_size,
             num_workers=num_threads,
-            pin_memory=True,
+            pin_memory=pin,
+            pin_memory_device=device,
             sampler=RandomSampler(
                 data_source=training_set,
                 replacement=True,
@@ -49,7 +52,8 @@ def _loader_generation(
             validation_set,
             batch_size=batch_size,
             num_workers=num_threads,
-            pin_memory=True,
+            pin_memory=pin,
+            pin_memory_device=device,
             sampler=RandomSampler(
                 data_source=validation_set,
                 replacement=True,
@@ -62,14 +66,16 @@ def _loader_generation(
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_threads,
-            pin_memory=True,
+            pin_memory=pin,
+            pin_memory_device=device
         )
         val_loader = DataLoader(
             validation_set,
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_threads,
-            pin_memory=True,
+            pin_memory=pin,
+            pin_memory_device=device
         )
     return train_loader, val_loader
 
@@ -195,7 +201,8 @@ def _setup(
         sample: int = None,
         global_mask_size: int = None,
         augmentor: DataAugmentor = None,
-        local: bool = True
+        local: bool = True,
+        device: str = "cpu"
 ):
     torch.manual_seed(seed)
     train_set, val_set = _dataset_generation(
@@ -216,7 +223,8 @@ def _setup(
         val_set,
         batch_size=batch_size,
         num_threads=num_threads,
-        sample=sample
+        sample=sample,
+        device=device
     )
 
     return train_loader, val_loader
@@ -290,7 +298,7 @@ def train_model(
         val_loader,
         epochs: int,
         config: ModelConfiguration,
-        device: str = None,
+        device: str = "cpu",
         seed: int = 0,
         fine_tune: str = None
 ):
@@ -305,8 +313,6 @@ def train_model(
     tstats = []
     if out_dir != "":
         os.makedirs(out_dir, exist_ok=True)
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         assert device.startswith("cuda") or device.startswith("cpu")
     input_dim = config.input_dim
@@ -465,6 +471,8 @@ def train_network(fasta: str,
         >>> train_network("fasta.fa", "dataset_path", "label_directory", config=config, mode="window", max_length=100)
     """
     aug_fcts = {"pair": [], "single": [], "single_prob": [], "pair_prob": []}
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     if config.normalize_bpp:
         aug_fcts["pair"].append(normalize_bpp)
         aug_fcts["pair_prob"].append(1)
@@ -501,7 +509,8 @@ def train_network(fasta: str,
         sample=config.sample,
         global_mask_size=global_mask_size,
         augmentor=augmentor,
-        local=config.local
+        local=config.local,
+        device=device
     )
     train_return = train_model(
         train_loader,

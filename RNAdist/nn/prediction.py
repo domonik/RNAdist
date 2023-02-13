@@ -148,7 +148,8 @@ def model_window_predict(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_threads,
-        pin_memory=True,
+        pin_memory=True if "cuda" in device else False,
+        pin_memory_device=device,
     )
     output_data = {
         # this pads the sequence just like the dataset does in __getitem__
