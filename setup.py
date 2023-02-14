@@ -7,6 +7,7 @@ import numpy as np
 import os
 import sys
 import pybind11
+import RNA
 
 NAME = "RNAdist"
 DESCRIPTION = "Package for Calculating Expected Distances on the " \
@@ -18,11 +19,9 @@ with open("README.md") as handle:
 
 extra_link_args = []
 include_dir = []
-prefix = os.getenv("CONDA_PREFIX")
-if prefix is None:
-    print("No conda environment found. Falling back to default installation path of ViennaRNA.\n"
-          "Consider using a conda environment instead")
-    prefix = "/usr/local"
+
+RNAPATH = RNA.__file__
+prefix = os.path.join("/", *(RNAPATH.split(os.sep)[:-5]))
 
 _include = os.path.join(prefix, "include")
 _lib = os.path.join(prefix, "lib")
