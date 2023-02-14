@@ -35,13 +35,14 @@ def _loader_generation(
         device: str = "cpu",
 ):
     pin = False if "cpu" in device else True
+    pin_memory_device = "" if "cpu" in device else device
     if sample:
         train_loader = DataLoader(
             training_set,
             batch_size=batch_size,
             num_workers=num_threads,
             pin_memory=pin,
-            pin_memory_device=device,
+            pin_memory_device=pin_memory_device,
             sampler=RandomSampler(
                 data_source=training_set,
                 replacement=True,
@@ -53,7 +54,7 @@ def _loader_generation(
             batch_size=batch_size,
             num_workers=num_threads,
             pin_memory=pin,
-            pin_memory_device=device,
+            pin_memory_device=pin_memory_device,
             sampler=RandomSampler(
                 data_source=validation_set,
                 replacement=True,
@@ -67,7 +68,7 @@ def _loader_generation(
             shuffle=True,
             num_workers=num_threads,
             pin_memory=pin,
-            pin_memory_device=device
+            pin_memory_device=pin_memory_device
         )
         val_loader = DataLoader(
             validation_set,
@@ -75,7 +76,7 @@ def _loader_generation(
             shuffle=False,
             num_workers=num_threads,
             pin_memory=pin,
-            pin_memory_device=device
+            pin_memory_device=pin_memory_device
         )
     return train_loader, val_loader
 
