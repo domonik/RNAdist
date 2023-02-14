@@ -120,6 +120,7 @@ autosummary_mock_imports = [
     "smac",
     "dash_bootstrap_components",
     "dash",
-    "plotly.colors.qualitative.Light24"
+    "plotly.colors.qualitative.Light24",
+    "torch_geometric"
 
 ]
