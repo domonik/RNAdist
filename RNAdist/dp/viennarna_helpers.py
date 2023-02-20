@@ -1,5 +1,6 @@
 import RNA
 import numpy as np
+from RNAdist.dp.cpp.RNAsProbs import cpp_struct_probs
 
 
 def fold_bppm(sequence, md=None):
@@ -29,7 +30,7 @@ def plfold_bppm(sequence, window, span, md=None):
     md.max_bp_span = span
     md.window_size = window
     md.uniq_ML = 1
-    bppm = np.zeros((len(sequence)+1, len(sequence)+1))
+    bppm = np.zeros((len(sequence) + 1, len(sequence) + 1))
     fc = RNA.fold_compound(sequence, md, RNA.OPTION_WINDOW)
     fc.probs_window(1, RNA.PROBS_WINDOW_BPP, bpp_callback, bppm)
     bppm = np.asarray(bppm)
@@ -45,16 +46,14 @@ def bpp_callback(v, v_size, i, maxsize, what, data):
             data[i, j] = p if p is not None else np.nan
 
 
-
 def set_md_from_config(md, config):
     for key, value in config.items():
         setattr(md, key, value)
 
 
-def structural_probabilities(fc: RNA.fold_compound):
-
+def _structural_probabilities(fc: RNA.fold_compound):
     # Different loop context probabilities.
-    data_split = {'ext': [], 'hp': [], 'int': [], 'mb': [] }
+    data_split = {'ext': [], 'hp': [], 'int': [], 'mb': []}
 
     # Get different loop context probabilities.
     fc.probs_window(1, RNA.PROBS_WINDOW_UP | RNA.PROBS_WINDOW_UP_SPLIT, up_split_callback, data_split)
@@ -108,14 +107,65 @@ def up_split_callback(v, v_size, i, maxsize, what, data):
         dat = []
         # Non-split case:
         if what == RNA.ANY_LOOP:
-                dat = data
+            dat = data
         # all the cases where probability is split into different loop contexts
         elif what == RNA.EXT_LOOP:
-                dat = data['ext']
+            dat = data['ext']
         elif what == RNA.HP_LOOP:
-                dat = data['hp']
+            dat = data['hp']
         elif what == RNA.INT_LOOP:
-                dat = data['int']
+            dat = data['int']
         elif what == RNA.MB_LOOP:
-                dat = data['mb']
+            dat = data['mb']
         dat.append({'i': i, 'up': v})
+
+
+def calc_struct_probs(fc: RNA.fold_compound):
+    """ Calculates different structural probabilities
+
+    Args:
+        fc (RNA.fold_compound): ViennaRNA fold compound that is used for structural probability calculation
+
+
+    Returns:
+        :class:`RNAdist.dp.viennarna_helpers.RNAStructProbs`
+
+    """
+    array = cpp_struct_probs(fc.this)
+    return RNAStructProbs(fc, array)
+
+
+class RNAStructProbs:
+    """Class that acts like a dictionary to store structural probabilities as a np.array
+
+    An instance of this class is returned if you use the
+    :func:`RNAdist.dp.viennarna_helpers.RNAStructProbs.calc_struct_probs` function.
+
+
+    Args:
+        fc (str): The viennaRNA fold compound the structural probabilities belong to
+        array (np.ndarray): numpy array of shape (4, fc.length) storing structural probabilities
+
+    It is possbible to access the different structural probabilities the following way:
+
+    >>> sprobs: RNAStructProbs = calc_struct_probs(fc)
+    >>> sprobs["exterior"]
+    >>> sprobs["hairpin"]
+    >>> sprobs["interior"]
+    >>> sprobs["multiloop"]
+
+    """
+
+    _indices = {
+        "exterior": 0,
+        "hairpin": 1,
+        "interior": 2,
+        "multiloop": 3,
+    }
+
+    def __init__(self, fc: RNA.fold_compound, array: np.ndarray):
+        self.fc = fc
+        self.array = array
+
+    def __getitem__(self, item):
+        return self.array[self._indices[item]]

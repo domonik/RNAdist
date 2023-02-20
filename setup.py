@@ -54,6 +54,18 @@ sampling_extension = Pybind11Extension(
     language="c++"
 )
 
+structural_extension = Pybind11Extension(
+    "RNAdist.dp.cpp.RNAsProbs",
+    sources=[
+        "RNAdist/dp/cpp/structuralProbabilities.cpp",
+        "RNAdist/dp/cpp/pyStructuralProbabilities.cpp",
+    ],
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
+                                                                         "-Wl,--no-undefined"],
+    include_dirs=[_include, pybind11.get_include()],
+    language="c++"
+)
+
 cp_exp_dist_extension = Extension(
     "CPExpectedDistance.c_expected_distance",
     sources=["CPExpectedDistance/CPExpectedDistance/c_expected_distance.c"],
@@ -118,7 +130,7 @@ setup(
             extra_link_args=["-Wl,--no-undefined", f"-l{python_l}"],
             language="c++"
         ),
-    ] + cythonize("RNAdist/dp/_dp_calculations.pyx") + [sampling_extension, cp_exp_dist_extension],
+    ] + cythonize("RNAdist/dp/_dp_calculations.pyx") + [sampling_extension, cp_exp_dist_extension, structural_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",
