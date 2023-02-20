@@ -22,7 +22,8 @@ from RNAdist.nn.Datasets import (
     DataAugmentor,
     normalize_bpp,
     shift_index,
-    RNAGeometricWindowDataset
+    RNAGeometricWindowDataset,
+    AutoWindowSplitSet
 )
 
 
@@ -110,6 +111,23 @@ def _split_fasta(
             set = RNAWindowDataset
         elif mode == "graph":
             set = RNAGeometricWindowDataset
+        elif mode == "auto-window":
+            set = AutoWindowSplitSet
+            train_set = set(
+                data=train_file,
+                label_dir=label_dir,
+                dataset_path=train_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+            )
+            val_set = set(
+                data=valid_file,
+                label_dir=label_dir,
+                dataset_path=val_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+            )
+            return train_set, val_set
         else:
             raise ValueError("Unsupported mode")
         train_set = set(
@@ -169,7 +187,7 @@ def _dataset_generation(
         v = len(dataset) - t
         training_set, validation_set = random_split(dataset, [t, v])
         validation_set.dataset.random_shift = None
-    elif mode == "window" or mode == "graph":
+    elif mode == "window" or mode == "graph" or mode == "auto-window":
         training_set, validation_set = _split_fasta(
             fasta=fasta,
             train_val_ratio=train_val_ratio,

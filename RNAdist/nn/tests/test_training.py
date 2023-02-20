@@ -118,6 +118,23 @@ def test_graph_training(expected_window_labels, train_config, random_fasta, pref
         assert state_dict["output.0.weight"].shape[-1] == 32
 
 
+def test_auto_window_training(expected_window_labels, train_config, random_fasta, prefix):
+    expected_labels = expected_window_labels
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        train_network(
+            fasta=random_fasta,
+            label_dir=expected_labels,
+            dataset_path=tmpdir,
+            config=train_config,
+            num_threads=1,
+            epochs=1,
+            max_length=13,
+            train_val_ratio=0.8,
+            device="cpu",
+            mode="auto-window",
+        )
+
+
 def test_training_stats(random_fasta, expected_labels, tmpdir, train_config):
     train_config.training_stats = os.path.join(tmpdir, "training_stats.tsv")
     dataset_path = os.path.join(tmpdir, "dataset")

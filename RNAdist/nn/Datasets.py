@@ -383,7 +383,9 @@ class AutoWindowSplitSet(RNADataset):
             mask[start:end, start:end] = 1
             if not isinstance(y, int):
                 y = y[start:end, start:end]
-                y = F.pad(y, (0, 0, 0, pad_val, 0, pad_val))
+                if y.shape[0] < self.max_length:
+                    y = F.pad(y, (0, pad_val, 0, pad_val),
+                              "constant", 0)
 
             data = RNAGeoData(
                 pair_rep=pair_rep,
