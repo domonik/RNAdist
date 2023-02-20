@@ -50,6 +50,11 @@ def random_fasta():
 
 
 @pytest.fixture
+def long_random_fasta():
+    return os.path.join(TESTDATA_DIR, "long_random_test.fa")
+
+
+@pytest.fixture
 def train_config(tmp_path):
     config = ModelConfiguration(
         masking=True,

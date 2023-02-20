@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Data as GeoData
@@ -16,7 +18,8 @@ import math
 import random
 import torch.multiprocessing
 from RNAdist.dp.viennarna_helpers import (
-    fold_bppm, set_md_from_config, plfold_bppm)
+    fold_bppm, set_md_from_config, plfold_bppm, calc_struct_probs
+)
 
 
 NUCLEOTIDE_MAPPING = {
@@ -247,6 +250,152 @@ class RNAPairDataset(RNADataset):
                 y=y
             )
         return data
+
+
+class AutoWindowSplitSet(RNADataset):
+    def __init__(self, data: str,
+                 label_dir: Union[str, os.PathLike, None],
+                 dataset_path: str = "./",
+                 num_threads: int = 1,
+                 max_length: int = 201,
+                 md_config=None,
+                 mbext_cutoff: float = 0.9,
+                 training: bool = True
+                 ):
+        super().__init__(
+            data, label_dir, dataset_path, num_threads, max_length, md_config
+        )
+        if not self._dataset_generated([file for file in self.files]):
+            print("dataset not yet generated starting to generate")
+            self.generate_dataset()
+        self.mbext_cutoff = mbext_cutoff
+        self.index_data = self.check_size()
+        self.training = training
+        if self.training:
+            self.augmentor = DataAugmentor(
+                single_rep_functions=[shift_index],
+                pair_rep_functions=[normalize_bpp]
+            )
+
+    @cached_property
+    def _data(self):
+        files = []
+        seqs = []
+        for file_index, seq_record in enumerate(SeqIO.parse(self.data, "fasta")):
+            desc = seq_record.description
+            seqs.append((desc, str(seq_record.seq)))
+            file = os.path.join(
+                self.dataset_path, f"{desc}_{self.extension}"
+            )
+            files.append(file)
+        return files, seqs
+
+    @property
+    def seq_data(self):
+        return self._data[1]
+
+    @property
+    def files(self):
+        return self._data[0]
+
+    def generate_dataset(self):
+        calls = []
+        for idx, file in enumerate(self.files):
+            desc, seq = self.seq_data[idx]
+            calls.append((seq, desc, file, self.label_dict, self.md_config))
+        if self.num_threads == 1:
+            for call in calls:
+                self.mp_create_wrapper(*call)
+        else:
+            with Pool(self.num_threads) as pool:
+                pool.starmap(self.mp_create_wrapper, calls)
+
+    def check_size(self):
+        total_indices = []
+        for file_idx, file in enumerate(self.files):
+            data = torch.load(file)
+            sprobs = data["sprobs"]
+            mb_ext = sprobs["exterior"] + sprobs["multiloop"]
+            indices = np.argwhere(mb_ext >= self.mbext_cutoff)
+            if indices.size == 0:
+                print(f"No splitpoints found for sequence: {self.seq_data[file_idx][0]}")
+                continue
+            indices = indices.flatten().tolist()
+            if indices[-1] != len(mb_ext) - 1:
+                indices += [len(mb_ext)]
+            old_idx = 0
+            for idx in indices:
+                if 5 < idx - old_idx <= self.max_length:
+                    total_indices.append((file_idx, old_idx, idx))
+                elif 5 < idx - old_idx:
+                    print(f"Cannot split sequence {self.seq_data[file_idx][0]} between {old_idx} and {idx}")
+                old_idx = idx
+        return total_indices
+
+
+    @staticmethod
+    def mp_create_wrapper(seq, desc, file, label_dict, md_config):
+        md = RNA.md()
+
+        set_md_from_config(md, md_config)
+        fc = RNA.fold_compound(seq, md)
+        ss, mfe = fc.mfe()
+        fc.exp_params_rescale(mfe)
+        fc.pf()
+        bppm = fc.bpp()
+        bppm = torch.tensor(bppm)[1:, 1:]
+        bppm = bppm + bppm.T
+        seq_embedding = torch.tensor([NUCLEOTIDE_MAPPING[m][:] for m in seq])
+        strucprobs = calc_struct_probs(fc)
+        if label_dict is not None:
+            label = label_dict[desc][0]
+            label = label.float()
+        else:
+            label = 1
+        strucprobs.fc = None  # not possible to pickle fold compound
+        data = {"x": seq_embedding, "bppm": bppm, "y": label, "sprobs": strucprobs}
+        torch.save(data, file)
+
+    def __getitem__(self, item):
+        with torch.no_grad():
+            file_idx, start, end = self.index_data[item]
+            data = torch.load(self.files[file_idx])
+
+
+            x = data["x"]
+            y = data["y"]
+
+            x = x[start:end]
+
+            pad_val = self.max_length - x.shape[0]
+
+            positions = pos_encode_range(start, end, 4)
+            x = torch.cat((x, positions), dim=1)
+            if self.augmentor is not None:
+                x = self.augmentor.augment(x, mode="single")
+
+            pair_rep = self.pair_rep_from_single(x)
+
+            bppm = data["bppm"][start:end, start:end]
+            pair_rep = torch.cat((bppm.unsqueeze(-1), pair_rep), dim=-1)
+            pair_rep = F.pad(pair_rep, (0, 0, 0, pad_val, 0, pad_val), "constant", 0)
+            mask = torch.zeros(self.max_length, self.max_length)
+            mask[start:end, start:end] = 1
+            if not isinstance(y, int):
+                y = y[start:end, start:end]
+                y = F.pad(y, (0, 0, 0, pad_val, 0, pad_val))
+
+            data = RNAGeoData(
+                pair_rep=pair_rep,
+                mask=mask,
+                item=item,
+                y=y,
+                idx_info=torch.tensor(self.index_data[item])
+            )
+        return data
+
+    def __len__(self):
+        return len(self.index_data)
 
 
 class RNAWindowDataset(RNADataset):
@@ -556,7 +705,7 @@ class DataAugmentor:
         return tensor
 
 
-def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 1000):
+def shift_index(single_rep: torch.Tensor, start: int = 0, end: int = 10000):
     _inner_start = int(torch.randint(start, end, size=(1,)))
     positions = pos_encode_range(_inner_start, _inner_start + + single_rep.shape[0], 4)
     single_rep[:, 4:8] = positions
