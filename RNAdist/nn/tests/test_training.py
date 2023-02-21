@@ -38,7 +38,7 @@ def triangularselfattention(dim):
     model = Modeltotest(dim)
     return model
 
-
+@pytest.mark.slow
 @pytest.mark.parametrize("model_type", ["normal", "small", triangularselfattention])
 @pytest.mark.parametrize("use_bppm", [True, False])
 @pytest.mark.parametrize("use_pos", [True, False])

@@ -67,6 +67,7 @@ def test_rna_data_to_tensor(seq4test, expected_rna_data):
     assert torch.equal(expected_pair, pair)
     assert torch.equal(expected_x, x)
 
+
 def test_geometric_loading(random_fasta, prefix):
     """Checks if the index dimension of the graph data is correctly loaded"""
     ml = 9

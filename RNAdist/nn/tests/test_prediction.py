@@ -83,6 +83,7 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
         assert key in data
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "model", ["saved_model", "saved_model_no_bpp", "saved_graph_model"]
 )

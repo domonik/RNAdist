@@ -1,9 +1,12 @@
 from RNAdist.nn.smac_optimize import smac_that
 import os
+import pytest
 
 pytest_plugins = ["RNAdist.dp.tests.fixtures",
                   "RNAdist.nn.tests.data_fixtures"]
 
+
+@pytest.mark.slow
 def test_smac_hpo(random_fasta, expected_labels, tmpdir):
     model = os.path.join(tmpdir, "smac_model.pt")
     smac_dir = os.path.join(tmpdir, "smac_dir")
