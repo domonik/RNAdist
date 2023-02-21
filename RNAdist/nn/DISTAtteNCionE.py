@@ -427,6 +427,9 @@ class GraphRNADISTAtteNCionE(nn.Module):
             nn.ReLU()
         )
 
+        self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
+
+
     @staticmethod
     def batched_pair_rep_from_single(x):
         b, n, e = x.shape
@@ -437,16 +440,23 @@ class GraphRNADISTAtteNCionE(nn.Module):
         pair_rep = torch.cat((x_x, x_y), dim=2).reshape(b, n, n, -1)
         return pair_rep
 
-    def forward(self, data, mask=None):
-        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
-        b = idx_info.shape[0]
-        i, j = idx_info[:, 1], idx_info[:, 2]
-        x = self.input_lin(x)
+    def graph_conv_wrapper(self, x, edge_index, edge_attr):
         graph_embeddings = [x]
         for idx in range(self.graph_layers):
             x = self.graph_convolutions[idx](x, edge_index, edge_attr)
             x = self.graph_conv_adjust[idx](x)
             graph_embeddings.append(x)
+        return graph_embeddings
+
+    def graph_conv_checkpoint(self, x, edge_index, edge_attr):
+        return checkpoint(self.graph_conv_wrapper, x, edge_index, edge_attr, preserve_rng_state=False)
+
+    def forward(self, data, mask=None):
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
+        b = idx_info.shape[0]
+        i, j = idx_info[:, 1], idx_info[:, 2]
+        x = self.input_lin(x)
+        graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
         x = torch.concat(graph_embeddings, dim=1)
 
         # gets batch representation back and rescales to embedding_dim
