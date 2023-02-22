@@ -599,6 +599,8 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             up = ((1 - torch.sum(bppm, dim=1)))
             positions = pos_encode_range(start, start+x.shape[0], 4)
             x = torch.cat((x, positions, up), dim=1)
+            if self.augmentor is not None:
+                x = self.augmentor.augment(x, mode="single")
             up = up.squeeze()
             up[1:-1] = up[1:-1] / 2
             bppm += torch.diag_embed(up[0:-1], offset=1).unsqueeze(-1)
@@ -638,6 +640,8 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
             pair_rep = pair_rep[i:i+self.max_length, j:j+self.max_length]
             bppm = bppm[i:i+self.max_length, j:j+self.max_length]
             pair_rep = torch.concat((bppm, pair_rep), dim=-1)
+            if self.augmentor is not None:
+                pair_rep = self.augmentor.augment(pair_rep, mode="pair")
 
             mask = mask[i:i+self.max_length, j:j+self.max_length]
             if not isinstance(y, int):

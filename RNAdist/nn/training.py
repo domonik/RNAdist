@@ -91,7 +91,8 @@ def _split_fasta(
         max_length: int,
         global_mask_size: int,
         mode: str = "window",
-        local: bool = True
+        local: bool = True,
+        augmentor: DataAugmentor = None
 ):
     with TemporaryDirectory(prefix="RNAdist_split") as tmpdir:
         seq_records = [seq_record for seq_record in SeqIO.parse(fasta, "fasta")]
@@ -138,7 +139,8 @@ def _split_fasta(
                 max_length=max_length,
                 step_size=1,
                 global_mask_size=global_mask_size,
-                local=local
+                local=local,
+                augmentor=augmentor
             )
         val_set = set(
             data=valid_file,
@@ -148,7 +150,8 @@ def _split_fasta(
             max_length=max_length,
             step_size=1,
             global_mask_size=global_mask_size,
-            local=local
+            local=local,
+            augmentor=augmentor
         )
         if mode == "graph":
             upper_bound = max(val_set.upper_bound, train_set.upper_bound)
@@ -197,7 +200,8 @@ def _dataset_generation(
             max_length=max_length,
             global_mask_size=global_mask_size,
             mode=mode,
-            local=local
+            local=local,
+            augmentor=augmentor
         )
     else:
         raise ValueError("Unsupported mode")
