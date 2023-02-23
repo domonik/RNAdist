@@ -11,7 +11,7 @@ import RNAdist.nn.configuration
 from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE, DISTAtteNCionESmall, GraphRNADISTAtteNCionE
 )
-from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, RNAGeometricWindowDataset
+from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, RNAGeometricInferenceDataset
 from RNAdist.fasta_wrappers import md_config_from_args
 
 @torch.no_grad()
@@ -101,7 +101,6 @@ def model_window_predict(
         global_mask_size: int = None,
         dataset_dir: str = None,
         step_size: int = 1,
-        mode: str = "window"
 ):
     if dataset_dir is None:
         tmpdir = TemporaryDirectory()
@@ -109,34 +108,19 @@ def model_window_predict(
     else:
         tmpdir = None
         workdir = dataset_dir
-    if mode == "window":
-        dataset = RNAWindowDataset(
-            data=fasta,
-            label_dir=None,
-            dataset_path=workdir,
-            num_threads=num_threads,
-            max_length=max_length,
-            md_config=md_config,
-            step_size=step_size,
-            global_mask_size=global_mask_size
-        )
-        ml = upper_bound = None
-    elif mode == "graph":
-        dataset = RNAGeometricWindowDataset(
-            data=fasta,
-            label_dir=None,
-            dataset_path=workdir,
-            num_threads=num_threads,
-            max_length=max_length,
-            md_config=md_config,
-            step_size=step_size,
-            global_mask_size=global_mask_size
-        )
-        ml = dataset.max_length
-        upper_bound = dataset.upper_bound
-    else:
-        raise ValueError("Unsupported mode")
-    model, config = _load_model(saved_model, device, ml, upper_bound)
+    dataset = RNAWindowDataset(
+        data=fasta,
+        label_dir=None,
+        dataset_path=workdir,
+        num_threads=num_threads,
+        max_length=max_length,
+        md_config=md_config,
+        step_size=step_size,
+        global_mask_size=global_mask_size
+    )
+    ml = inf_batch_size = None
+
+    model, config = _load_model(saved_model, device, ml, inf_batch_size)
     model.eval()
 
     config: RNAdist.nn.configuration.ModelConfiguration
@@ -190,7 +174,73 @@ def model_window_predict(
         pickle.dump(output_data, handle)
 
 
-def _load_model(model_path, device, ml: int = None, upper_bound: int = None):
+def graph_predict(
+        fasta: Union[str, os.PathLike],
+        saved_model: Union[str, os.PathLike],
+        outfile: Union[str, os.PathLike],
+        batch_size: int = 1,
+        num_threads: int = 1,
+        device: str = "cpu",
+        max_length: int = 200,
+        md_config: Dict = None,
+        dataset_dir: str = None,
+):
+    if dataset_dir is None:
+        tmpdir = TemporaryDirectory()
+        workdir = tmpdir.name
+    else:
+        tmpdir = None
+        workdir = dataset_dir
+    dataset = RNAGeometricInferenceDataset(
+        data=fasta,
+        label_dir=None,
+        dataset_path=workdir,
+        num_threads=num_threads,
+        max_length=max_length,
+        md_config=md_config,
+    )
+    ml = dataset.max_length
+    inf_batch_size = batch_size
+    model, config = _load_model(saved_model, device, ml, inf_batch_size)
+    use = config.indices.to(device)
+
+    model.eval()
+    data_loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=num_threads,
+        pin_memory=True if "cuda" in device else False,
+        pin_memory_device=device,
+    )
+    output_data = {}
+    for batch_idx, batch in enumerate(iter(data_loader)):
+        with torch.no_grad():
+            batch = batch.to(device)
+            pair_rep = batch["pair_rep"]
+            pair_rep = torch.index_select(pair_rep, -1, use)
+            batch["pair_rep"] = pair_rep
+            mask = batch["mask"]
+            if not config["masking"]:
+                mask = None
+            pred = model(batch, mask=mask).cpu()
+            pred = pred.numpy()
+            description, _ = dataset.seq_data[batch_idx]
+            output_data[description] = pred
+    if tmpdir is not None:
+        tmpdir.cleanup()
+    out_dir = os.path.dirname(outfile)
+    if out_dir != "":
+        os.makedirs(out_dir, exist_ok=True)
+    with open(outfile, "wb") as handle:
+        pickle.dump(output_data, handle)
+
+
+
+
+
+
+def _load_model(model_path, device, ml: int = None, batch_size: int = None):
     state_dict, config = torch.load(model_path, map_location="cpu")
     if config["model"] == "normal":
         model = RNADISTAtteNCionE(config.input_dim, nr_updates=config["nr_layers"])
@@ -202,10 +252,12 @@ def _load_model(model_path, device, ml: int = None, upper_bound: int = None):
             embedding_dim=32,
             pair_dim=config.input_dim,
             max_length=ml,
-            upper_bound=upper_bound,
+            upper_bound=1,
             checkpointing=config.gradient_checkpointing,
             graph_layers=config.nr_layers,
-            device=device
+            device=device,
+            inference=True,
+            inference_batch_size=batch_size
         )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]

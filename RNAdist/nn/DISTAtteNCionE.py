@@ -434,6 +434,8 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
         self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
         self.forward = self.forward_inference if self.inference else self.forward_training
+        self.pval = int((self.max_length - 1) / 2)
+
 
 
     @staticmethod
@@ -501,12 +503,13 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
         """
         x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
-        slen = x.shape[0] - (self.max_length - 1)
+        slen = idx_info.item()
         assert bppm.shape[0] == 1
         x = self.input_lin(x)
         graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
         x = torch.concat(graph_embeddings, dim=1)
         x = self.intermediate_rescale(x)
+        x = x.unsqueeze(0)
         pair_rep = self.batched_pair_rep_from_single(x)
 
         # make sure to use the whole bppm here
@@ -514,21 +517,25 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
         # now this is split into sub-batches
         out = []
-        for i in range(torch.ceil(slen / self.inference_batch_size)):
+        for i in range(0, slen, self.inference_batch_size):
             b = []
+            m = []
             for j in range(i, min(i+self.inference_batch_size, slen)):
                 b.append(pair_rep[0, j:j+self.max_length, j:j+self.max_length])
-            b = torch.concat(b)
+                m.append(mask[0, j:j+self.max_length, j:j+self.max_length])
+            b = torch.stack(b)
+            m = torch.stack(m)
             for idx in range(self.nr_updates):
-                pair_rep = self.pair_updates[idx](b, mask)
+                pr = self.pair_updates[idx](b, m)
 
-            pair_rep = self.out_conv(pair_rep.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
-            pair_rep = self.out_norm(torch.relu(pair_rep))
-            pair_rep = self.output(pair_rep)
-            pair_rep = torch.squeeze(pair_rep)
-            out.append(pair_rep.flatten())
+            pr = self.out_conv(pr.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
+            pr = self.out_norm(torch.relu(pr))
+            pr = self.output(pr)
+            pr = torch.squeeze(pr)
+            out.append(pr.flatten())
         out = generate_output_tensor(out, self.max_length, slen, self.device)
-        return out
+        out = torch.sparse.sum(out, dim=2) / self.max_length
+        return out.to_dense()[self.pval:self.pval+slen, self.pval:self.pval+slen]
 
 
 

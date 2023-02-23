@@ -724,8 +724,9 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
             bppm = self._add_backbone(bppm)
             x = F.pad(x,  (0, 0, pad_val, pad_val))
             pair_rep = self.pair_rep_from_single(x[:, 0:8])
-            bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
             mask = torch.ones(*bppm.shape[0:2])
+
+            bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
             mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
             sparse_graph = bppm.to_sparse(2)
             edge_index = sparse_graph.indices()

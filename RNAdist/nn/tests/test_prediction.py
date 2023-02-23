@@ -1,4 +1,4 @@
-from RNAdist.nn.prediction import model_predict, model_window_predict
+from RNAdist.nn.prediction import model_predict, model_window_predict, graph_predict
 from RNAdist.nn.tests.data_fixtures import (
     saved_model,
     saved_model_no_bpp,
@@ -85,7 +85,7 @@ def test_cuda_window_predict(saved_model, random_fasta, tmp_path):
 
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    "model", ["saved_model", "saved_model_no_bpp", "saved_graph_model"]
+    "model", ["saved_model", "saved_model_no_bpp"]
 )
 @pytest.mark.parametrize("step_size", [1, 3])
 @pytest.mark.parametrize("global_mask_size", [None, 3])
@@ -94,7 +94,6 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
     desc = [sr for sr in SeqIO.parse(random_fasta, "fasta")]
     outfile = os.path.join(tmp_path, "predictions")
     ml = 11
-    mode = "graph" if model == "saved_graph_model" else "window"
     model_window_predict(
         fasta=random_fasta,
         outfile=outfile,
@@ -105,7 +104,6 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
         device="cpu",
         global_mask_size=global_mask_size,
         step_size=step_size,
-        mode=mode
     )
     assert os.path.exists(outfile)
     gms = global_mask_size if global_mask_size is not None else int((ml - 1) / 2)
@@ -115,4 +113,26 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
         assert seq_record.description in data
         pred = data[seq_record.description]
         assert not np.all(pred[0, 0:1+gms] == 0)
+        assert pred.shape[0] == len(seq_record.seq)
+
+
+def test_graph_predict(saved_graph_model, random_fasta, tmp_path):
+    desc = [sr for sr in SeqIO.parse(random_fasta, "fasta")]
+    outfile = os.path.join(tmp_path, "predictions")
+    ml = 11
+    graph_predict(
+        fasta=random_fasta,
+        outfile=outfile,
+        saved_model=saved_graph_model,
+        batch_size=4,
+        num_threads=os.cpu_count(),
+        max_length=ml,
+        device="cpu",
+    )
+    with open(outfile, "rb") as handle:
+        data = pickle.load(handle)
+    for seq_record in desc:
+        assert seq_record.description in data
+        pred = data[seq_record.description]
+        assert not np.all(pred[0, 0:1+ml] == 0)
         assert pred.shape[0] == len(seq_record.seq)
