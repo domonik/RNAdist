@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 from torch_geometric.nn import GINEConv, GATv2Conv
+from typing import Iterable
 
 
 class TriangularUpdate(nn.Module):
@@ -364,7 +365,9 @@ class GraphRNADISTAtteNCionE(nn.Module):
             graph_layers: int = 4,
             dropout: float = 0.1,
             device: str = "cpu",
-            checkpointing: bool = False
+            checkpointing: bool = False,
+            inference_batch_size: int = 10,
+            inference: bool = False
     ):
         super().__init__()
         self.nr_updates = 2
@@ -376,6 +379,8 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.dropout = dropout
         self.pair_dim = pair_dim
         self.heads = 4
+        self.inference_batch_size = inference_batch_size
+        self.inference = inference
 
 
         self.graph_convolutions = nn.ModuleList(
@@ -428,6 +433,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         )
 
         self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
+        self.forward = self.forward_inference if self.inference else self.forward_training
 
 
     @staticmethod
@@ -451,7 +457,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
     def graph_conv_checkpoint(self, x, edge_index, edge_attr):
         return checkpoint(self.graph_conv_wrapper, x, edge_index, edge_attr, preserve_rng_state=False)
 
-    def forward(self, data, mask=None):
+    def forward_training(self, data, mask=None):
         x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
         b = idx_info.shape[0]
         i, j = idx_info[:, 1], idx_info[:, 2]
@@ -482,5 +488,83 @@ class GraphRNADISTAtteNCionE(nn.Module):
         if mask is not None:
             out = out * mask
         return out
+
+    def forward_inference(self, data, mask=None):
+        """ This forward function is called during inference time
+
+        It expects a single sequence as input and will split the windows accordingly
+
+        Args:
+            data: The pytroch geometric data object which acts like a dictionary
+            mask: a mask to apply
+        Returns:
+
+        """
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
+        slen = x.shape[0] - (self.max_length - 1)
+        assert bppm.shape[0] == 1
+        x = self.input_lin(x)
+        graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
+        x = torch.concat(graph_embeddings, dim=1)
+        x = self.intermediate_rescale(x)
+        pair_rep = self.batched_pair_rep_from_single(x)
+
+        # make sure to use the whole bppm here
+        pair_rep = torch.concat((pair_rep, bppm), dim=-1)
+
+        # now this is split into sub-batches
+        out = []
+        for i in range(torch.ceil(slen / self.inference_batch_size)):
+            b = []
+            for j in range(i, min(i+self.inference_batch_size, slen)):
+                b.append(pair_rep[0, j:j+self.max_length, j:j+self.max_length])
+            b = torch.concat(b)
+            for idx in range(self.nr_updates):
+                pair_rep = self.pair_updates[idx](b, mask)
+
+            pair_rep = self.out_conv(pair_rep.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
+            pair_rep = self.out_norm(torch.relu(pair_rep))
+            pair_rep = self.output(pair_rep)
+            pair_rep = torch.squeeze(pair_rep)
+            out.append(pair_rep.flatten())
+        out = generate_output_tensor(out, self.max_length, slen, self.device)
+        return out
+
+
+
+def generate_indices(kernel_size: int, length: int, device: str = "cpu"):
+    range = torch.arange(0, kernel_size, device=device)
+    first_dim = range.repeat(kernel_size * length)
+    second_dim = range.repeat_interleave(kernel_size).repeat(length)
+    third_dim = torch.arange(0, length, device=device).repeat_interleave(kernel_size * kernel_size)
+    idx_tensor = torch.stack((first_dim, second_dim, third_dim))
+    idx_tensor[0:2] += idx_tensor[2]
+    return idx_tensor
+
+
+def generate_output_tensor(tensorlist: Iterable[torch.tensor], kernel_size: int, length: int, device: str):
+    indices = generate_indices(kernel_size, length, device)
+    tensorlist = torch.concat(tensorlist)
+    sparse_tensor = torch.sparse_coo_tensor(indices, values=tensorlist, size=tuple(indices[:, -1] + 1))
+    return sparse_tensor
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    import time
+    kernel_size = 10
+    length = 100
+    indices = generate_indices(kernel_size, length)
+    vecs = []
+    for x in range(length):
+        vecs.append((torch.ones(kernel_size, kernel_size, dtype=torch.float32) * x).flatten())
+    sparse_tensor = generate_output_tensor(vecs, kernel_size, length, device="cpu")
+    time.sleep(10)
+
+
 
 

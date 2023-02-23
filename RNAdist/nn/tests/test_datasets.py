@@ -7,7 +7,8 @@ from RNAdist.nn.Datasets import (
     RNADATA,
     RNAWindowDataset,
     RNAGeometricWindowDataset,
-    AutoWindowSplitSet
+    AutoWindowSplitSet,
+    RNAGeometricInferenceDataset
 )
 from torch_geometric.loader import DataLoader as GeoDataloader
 from tempfile import TemporaryDirectory
@@ -68,11 +69,18 @@ def test_rna_data_to_tensor(seq4test, expected_rna_data):
     assert torch.equal(expected_x, x)
 
 
-def test_geometric_loading(random_fasta, prefix):
+@pytest.mark.parametrize(
+    "training",
+    [
+        True, False
+    ]
+)
+def test_geometric_loading(random_fasta, prefix, training):
     """Checks if the index dimension of the graph data is correctly loaded"""
+    set = RNAGeometricWindowDataset if training else RNAGeometricInferenceDataset
     ml = 9
     with TemporaryDirectory(prefix=prefix) as tmpdir:
-        dataset = RNAGeometricWindowDataset(
+        dataset = set(
             data=random_fasta,
             label_dir=None,
             dataset_path=tmpdir,
@@ -80,16 +88,25 @@ def test_geometric_loading(random_fasta, prefix):
             max_length=ml,
             step_size=1
         )
-        batch_size = 2
+        batch_size = 2 if training else 1
         loader = GeoDataloader(
-            dataset, batch_size=2, shuffle=False, drop_last=True
+            dataset, batch_size=batch_size, shuffle=False, drop_last=True
         )
         upper_bound = dataset.upper_bound
-        for batch in iter(loader):
-            assert batch["idx_info"].shape[0] == 2
-            assert batch["x"].shape[0] == 2 * (upper_bound + dataset.max_length - 1)
-            assert batch["pair_rep"].shape == torch.Size((2, ml, ml, 18))
-            assert batch["edge_index"].shape[0] == 2
+
+        if training:
+            for batch in iter(loader):
+                assert batch["idx_info"].shape[0] == 2
+                assert batch["x"].shape[0] == 2 * (upper_bound + dataset.max_length - 1)
+                assert batch["pair_rep"].shape == torch.Size((2, ml, ml, 18))
+                assert batch["edge_index"].shape[0] == 2
+        else:
+            for batch in iter(loader):
+                slen = batch["idx_info"]
+                size = slen + dataset.max_length - 1
+                assert batch["x"].shape[0] == size
+                assert batch["pair_rep"].shape == torch.Size((1, size, size, 18))
+                assert batch["edge_index"].shape[0] == 2
 
 
 def test_auto_window_split_set(long_random_fasta, prefix):

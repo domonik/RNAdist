@@ -580,6 +580,26 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                 upper_bound = len(sequence)
         return upper_bound
 
+    @staticmethod
+    def _process_unpaired(bppm, x, augmentor: DataAugmentor = None):
+        up = (1 - torch.sum(bppm, dim=1))
+        positions = pos_encode_range(0, x.shape[0], 4)
+        x = torch.cat((x, positions, up), dim=1)
+        if augmentor is not None:
+            x = augmentor.augment(x, mode="single")
+        up = up.squeeze()
+        up[1:-1] = up[1:-1] / 2
+        bppm += torch.diag_embed(up[0:-1], offset=1).unsqueeze(-1)
+        bppm += torch.diag_embed(up[1:], offset=-1).unsqueeze(-1)
+        return bppm, x
+
+    @staticmethod
+    def _add_backbone(bppm):
+        t = torch.ones(bppm.shape[0] - 1)
+        backbone = (torch.diag(t, 1) + torch.diag(t, -1)).unsqueeze(-1)
+        bppm = torch.concat((bppm, backbone), -1)
+        return bppm
+
     def __getitem__(self, item):
         with torch.no_grad():
             file_index, inner_index = self.get_index_from_ranges(item)
@@ -594,22 +614,12 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                 i, j = _scatter_triu_indices(slen, self.step_size)[inner_index, :]
             i: torch.Tensor
             j: torch.Tensor
-            start = 0
+
             bppm = data["bppm"]
-            up = ((1 - torch.sum(bppm, dim=1)))
-            positions = pos_encode_range(start, start+x.shape[0], 4)
-            x = torch.cat((x, positions, up), dim=1)
-            if self.augmentor is not None:
-                x = self.augmentor.augment(x, mode="single")
-            up = up.squeeze()
-            up[1:-1] = up[1:-1] / 2
-            bppm += torch.diag_embed(up[0:-1], offset=1).unsqueeze(-1)
-            bppm += torch.diag_embed(up[1:], offset=-1).unsqueeze(-1)
+            bppm, x = self._process_unpaired(bppm, x, self.augmentor)
 
             # now we will add the backbone to the bppm
-            t = torch.ones(x.shape[0] - 1)
-            backbone = (torch.diag(t, 1) + torch.diag(t, -1)).unsqueeze(-1)
-            bppm = torch.concat((bppm, backbone), -1)
+            bppm = self._add_backbone(bppm)
 
             mask = torch.ones(*bppm.shape[0:2])
 
@@ -666,6 +676,72 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
                     pair_rep=pair_rep
                 )
         return data
+
+
+class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
+    def __init__(self, data: str, label_dir: Union[str, os.PathLike, None], dataset_path: str = "./",
+                 num_threads: int = 1, max_length: int = 201, md_config=None, step_size: int = 1,
+                 global_mask_size: int = None, augmentor: DataAugmentor = None, local: bool = True):
+        super().__init__(data, label_dir, dataset_path, num_threads, max_length, md_config, step_size, global_mask_size,
+                         augmentor, local)
+        if not self.local:
+            raise NotImplementedError("Global Mode is not implemented for this kind of dataset")
+        if self.augmentor is not None:
+            print("Data Augmentation is ignored during Inference")
+
+    def set_upper_bound(self):
+        return self.max_length
+
+    @cached_property
+    def _seq_data(self):
+
+        indices2seq = []
+        files = []
+        sequences = []
+        for file_index, seq_record in enumerate(SeqIO.parse(self.data, "fasta")):
+            desc = seq_record.description
+            seq = str(seq_record.seq)
+            file = os.path.join(
+                self.dataset_path, f"{desc}_{self.extension}"
+            )
+            files.append(file)
+            sequences.append((desc, seq))
+        return indices2seq, files, sequences
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, item):
+        with torch.no_grad():
+            data = torch.load(self.files[item])
+            x = data["x"]
+            pad_val = int((self.max_length - 1) / 2)
+            slen = x.shape[0]
+            i: torch.Tensor
+            j: torch.Tensor
+            bppm = data["bppm"]
+            bppm, x = self._process_unpaired(bppm, x)
+            bppm = self._add_backbone(bppm)
+            x = F.pad(x,  (0, 0, pad_val, pad_val))
+            pair_rep = self.pair_rep_from_single(x[:, 0:8])
+            bppm = F.pad(bppm,  (0, 0, pad_val, pad_val, pad_val, pad_val))
+            mask = torch.ones(*bppm.shape[0:2])
+            mask = F.pad(mask, (pad_val, pad_val, pad_val, pad_val))
+            sparse_graph = bppm.to_sparse(2)
+            edge_index = sparse_graph.indices()
+            edge_weights = sparse_graph.values()
+            pair_rep = torch.concat((bppm, pair_rep), dim=-1)
+            data = RNAGeoData(
+                x=x,
+                edge_index=edge_index,
+                edge_attr=edge_weights,
+                idx_info=slen,
+                mask=mask,
+                pair_rep=pair_rep
+            )
+        return data
+
+
 
 
 class RNAGeoData(GeoData):
