@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 from torch_geometric.nn import GINEConv, GATv2Conv
 from typing import Iterable
-
+import numpy as np
 
 class TriangularUpdate(nn.Module):
     def __init__(self, embedding_dim, c=128, mode="in"):
@@ -435,6 +435,18 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
         self.forward = self.forward_inference if self.inference else self.forward_training
         self.pval = int((self.max_length - 1) / 2)
+        if self.inference:
+            self.weights = self.create_weight_tensor(self.max_length).to(self.device)
+        else:
+            self.weights = 1
+
+    @staticmethod
+    def create_weight_tensor(n):
+        t = np.zeros((n, n))
+        for x in range(n):
+            np.fill_diagonal(t[x:], np.full(shape=(n-x), fill_value=n-x))
+        return torch.from_numpy(t + t.T - np.diag(np.diag(t)))
+
 
 
 
@@ -531,10 +543,10 @@ class GraphRNADISTAtteNCionE(nn.Module):
             pr = self.out_conv(pr.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
             pr = self.out_norm(torch.relu(pr))
             pr = self.output(pr)
-            pr = torch.squeeze(pr)
+            pr = torch.squeeze(pr) * self.weights
             out.append(pr.flatten())
         out = generate_output_tensor(out, self.max_length, slen, self.device)
-        out = torch.sparse.sum(out, dim=2) / self.max_length
+        out = torch.sparse.sum(out, dim=2)
         return out.to_dense()[self.pval:self.pval+slen, self.pval:self.pval+slen]
 
 
