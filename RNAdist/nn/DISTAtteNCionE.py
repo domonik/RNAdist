@@ -537,13 +537,16 @@ class GraphRNADISTAtteNCionE(nn.Module):
                 m.append(mask[0, j:j+self.max_length, j:j+self.max_length])
             b = torch.stack(b)
             m = torch.stack(m)
+            pr = b
             for idx in range(self.nr_updates):
-                pr = self.pair_updates[idx](b, m)
+                pr = self.pair_updates[idx](pr, m)
 
             pr = self.out_conv(pr.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
             pr = self.out_norm(torch.relu(pr))
             pr = self.output(pr)
             pr = torch.squeeze(pr) / self.weights
+            if mask is not None:
+                pr = pr * m
             out.append(pr.flatten())
         out = generate_output_tensor(out, self.max_length, slen, self.device)
         out = torch.sparse.sum(out, dim=2)
