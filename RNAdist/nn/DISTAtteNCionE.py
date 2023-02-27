@@ -543,7 +543,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             pr = self.out_conv(pr.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
             pr = self.out_norm(torch.relu(pr))
             pr = self.output(pr)
-            pr = torch.squeeze(pr) * self.weights
+            pr = torch.squeeze(pr) / self.weights
             out.append(pr.flatten())
         out = generate_output_tensor(out, self.max_length, slen, self.device)
         out = torch.sparse.sum(out, dim=2)
