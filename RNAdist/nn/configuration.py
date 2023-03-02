@@ -77,19 +77,24 @@ class ModelConfiguration:
     @cached_property
     def indices(self):
         indices = []
-        if self.use_bppm:
-            indices.append(0)
-        if self.use_position:
-            indices += range(5, 9)
-            indices += range(13, 17)
-        if self.use_nucleotide_encoding:
-            indices += range(1, 5)
-            indices += range(9, 13)
-        indices = sorted(indices)
-        if all((self.use_bppm, self.use_position, self.use_nucleotide_encoding)):
-            assert indices == list(range(0, 17)), f"Not the expected indices\n" \
-                                                  f"expected: {list(range(0, 17))}" \
-                                                  f"but got: {indices}"
+        if self.model == "graph":
+            indices += range(0, 18)
+            if not all((self.use_bppm, self.use_position, self.use_nucleotide_encoding)):
+                raise NotImplementedError("Ablation is not implemented for graph model")
+        else:
+            if self.use_bppm:
+                indices.append(0)
+            if self.use_position:
+                indices += range(5, 9)
+                indices += range(13, 17)
+            if self.use_nucleotide_encoding:
+                indices += range(1, 5)
+                indices += range(9, 13)
+            indices = sorted(indices)
+            if all((self.use_bppm, self.use_position, self.use_nucleotide_encoding)):
+                assert indices == list(range(0, 17)), f"Not the expected indices\n" \
+                                                      f"expected: {list(range(0, 17))}" \
+                                                      f"but got: {indices}"
         return torch.tensor(indices)
 
     def __getitem__(self, item):
