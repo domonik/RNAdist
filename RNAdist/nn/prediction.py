@@ -247,6 +247,7 @@ def _load_model(model_path, device, ml: int = None, batch_size: int = None):
     elif config["model"] == "small":
         model = DISTAtteNCionESmall(config.input_dim, nr_updates=config["nr_layers"])
     elif config.model == "graph":
+        config.gradient_checkpointing = False
         model = GraphRNADISTAtteNCionE(
             input_dim=9,
             embedding_dim=32,
