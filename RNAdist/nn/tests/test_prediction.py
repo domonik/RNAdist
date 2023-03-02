@@ -116,7 +116,14 @@ def test_window_predict(model, random_fasta, tmp_path, request, step_size, globa
         assert pred.shape[0] == len(seq_record.seq)
 
 
-def test_graph_predict(saved_graph_model, random_fasta, tmp_path):
+@pytest.mark.parametrize(
+    "sites",
+    [
+        {f"{x}": [5, 8] for x in range(10)},
+        None,
+    ]
+)
+def test_graph_predict(saved_graph_model, random_fasta, tmp_path, sites):
     desc = [sr for sr in SeqIO.parse(random_fasta, "fasta")]
     outfile = os.path.join(tmp_path, "predictions")
     ml = 11
@@ -128,11 +135,17 @@ def test_graph_predict(saved_graph_model, random_fasta, tmp_path):
         num_threads=os.cpu_count(),
         max_length=ml,
         device="cpu",
+        sites=sites
     )
+    interval = int(np.floor(ml/2))
     with open(outfile, "rb") as handle:
         data = pickle.load(handle)
     for seq_record in desc:
         assert seq_record.description in data
         pred = data[seq_record.description]
-        assert not np.all(pred[0, 0:1+ml] == 0)
+        if sites is not None:
+            for s in sites[seq_record.description]:
+                    assert not np.all(pred[s, s-interval:s+1+interval] == 0)
+        else:
+            assert not np.all(pred[0, 0:1+ml] == 0)
         assert pred.shape[0] == len(seq_record.seq)

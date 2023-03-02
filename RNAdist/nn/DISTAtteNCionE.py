@@ -503,30 +503,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
             out = out * mask
         return out
 
-    def forward_inference(self, data, mask=None):
-        """ This forward function is called during inference time
-
-        It expects a single sequence as input and will split the windows accordingly
-
-        Args:
-            data: The pytroch geometric data object which acts like a dictionary
-            mask: a mask to apply
-        Returns:
-
-        """
-        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
-        slen = idx_info.item()
-        assert bppm.shape[0] == 1
-        x = self.input_lin(x)
-        graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
-        x = torch.concat(graph_embeddings, dim=1)
-        x = self.intermediate_rescale(x)
-        x = x.unsqueeze(0)
-        pair_rep = self.batched_pair_rep_from_single(x)
-
-        # make sure to use the whole bppm here
-        pair_rep = torch.concat((pair_rep, bppm), dim=-1)
-
+    def full_inference(self, pair_rep, mask, slen):
         # now this is split into sub-batches
         out = []
         for i in range(0, slen, self.inference_batch_size):
@@ -551,6 +528,68 @@ class GraphRNADISTAtteNCionE(nn.Module):
         out = generate_output_tensor(out, self.max_length, slen, self.device)
         out = torch.sparse.sum(out, dim=2)
         return out.to_dense()[self.pval:self.pval+slen, self.pval:self.pval+slen]
+
+    def sites_inference(self, pair_rep, mask, slen, sites):
+        out = torch.zeros(slen, slen + 2*self.pval)
+
+        for i in range(0, sites.shape[-1], self.inference_batch_size):
+            b = []
+            m = []
+            si = []
+            for j in range(i, min(i+self.inference_batch_size, sites.shape[-1])):
+                s = sites[0, j]
+                si.append(s)
+                b.append(pair_rep[0, s:s+self.max_length, s:s+self.max_length])
+                m.append(mask[0, s:s+self.max_length, s:s+self.max_length])
+            b = torch.stack(b)
+            m = torch.stack(m)
+            pr = b
+            for idx in range(self.nr_updates):
+                pr = self.pair_updates[idx](pr, m)
+            pr = self.out_conv(pr.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
+            pr = self.out_norm(torch.relu(pr))
+            pr = self.output(pr)
+            pr = torch.squeeze(pr)
+            if mask is not None:
+                pr = pr * m
+            for idx, entry in enumerate(si):
+
+                ipr = pr[idx, self.pval, :]
+                out[entry, entry:entry+self.max_length] = ipr
+        out = out[:, self.pval:self.pval+slen]
+        return out
+
+    def forward_inference(self, data, mask=None):
+        """ This forward function is called during inference time
+
+        It expects a single sequence as input and will split the windows accordingly
+
+        Args:
+            data: The pytroch geometric data object which acts like a dictionary
+            mask: a mask to apply
+        Returns:
+
+        """
+        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
+        slen = idx_info.item()
+        assert bppm.shape[0] == 1
+        x = self.input_lin(x)
+        graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
+        x = torch.concat(graph_embeddings, dim=1)
+        x = self.intermediate_rescale(x)
+        x = x.unsqueeze(0)
+        pair_rep = self.batched_pair_rep_from_single(x)
+
+        # make sure to use the whole bppm here
+        pair_rep = torch.concat((pair_rep, bppm), dim=-1)
+        if data["sites"].dtype == torch.bool:
+            return self.full_inference(pair_rep, mask, slen)
+        else:
+            return self.sites_inference(pair_rep, mask, slen, data["sites"])
+
+
+
+
 
 
 

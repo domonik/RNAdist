@@ -9,7 +9,7 @@ import os
 from RNAdist.nn.training_set_generation import LabelDict
 from RNAdist.nn.nn_helpers import _scatter_triu_indices
 from functools import cached_property
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Dict
 from Bio import SeqIO
 from torch.multiprocessing import Pool
 import RNA
@@ -681,13 +681,15 @@ class RNAGeometricWindowDataset(RNAWindowDataset):
 class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
     def __init__(self, data: str, label_dir: Union[str, os.PathLike, None], dataset_path: str = "./",
                  num_threads: int = 1, max_length: int = 201, md_config=None, step_size: int = 1,
-                 global_mask_size: int = None, augmentor: DataAugmentor = None, local: bool = True):
+                 global_mask_size: int = None, augmentor: DataAugmentor = None, local: bool = True,
+                 sites: Dict[str, List[int]] = None):
         super().__init__(data, label_dir, dataset_path, num_threads, max_length, md_config, step_size, global_mask_size,
                          augmentor, local)
         if not self.local:
             raise NotImplementedError("Global Mode is not implemented for this kind of dataset")
         if self.augmentor is not None:
             print("Data Augmentation is ignored during Inference")
+        self.sites = sites
 
     def set_upper_bound(self):
         return self.max_length
@@ -717,6 +719,10 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
             x = data["x"]
             pad_val = int((self.max_length - 1) / 2)
             slen = x.shape[0]
+            if self.sites is not None:
+                sites, _ = torch.tensor(self.sites[self.seq_data[item][0]], dtype=torch.int).sort()
+            else:
+                sites = torch.tensor(False, dtype=torch.bool)
             i: torch.Tensor
             j: torch.Tensor
             bppm = data["bppm"]
@@ -738,7 +744,8 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
                 edge_attr=edge_weights,
                 idx_info=slen,
                 mask=mask,
-                pair_rep=pair_rep
+                pair_rep=pair_rep,
+                sites=sites
             )
         return data
 
@@ -748,7 +755,7 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
 class RNAGeoData(GeoData):
     def __cat_dim__(self, key, value, *args, **kwargs):
         keys = [
-            "idx_info", "mask", "bppm", "y", "pair_rep", "item"
+            "idx_info", "mask", "bppm", "y", "pair_rep", "item", "sites"
         ]
         if key in keys:
             return None
