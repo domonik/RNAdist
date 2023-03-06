@@ -122,6 +122,25 @@ def test_graph_training(expected_window_labels, train_config, random_fasta, pref
         assert state_dict["output.0.weight"].shape[-1] == 32
 
 
+def test_graph_only_training(expected_labels, train_config, random_fasta, prefix):
+    train_config.learning_rate = 0.01
+    train_config.model = "graph-only"
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        train_network(
+            fasta=random_fasta,
+            label_dir=expected_labels,
+            dataset_path=tmpdir,
+            config=train_config,
+            num_threads=3,
+            epochs=1,
+            max_length=13,
+            train_val_ratio=0.8,
+            device="cpu",
+            mode="graph-only",
+        )
+        assert os.path.exists(train_config["model_checkpoint"])
+
+
 def test_auto_window_training(expected_window_labels, train_config, random_fasta, prefix):
     expected_labels = expected_window_labels
     with TemporaryDirectory(prefix=prefix) as tmpdir:

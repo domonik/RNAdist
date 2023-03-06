@@ -689,9 +689,6 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
         if self.augmentor is not None:
             print("Data Augmentation is ignored during Inference")
 
-    def set_upper_bound(self):
-        return self.max_length
-
     @cached_property
     def _seq_data(self):
 
@@ -733,7 +730,7 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
             edge_weights = sparse_graph.values()
             pair_rep = torch.concat((bppm, pair_rep), dim=-1)
             data = RNAGeoData(
-                x=x,
+                single_x=x,
                 edge_index=edge_index,
                 edge_attr=edge_weights,
                 idx_info=slen,
@@ -743,14 +740,61 @@ class RNAGeometricInferenceDataset(RNAGeometricWindowDataset):
         return data
 
 
+class RNAGeometricSingleDataset(RNAGeometricInferenceDataset):
+    def __getitem__(self, item):
+        with torch.no_grad():
+            data = torch.load(self.files[item])
+            x = data["x"]
+            y = data["y"]
+            bppm = data["bppm"]
+            bppm, x = self._process_unpaired(bppm, x, self.augmentor)
+
+            # now we will add the backbone to the bppm
+            bppm = self._add_backbone(bppm)
+            mask = torch.ones(*bppm.shape[0:2])
+            upper_pad_val = self.upper_bound - x.shape[0]
+            x = F.pad(x, (0, 0, 0, upper_pad_val))
+            pair_rep = self.pair_rep_from_single(x[:, 0:8])
+            bppm = F.pad(bppm, (0, 0, 0, upper_pad_val, 0, upper_pad_val))
+            mask = F.pad(mask, (0, upper_pad_val, 0, upper_pad_val))
+            pair_rep = torch.concat((bppm, pair_rep), dim=-1)
+
+            sparse_graph = bppm.to_sparse(2)
+            edge_index = sparse_graph.indices()
+            edge_weights = sparse_graph.values()
+            if not isinstance(y, int):
+                y = F.pad(y, (0, upper_pad_val, 0, upper_pad_val))
+                data = RNAGeoData(
+                    single_x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_weights,
+                    idx_info=item,
+                    mask=mask,
+                    pair_rep=pair_rep,
+                    y=y,
+                    num_nodes=self.upper_bound
+                )
+            else:
+                data = RNAGeoData(
+                    single_x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_weights,
+                    idx_info=item,
+                    mask=mask,
+                    pair_rep=pair_rep,
+                    num_nodes=self.upper_bound
+                )
+            return data
+
+
 
 
 class RNAGeoData(GeoData):
-    def __cat_dim__(self, key, value, *args, **kwargs):
-        keys = [
-            "idx_info", "mask", "bppm", "y", "pair_rep", "item"
+    keys = [
+            "idx_info", "mask", "bppm", "y", "pair_rep", "item", "single_x"
         ]
-        if key in keys:
+    def __cat_dim__(self, key, value, *args, **kwargs):
+        if key in self.keys:
             return None
         else:
             return super().__cat_dim__(key, value, *args, **kwargs)

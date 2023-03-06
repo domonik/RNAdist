@@ -8,7 +8,8 @@ from RNAdist.nn.Datasets import (
     RNAWindowDataset,
     RNAGeometricWindowDataset,
     AutoWindowSplitSet,
-    RNAGeometricInferenceDataset
+    RNAGeometricInferenceDataset,
+    RNAGeometricSingleDataset
 )
 from torch_geometric.loader import DataLoader as GeoDataloader
 from tempfile import TemporaryDirectory
@@ -104,7 +105,7 @@ def test_geometric_loading(random_fasta, prefix, training):
             for batch in iter(loader):
                 slen = batch["idx_info"]
                 size = slen + dataset.max_length - 1
-                assert batch["x"].shape[0] == size
+                assert batch["single_x"].shape[1] == size
                 assert batch["pair_rep"].shape == torch.Size((1, size, size, 18))
                 assert batch["edge_index"].shape[0] == 2
 
@@ -126,3 +127,25 @@ def test_auto_window_split_set(long_random_fasta, prefix):
         for batch in iter(loader):
             assert batch["idx_info"].shape[0] == 2
             assert batch["pair_rep"].shape == torch.Size((2, ml, ml, 17))
+
+
+def test_rna_geometric_single_dataset(random_fasta, prefix):
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        dataset = RNAGeometricSingleDataset(
+            data=random_fasta,
+            label_dir=None,
+            dataset_path=tmpdir,
+            num_threads=1,
+            step_size=1
+        )
+        batch_size = 2
+        loader = GeoDataloader(
+            dataset, batch_size=batch_size, shuffle=False, drop_last=True
+        )
+        upper_bound = dataset.upper_bound
+
+        for batch in iter(loader):
+
+            assert batch["single_x"].shape == torch.Size((batch_size, upper_bound, 9))
+            assert batch["pair_rep"].shape == torch.Size((batch_size, upper_bound, upper_bound, 18))
+            assert batch["edge_index"].shape[0] == 2

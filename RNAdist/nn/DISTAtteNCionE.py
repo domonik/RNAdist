@@ -6,6 +6,16 @@ from torch_geometric.nn import GINEConv, GATv2Conv
 from typing import Iterable
 import numpy as np
 
+
+def batched_pair_rep_from_single(x):
+    b, n, e = x.shape
+    n = x.shape[1]
+    e = x.shape[2]
+    x_x = x.repeat(1, n, 1)
+    x_y = x.repeat(1, 1, n).reshape(b, -1, e)
+    pair_rep = torch.cat((x_x, x_y), dim=2).reshape(b, n, n, -1)
+    return pair_rep
+
 class TriangularUpdate(nn.Module):
     def __init__(self, embedding_dim, c=128, mode="in"):
         super().__init__()
@@ -450,15 +460,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
 
 
-    @staticmethod
-    def batched_pair_rep_from_single(x):
-        b, n, e = x.shape
-        n = x.shape[1]
-        e = x.shape[2]
-        x_x = x.repeat(1, n, 1)
-        x_y = x.repeat(1, 1, n).reshape(b, -1, e)
-        pair_rep = torch.cat((x_x, x_y), dim=2).reshape(b, n, n, -1)
-        return pair_rep
+
 
     def graph_conv_wrapper(self, x, edge_index, edge_attr):
         graph_embeddings = [x]
@@ -484,7 +486,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         x = torch.stack(torch.split(x, self.nodes_per_batch))
 
         # gets batched pair_representations
-        pair_rep = self.batched_pair_rep_from_single(x)
+        pair_rep = batched_pair_rep_from_single(x)
 
         # this strange part cuts out a part of the pair_representation that is used for distance_calculation
         dummy = torch.empty(b, self.max_length, self.max_length, self.embedding_dim * 2, device=self.device)
@@ -514,7 +516,8 @@ class GraphRNADISTAtteNCionE(nn.Module):
         Returns:
 
         """
-        x, edge_index, edge_attr, idx_info, bppm = data["x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
+        x, edge_index, edge_attr, idx_info, bppm = data["single_x"], data["edge_index"], data["edge_attr"], data["idx_info"], data["pair_rep"]
+        x = x.squeeze()
         slen = idx_info.item()
         assert bppm.shape[0] == 1
         x = self.input_lin(x)
@@ -522,7 +525,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         x = torch.concat(graph_embeddings, dim=1)
         x = self.intermediate_rescale(x)
         x = x.unsqueeze(0)
-        pair_rep = self.batched_pair_rep_from_single(x)
+        pair_rep = batched_pair_rep_from_single(x)
 
         # make sure to use the whole bppm here
         pair_rep = torch.concat((pair_rep, bppm), dim=-1)
@@ -549,6 +552,108 @@ class GraphRNADISTAtteNCionE(nn.Module):
         out = torch.sparse.sum(out, dim=2)
         return out.to_dense()[self.pval:self.pval+slen, self.pval:self.pval+slen]
 
+
+class GraphRNADIST(nn.Module):
+    def __init__(
+            self,
+            input_dim,
+            embedding_dim, pair_dim,
+            graph_layers: int = 4,
+            device: str = "cpu",
+            checkpointing: bool = False
+    ):
+        super().__init__()
+        self.edge_dim = 2
+        self.device = device
+        self.graph_layers = graph_layers
+        self.embedding_dim = embedding_dim
+        self.input_dim = input_dim
+        self.pair_dim = pair_dim
+        self.heads = 4
+        self.token_range = range(3, 10, 2)
+        self.input_convs = nn.ModuleList(
+            nn.Conv1d(self.input_dim, self.embedding_dim, kernel_size=x, padding=int((x - 1) / 2)) for x in
+            self.token_range
+        )
+        self.conv_rescale = nn.Sequential(
+            nn.Linear(len(self.token_range) * self.embedding_dim, self.embedding_dim),
+            nn.LeakyReLU(),
+            nn.LayerNorm(self.embedding_dim),
+
+        )
+        self.graph_convolutions = nn.ModuleList(
+            GATv2Conv(
+                in_channels=self.embedding_dim,
+                out_channels=self.embedding_dim,
+                heads=self.heads,
+                add_self_loops=False,
+                edge_dim=2
+            )
+            for idx, _ in enumerate(range(self.graph_layers))
+        )
+        self.graph_conv_adjust = nn.ModuleList(
+            nn.Sequential(
+                nn.Linear(self.heads * self.embedding_dim, self.embedding_dim),
+                nn.LeakyReLU(),
+                nn.LayerNorm(self.embedding_dim)
+            )
+            for idx, _ in enumerate(range(self.graph_layers))
+        )
+
+        self.intermediate_rescale = nn.Sequential(
+            nn.Linear((self.graph_layers + 1) * self.embedding_dim, self.embedding_dim),
+            nn.LeakyReLU(),
+            nn.LayerNorm(self.embedding_dim),
+
+        )
+        self.out_conv = nn.Conv2d(
+            in_channels=self.embedding_dim * 2 + self.pair_dim,
+            out_channels=32,
+            kernel_size=5,
+            padding=2
+        )
+        self.out_norm = nn.LayerNorm(32)
+        self.output = nn.Sequential(
+            nn.Linear(32, 1),
+            nn.ReLU()
+        )
+
+        self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
+
+    def graph_conv_wrapper(self, x, edge_index, edge_attr):
+        graph_embeddings = [x]
+        for idx in range(self.graph_layers):
+            x = self.graph_convolutions[idx](x, edge_index, edge_attr)
+            x = self.graph_conv_adjust[idx](x)
+            graph_embeddings.append(x)
+        return graph_embeddings
+
+    def graph_conv_checkpoint(self, x, edge_index, edge_attr):
+        return checkpoint(self.graph_conv_wrapper, x, edge_index, edge_attr, preserve_rng_state=False)
+
+    def forward(self, data, mask):
+        x, edge_index, edge_attr, idx_info, bppm = data["single_x"], data["edge_index"], data["edge_attr"], data["idx_info"], \
+            data["pair_rep"]
+        batch_size, upper_bound = bppm.shape[0:2]
+        ix = []
+        for idx in range(len(self.token_range)):
+            ix.append(self.input_convs[idx](x.permute(0, 2, 1)).permute(0, 2, 1).squeeze())
+        x = torch.concatenate(ix, dim=-1)
+        x = self.conv_rescale(x)
+        x = torch.reshape(x, (batch_size * upper_bound, self.embedding_dim))
+        graph_embeddings = self.graph_conv_function(x, edge_index, edge_attr)
+        x = torch.concat(graph_embeddings, dim=1)
+        x = self.intermediate_rescale(x)
+        x = torch.reshape(x, (batch_size, upper_bound, self.embedding_dim))
+        pair_rep = batched_pair_rep_from_single(x)
+
+        pair_rep = torch.concat((pair_rep, bppm), dim=-1)
+        pair_rep = self.out_conv(pair_rep.permute(0, -1, 1, 2)).permute(0, 2, 3, 1)
+        pair_rep = self.out_norm(torch.relu(pair_rep))
+        out = self.output(pair_rep)
+        out = torch.squeeze(out)
+        out = mask * out
+        return out
 
 
 def generate_indices(kernel_size: int, length: int, device: str = "cpu"):

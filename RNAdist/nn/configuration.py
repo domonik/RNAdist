@@ -56,7 +56,7 @@ class ModelConfiguration:
     use_nucleotide_encoding: bool = True
     random_shift: float = None
     normalize_bpp: bool = False
-    training_stats = None
+    training_stats: str = None
     gradient_checkpointing: bool = False,
     local: bool = True
 
@@ -76,6 +76,8 @@ class ModelConfiguration:
 
     @cached_property
     def indices(self):
+        if self.model == "graph" or self.model == "graph-only":
+            return torch.tensor(list(range(0, 18)))
         indices = []
         if self.use_bppm:
             indices.append(0)

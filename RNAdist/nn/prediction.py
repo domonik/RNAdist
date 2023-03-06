@@ -280,25 +280,3 @@ def prediction_executable_wrapper(args):
                   max_length=args.max_length,
                   md_config=md_config
                   )
-
-
-if __name__ == '__main__':
-    from tempfile import TemporaryDirectory
-    saved_model = "/home/rabsch/PythonProjects/RNAdist/RNAdist/nn/tests/test_data/test_model.pt"
-    random_fasta = "/home/rabsch/PythonProjects/RNAdist/RNAdist/nn/tests/test_data/random_test.fa"
-    desc = set(sr.description for sr in SeqIO.parse(random_fasta, "fasta"))
-    with TemporaryDirectory() as tmp_path:
-        outfile = os.path.join(tmp_path, "predictions")
-        model_predict(
-            fasta=random_fasta,
-            outfile=outfile,
-            saved_model=saved_model,
-            batch_size=4,
-            num_threads=os.cpu_count(),
-            max_length=20
-        )
-        assert os.path.exists(outfile)
-        with open(outfile, "rb") as handle:
-            data = pickle.load(handle)
-        for key in desc:
-            assert key in data

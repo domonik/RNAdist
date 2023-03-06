@@ -14,7 +14,7 @@ from RNAdist.nn.DISTAtteNCionE import (
     RNADISTAtteNCionE,
     DISTAtteNCionESmall,
     GraphRNADISTAtteNCionE,
-    DiagOffsetLoss
+    GraphRNADIST
 )
 from RNAdist.nn.Datasets import (
     RNAPairDataset,
@@ -23,7 +23,8 @@ from RNAdist.nn.Datasets import (
     normalize_bpp,
     shift_index,
     RNAGeometricWindowDataset,
-    AutoWindowSplitSet
+    AutoWindowSplitSet,
+    RNAGeometricSingleDataset
 )
 
 
@@ -173,19 +174,29 @@ def _dataset_generation(
         augmentor: DataAugmentor = None,
         local: bool = True
 ):
-    if mode == "normal":
+    if mode == "normal" or mode == "graph-only":
         if global_mask_size\
                 is not None:
             print("global_mask_size has no effect in normal mode")
-        dataset = RNAPairDataset(
-            data=fasta,
-            label_dir=label_dir,
-            dataset_path=data_storage,
-            num_threads=num_threads,
-            max_length=max_length,
-            md_config=md_config,
-            augmentor=augmentor
-        )
+        if mode == "normal":
+            dataset = RNAPairDataset(
+                data=fasta,
+                label_dir=label_dir,
+                dataset_path=data_storage,
+                num_threads=num_threads,
+                max_length=max_length,
+                md_config=md_config,
+                augmentor=augmentor
+            )
+        else:
+            dataset = RNAGeometricSingleDataset(
+                data=fasta,
+                label_dir=label_dir,
+                dataset_path=data_storage,
+                num_threads=num_threads,
+                md_config=md_config,
+                augmentor=augmentor
+            )
         t = int(len(dataset) * train_val_ratio)
         v = len(dataset) - t
         training_set, validation_set = random_split(dataset, [t, v])
@@ -367,6 +378,15 @@ def train_model(
             pair_dim=input_dim,
             max_length=train_loader.dataset.max_length,
             upper_bound=train_loader.dataset.upper_bound,
+            checkpointing=config.gradient_checkpointing,
+            graph_layers=config.nr_layers,
+            device=device
+        )
+    elif config["model"] == "graph-only":
+        model = GraphRNADIST(
+            input_dim=9,
+            embedding_dim=32,
+            pair_dim=input_dim,
             checkpointing=config.gradient_checkpointing,
             graph_layers=config.nr_layers,
             device=device
