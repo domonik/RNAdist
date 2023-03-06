@@ -1,6 +1,6 @@
 import pytest
-from RNAdist.nn.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate, GraphRNADISTAtteNCionE
-from RNAdist.nn.Datasets import RNAGeometricWindowDataset
+from RNAdist.nn.DISTAtteNCionE import TriangularSelfAttention, TriangularUpdate, GraphRNADISTAtteNCionE, GraphRNADIST
+from RNAdist.nn.Datasets import RNAGeometricWindowDataset, RNAGeometricSingleDataset
 from torch_geometric.loader import DataLoader as GeoDataLoader
 import torch
 from tempfile import TemporaryDirectory
@@ -67,3 +67,27 @@ def test_graph_model(random_fasta, prefix):
         for batch in iter(loader):
             result = model(batch)
             assert result.shape == torch.Size((batch_size, ml, ml))
+
+
+def test_graph_rnadist_model(random_fasta, prefix):
+    ml = 9
+    with TemporaryDirectory(prefix=prefix) as tmpdir:
+        dataset = RNAGeometricSingleDataset(
+            data=random_fasta,
+            label_dir=None,
+            dataset_path=tmpdir,
+            num_threads=1,
+            step_size=1
+        )
+        batch_size = 2
+        loader = GeoDataLoader(
+            dataset, batch_size=batch_size, shuffle=False, drop_last=True
+        )
+        model = GraphRNADIST(
+            input_dim=9, embedding_dim=16, pair_dim=18, graph_layers=2
+
+        )
+        for batch in iter(loader):
+            result = model(batch, batch["mask"])
+            print(result)
+            assert result.shape == torch.Size((batch_size, dataset.upper_bound, dataset.upper_bound))
