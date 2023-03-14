@@ -63,9 +63,19 @@ static py::array edPThresholdSampling(py::args args){
     return ed_array;
 }
 
+static double edIJ(py::args args){
+    vrna_fold_compound_t *fc = swigFcToFc(args[0].ptr());
+    int i = args[1].cast<int>();
+    int j = args[2].cast<int>();
+    int nr_samples = args[3].cast<int>();
+    return expectedDistanceIJ(fc, nr_samples, i, j);
+
+}
+
 PYBIND11_MODULE(sampling, m) {
     m.def("cpp_sampling", edSampling, "Samples redundant from possible RNA structures");
     m.def("cpp_nr_sampling", edNRSampling, "Samples non-redundant from possible RNA structures");
+    m.def("cpp_sampling_ij", edIJ, "Return expected distance between i and j");
     m.def("cpp_pthreshold_sampling", edPThresholdSampling, "Samples non-redundant from possible RNA structures until "
                                                    "probability threshold is reached");
 }

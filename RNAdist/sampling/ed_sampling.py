@@ -5,7 +5,7 @@ import subprocess
 import os
 import networkx as nx
 from typing import List, Dict, Iterable
-from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling
+from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling, cpp_sampling_ij
 
 
 def undirected_distance(structure, data):
@@ -197,6 +197,12 @@ def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1, undirect
                                                    "filling the partition function"
     fc.params.model_details.uniq_ML = 1
     return cpp_nr_sampling(fc.this, nr_samples, undirected)
+
+
+def expected_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int = 1000):
+    fc.params.model_details.uniq_ML = 1
+    distance = cpp_sampling_ij(fc.this, i, j, nr_samples)
+    return distance
 
 
 def rna_shortest_paths(s, data: List[np.ndarray]):
