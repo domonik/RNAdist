@@ -1,5 +1,5 @@
 import pytest
-from RNAdist.sampling.ed_sampling import sample, sample_pthreshold, non_redundant_sample_fc, expected_distance_ij
+from RNAdist.sampling.ed_sampling import sample, sample_pthreshold, non_redundant_sample_fc, sample_distance_ij
 import RNA
 import numpy as np
 
@@ -57,7 +57,7 @@ def test_ij_sampling(seq, temp ):
     ed = np.zeros((len(seq), len(seq)))
     for i in range(len(seq)):
         for j in range(i, len(seq)):
-            ed[i, j] = expected_distance_ij(fc, i, j, nr_samples=1000)
+            ed[i, j] = sample_distance_ij(fc, i, j, nr_samples=1000)
     ed = ed + ed.T
     result = sample(sequence=seq, nr_samples=1000, md=md)
     assert np.allclose(result, ed, atol=0.2)

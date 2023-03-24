@@ -199,7 +199,30 @@ def non_redundant_sample_fc(fc: RNA.fold_compound, nr_samples: int = 1, undirect
     return cpp_nr_sampling(fc.this, nr_samples, undirected)
 
 
-def expected_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int = 1000):
+def sample_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int = 1000) -> float:
+    """Samples structures redundantly and returns the approximated expected distance between nucleotide i and j.
+
+    .. warning::
+
+        Nucleotide indices are Zero based.
+        This is in contrast to ViennaRNA
+
+    Args:
+        fc (RNA.fold_compound): ViennaRNA fold compound.
+        i (int): nucleotide index of the first nt in the RNA string. Zero based.
+        j (int):  nucleotide index of the second nt in the RNA string. Zero based.
+        nr_samples (int): Number of structures to draw for expected distance approximation
+
+    Returns:
+        float: Approximated expected distance between nucleotides i and j.
+
+    >>> import RNA
+    >>> seq = "GGGCUAUUAGCUCAGUUGGUUAGAGCGCACCCCUGAUAAGGGUGAGGUCGCUGAUUCGAAUUCAGCAUAGCCCA"
+    >>> fc = RNA.fold_compound(seq, RNA.md(uniq_ML=1))
+    >>> sample_distance_ij(fc, 0, 20, nr_samples=10000)
+    16.19550000000088
+
+    """
     fc.params.model_details.uniq_ML = 1
     distance = cpp_sampling_ij(fc.this, i, j, nr_samples)
     return distance
@@ -207,8 +230,8 @@ def expected_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int 
 
 def rna_shortest_paths(s, data: List[np.ndarray]):
     """
-    A simple callback function that adds shortest paths on structures
-    to a N x N data matrix
+    A simple callback function that adds the shortest paths on structures
+    to an N x N data matrix
     """
     if s:
         undirected_distance(s, data)
