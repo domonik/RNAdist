@@ -3,15 +3,38 @@ Binding Site Distance
 
 
 
+
+
+Binding site distance can be calculated using two different approaches. The first one (Boltzmann sampling) is the suggested use if you dont
+have prior knowledge about the kind of strand binding behavior of your molecule. The second one is the recommended use
+if you know that your molecules tend to bind exterior regions on the RNA structure. It is recommended to use the
+clote-ponty algorithm then, since it actually calculates the expected distance instead of an approximation
+
+Without Prior Information
+--------------------------
+
+.. currentmodule:: RNAdist.sampling.ed_sampling
+
+You can approximate the expected distance between two binding sites via sampling.
+The fastest way to get the distance between two binding sites in such a case is to use :func:`~sample_distance_ij`.
+Please have a look into the :doc:`sampling chapter <sampling>` of the Tutorial if you want to use a CLI for sampling.
+
+
+
+
+
+Exterior Strand Binders
+-----------------------
+
 .. currentmodule:: RNAdist.dp.cpedistance
 
 
 We showed that the clote-ponty algorithm is capable of
 calculating expected distances of exterior nucleotides. Since interaction of mRNA with molecules such as RNA binding
 proteins or regulatory RNAs prevents the binding-site from forming intramolecular hydrogen bonds, the binding-sites
-are forced to be in unstructured regions hence  exterior nucleotides. In such cases the mentioned
+might be forced to be in unstructured regions hence  exterior nucleotides. In such cases the mentioned
 algorithm will have no error since no structures span the interval between two binding sites. in the following
-paragraphs we will show how to calculate expected distances between binding sites using either the Python API
+paragraphs we will show how to calculate expected distances between such binding sites using either the Python API
 or the Command Line Interface
 
 

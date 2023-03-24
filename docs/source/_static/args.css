@@ -13,6 +13,10 @@
 
 }
 
+.fa-github-square {
+    font-size: 2em;
+}
+
 html[data-theme="dark"] .bd-content img:not(.only-dark) {
     background: transparent !important;
 }

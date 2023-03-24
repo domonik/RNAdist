@@ -1,3 +1,5 @@
+.. _sampling-ref:
+
 Sampling
 ########
 
@@ -7,9 +9,13 @@ Python API
 Python API
 ----------
 
+.. currentmodule:: RNAdist.sampling.ed_sampling
+
+
 The Python API is fully compatible with the ViennaRNA Python fold compound. Thus, you can set up a fold compound and use
-the :func:`~RNAdist.sampling.ed_sampling.sample_fc` function to get a numpy array containing all pairwise distances. Have
-look into the function documentation for details and examples.
+the :func:`~sample_fc` function to get a numpy array containing all pairwise distances. Have
+look into the function documentation for details and examples. If you are only interested in the distance between two
+nucleotides :code:`i` and :code:`j`, you can speed up this procedure by using :func:`~sample_distance_ij`.
 
 
 Command Line Interface
