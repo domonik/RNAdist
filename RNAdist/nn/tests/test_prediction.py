@@ -1,4 +1,4 @@
-from RNAdist.nn.prediction import model_predict, model_window_predict, graph_predict
+from RNAdist.nn.prediction import model_predict, model_window_predict, graph_predict, graph_only_predict
 from RNAdist.nn.tests.data_fixtures import (
     saved_model,
     saved_model_no_bpp,
@@ -148,4 +148,24 @@ def test_graph_predict(saved_graph_model, random_fasta, tmp_path, sites):
                     assert not np.all(pred[s, s-interval:s+1+interval] == 0)
         else:
             assert not np.all(pred[0, 0:1+ml] == 0)
+        assert pred.shape[0] == len(seq_record.seq)
+
+
+def test_graph_only_predict(saved_graph_only_model, random_fasta, tmp_path):
+    desc = [sr for sr in SeqIO.parse(random_fasta, "fasta")]
+    outfile = os.path.join(tmp_path, "predictions")
+    graph_only_predict(
+        fasta=random_fasta,
+        outfile=outfile,
+        saved_model=saved_graph_only_model,
+        batch_size=4,
+        num_threads=os.cpu_count(),
+        device="cpu",
+    )
+    with open(outfile, "rb") as handle:
+        data = pickle.load(handle)
+    for seq_record in desc:
+        assert seq_record.description in data
+        pred = data[seq_record.description]
+        assert not np.all(pred == 0)
         assert pred.shape[0] == len(seq_record.seq)

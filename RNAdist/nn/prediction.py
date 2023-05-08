@@ -9,9 +9,11 @@ import numpy as np
 
 import RNAdist.nn.configuration
 from RNAdist.nn.DISTAtteNCionE import (
-    RNADISTAtteNCionE, DISTAtteNCionESmall, GraphRNADISTAtteNCionE
+    RNADISTAtteNCionE, DISTAtteNCionESmall, GraphRNADISTAtteNCionE, GraphRNADIST
 )
-from RNAdist.nn.Datasets import RNAPairDataset, RNAWindowDataset, RNAGeometricInferenceDataset
+from RNAdist.nn.Datasets import (
+    RNAPairDataset, RNAWindowDataset, RNAGeometricInferenceDataset, RNAGeometricSingleDataset
+)
 from RNAdist.fasta_wrappers import md_config_from_args
 
 @torch.no_grad()
@@ -174,6 +176,41 @@ def model_window_predict(
         pickle.dump(output_data, handle)
 
 
+def graph_only_predict(
+        fasta: Union[str, os.PathLike],
+        saved_model: Union[str, os.PathLike],
+        outfile: Union[str, os.PathLike],
+        batch_size: int = 1,
+        num_threads: int = 1,
+        device: str = "cpu",
+        md_config: Dict = None,
+        dataset_dir: str = None,
+):
+    if dataset_dir is None:
+        tmpdir = TemporaryDirectory()
+        workdir = tmpdir.name
+    else:
+        tmpdir = None
+        workdir = dataset_dir
+    dataset = RNAGeometricSingleDataset(
+        data=fasta,
+        dataset_path=workdir,
+        label_dir=None,
+        num_threads=num_threads,
+        md_config=md_config,
+    )
+    ml = dataset.max_length
+    model, config = _load_model(saved_model, device, ml)
+    output_data = _graph_predict(model, config, dataset, batch_size, device, num_threads)
+    if tmpdir is not None:
+        tmpdir.cleanup()
+    out_dir = os.path.dirname(outfile)
+    if out_dir != "":
+        os.makedirs(out_dir, exist_ok=True)
+    with open(outfile, "wb") as handle:
+        pickle.dump(output_data, handle)
+
+
 def graph_predict(
         fasta: Union[str, os.PathLike],
         saved_model: Union[str, os.PathLike],
@@ -192,6 +229,7 @@ def graph_predict(
     else:
         tmpdir = None
         workdir = dataset_dir
+
     dataset = RNAGeometricInferenceDataset(
         data=fasta,
         label_dir=None,
@@ -204,12 +242,23 @@ def graph_predict(
     ml = dataset.max_length
     inf_batch_size = batch_size
     model, config = _load_model(saved_model, device, ml, inf_batch_size)
+    output_data = _graph_predict(model, config, dataset, 1, device, num_threads)
+    if tmpdir is not None:
+        tmpdir.cleanup()
+    out_dir = os.path.dirname(outfile)
+    if out_dir != "":
+        os.makedirs(out_dir, exist_ok=True)
+    with open(outfile, "wb") as handle:
+        pickle.dump(output_data, handle)
+
+
+def _graph_predict(model, config, dataset, batch_size, device, num_threads):
     use = config.indices.to(device)
 
     model.eval()
     data_loader = DataLoader(
         dataset,
-        batch_size=1,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=num_threads,
         pin_memory=True if "cuda" in device else False,
@@ -227,19 +276,14 @@ def graph_predict(
                 mask = None
             pred = model(batch, mask=mask).cpu()
             pred = pred.numpy()
-            description, _ = dataset.seq_data[batch_idx]
-            output_data[description] = pred
-    if tmpdir is not None:
-        tmpdir.cleanup()
-    out_dir = os.path.dirname(outfile)
-    if out_dir != "":
-        os.makedirs(out_dir, exist_ok=True)
-    with open(outfile, "wb") as handle:
-        pickle.dump(output_data, handle)
-
-
-
-
+            if config.model == "graph-only":
+                for ba_idx, _idx in enumerate(batch["idx_info"]):
+                    description, seq = dataset.seq_data[_idx]
+                    output_data[description] = pred[ba_idx, 0:len(seq), 0:len(seq)]
+            else:
+                description, _ = dataset.seq_data[batch_idx]
+                output_data[description] = pred
+    return output_data
 
 
 def _load_model(model_path, device, ml: int = None, batch_size: int = None):
@@ -261,6 +305,16 @@ def _load_model(model_path, device, ml: int = None, batch_size: int = None):
             device=device,
             inference=True,
             inference_batch_size=batch_size
+        )
+    elif config.model == "graph-only":
+        config.gradient_checkpointing = False
+        model = GraphRNADIST(
+            input_dim=9,
+            embedding_dim=32,
+            pair_dim=config.input_dim,
+            checkpointing=config.gradient_checkpointing,
+            graph_layers=config.nr_layers,
+            device=device
         )
     elif isinstance(config["model"], torch.nn.Module):
         model = config["model"]
