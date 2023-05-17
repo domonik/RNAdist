@@ -5,7 +5,7 @@ from Bio import SeqIO
 from RNAdist.dp.pmcomp import pmcomp_distance
 import pandas as pd
 from RNAdist.dp.cpedistance import cp_expected_distance, binding_site_distance
-from RNAdist.sampling.ed_sampling import sample
+from RNAdist.sampling.ed_sampling import sample, sample_non_redundant
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
@@ -17,12 +17,12 @@ import os
 BSCSVHEADER = ["sequence_name", "name1", "start1", "stop1", "name2", "start2", "stop2", "expected_distance"]
 
 
-def _fasta_wrapper(func: Callable, fasta: str, md_config: Dict[str, Any], num_threads: int = 1, sample: int = None):
+def _fasta_wrapper(func: Callable, fasta: str, md_config: Dict[str, Any], num_threads: int = 1, sample: int = None, redundant: bool = True):
     calls = []
     desc = []
     if sample:
         for sr in SeqIO.parse(fasta, "fasta"):
-            calls.append((str(sr.seq), md_config, sample))
+            calls.append((str(sr.seq), md_config, sample, redundant))
             desc.append(sr.description)
     else:
         for sr in SeqIO.parse(fasta, "fasta"):
@@ -49,10 +49,14 @@ def _cp_mp_wrapper(seq, md_config):
     return cp_expected_distance(sequence=seq, md=md)
 
 
-def _sampling_mp_wrapper(seq, md_config, nr_samples):
+def _sampling_mp_wrapper(seq, md_config, nr_samples, redundant):
     md = RNA.md()
     md = set_md_from_config(md, config=md_config)
-    return sample(seq, nr_samples, md)
+    print(f"HEEY {redundant}")
+    if redundant:
+        return sample(seq, nr_samples, md)
+    else:
+        return sample_non_redundant(seq, nr_samples, md)
 
 
 def pmcomp_from_fasta(fasta: str, md_config: Dict[str, Any], num_threads: int = 1):
@@ -83,7 +87,13 @@ def clote_ponty_from_fasta(fasta: str, md_config: Dict[str, Any], num_threads: i
     return _fasta_wrapper(_cp_mp_wrapper, fasta, md_config, num_threads)
 
 
-def sampled_distance_from_fasta(fasta: str, md_config: Dict[str, Any], num_threads: int = 1, nr_samples: int = 1000):
+def sampled_distance_from_fasta(
+        fasta: str,
+        md_config: Dict[str, Any],
+        num_threads: int = 1,
+        nr_samples: int = 1000,
+        redundant: bool = True
+):
     """Calculates the averaged distance matrix for every sequence in a fasta file using probabilistic backtracking
 
        Args:
@@ -91,11 +101,12 @@ def sampled_distance_from_fasta(fasta: str, md_config: Dict[str, Any], num_threa
            md_config (Dict[str, Any]): A dictionary containing keys and values to set up the ViennaRNA Model details
            num_threads (int): number of parallel processes to use
            nr_samples (int): How many samples to average the distance
+           redundant (bool): Whether to sample redundant or non-redundant
        Returns:
            Dict[str, np.ndarray]: Dictionary of Numpy arrays of shape :code:`|S| x |S|` with S being the nucleotide sequence.
            The sequence identifier is the dict key and the expected distance matrices are the values
        """
-    return _fasta_wrapper(_sampling_mp_wrapper, fasta, md_config, num_threads, nr_samples)
+    return _fasta_wrapper(_sampling_mp_wrapper, fasta, md_config, num_threads, nr_samples, redundant=redundant)
 
 
 def _read_beds(beds, names):
@@ -195,11 +206,13 @@ def _pickle_data(data, outfile):
 
 def _sampled_distance_executable_wrapper(args):
     md_config = md_config_from_args(args)
+    print(f"FOO: {args.non_redundant}")
     data = sampled_distance_from_fasta(
         fasta=args.input,
         md_config=md_config,
         num_threads=args.num_threads,
-        nr_samples=args.nr_samples
+        nr_samples=args.nr_samples,
+        redundant=args.non_redundant
     )
     _pickle_data(data, args.output)
 

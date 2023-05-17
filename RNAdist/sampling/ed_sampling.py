@@ -83,6 +83,34 @@ def sample(sequence, nr_samples: int, md=None):
     return sample_fc(fc, nr_samples)
 
 
+def sample_non_redundant(sequence: str, nr_samples: int, md=None):
+    """Samples structures for a sequence non-redundantly
+
+    Draws :code:`nr_samples` structures and calculates the expected distance for all
+    nucleotide pairs based on these. Will adjust the distance matrix for unseen sequences via scaling.
+    E.g. when sampling 100 structures the probability mass of seen structures might be 0.8.
+    The resulting matrix is multiplied by 1.25 to approximate the expected distance.
+
+    Args:
+        sequence (str): RNA sequence as a string
+        nr_samples (int): How many samples should be drawn
+        md (RNA.md): ViennaRNA model details (Will automatically set uniq_ML to 1)
+
+    Returns:
+         np.ndarray : :code:`N x N` matrix
+            containing approximated expected distances from nucleotide :code:`i` to :code:`j` at
+            :code:`matrix[i][j]`
+    """
+    if md is None:
+        md = RNA.md()
+    md.uniq_ML = 1
+    md.pf_smooth = 0
+    fc = RNA.fold_compound(sequence, md)
+    mat = non_redundant_sample_fc(fc, nr_samples)
+    mat = 1 / mat[0, 1] * mat
+    return mat
+
+
 def sample_pthreshold(sequence, cutoff: float = 0.99, md=None):
     """Samples structures for a sequence non-redundantly
 
