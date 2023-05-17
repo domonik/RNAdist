@@ -98,14 +98,15 @@ def test_cmd_data_generation(tmp_path, random_fasta):
 
 
 @pytest.mark.parametrize(
-    "command",
+    "command,redundant",
     [
-        "clote-ponty",
-        "pmcomp",
-        "sample",
+        ("clote-ponty", False),
+        ("pmcomp", False),
+        ("sample", False),
+        ("sample", True),
     ]
 )
-def test_rnadist_cmd(tmp_path, random_fasta, command):
+def test_rnadist_cmd(tmp_path, random_fasta, command, redundant):
     op = os.path.join(tmp_path, "test_data.pckl")
     process = [
         "python", EXECUTABLES_FILE, command,
@@ -113,6 +114,8 @@ def test_rnadist_cmd(tmp_path, random_fasta, command):
         "--output", op,
         "--num_threads", str(os.cpu_count()),
     ]
+    if command == "sample" and redundant:
+        process += ["--non_redundant", "--nr_samples", "5"]
     data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
     assert data.stderr.decode() == ""
     assert os.path.exists(op)
