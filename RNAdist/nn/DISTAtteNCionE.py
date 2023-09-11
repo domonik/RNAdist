@@ -29,15 +29,15 @@ class TriangularUpdate(nn.Module):
         self.right_edges = nn.Linear(self.embedding_dim, self.c)
         self.left_update = nn.Sequential(
             nn.Linear(self.embedding_dim, self.c),
-            nn.Sigmoid()
+            nn.SiLU()
         )
         self.right_update = nn.Sequential(
             nn.Linear(self.embedding_dim, self.c),
-            nn.Sigmoid()
+            nn.SiLU()
         )
         self.final_update = nn.Sequential(
             nn.Linear(self.embedding_dim, self.embedding_dim),
-            nn.Sigmoid()
+            nn.SiLU()
         )
         #torch.nn.init.constant_(self.final_update[0].bias.data, 1)
         self.rescale = nn.Linear(self.c, self.embedding_dim)
@@ -81,7 +81,7 @@ class TriangularSelfAttention(nn.Module):
         self.pair_bias_lin = nn.Linear(self.embedding_dim, self.heads, bias=False)
         self.final_update = torch.nn.Sequential(
             nn.Linear(self.embedding_dim, self.c * self.heads),
-            torch.nn.Sigmoid()
+            torch.nn.SiLU()
         )
         self.final_lin = torch.nn.Linear(self.heads * self.c, self.embedding_dim)
 
@@ -137,7 +137,7 @@ class TriangularSelfAttention(nn.Module):
 
 
 class PairUpdate(nn.Module):
-    def __init__(self, embedding_dim, fw: int = 4, checkpointing: bool = False):
+    def __init__(self, embedding_dim, fw: int = 4, checkpointing: bool = False, dropout: float = 0.2):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.fw = fw
@@ -154,19 +154,32 @@ class PairUpdate(nn.Module):
             self.embedding_dim,
             mode="out"
         )
+        kernel = 5
         self.transition = nn.Sequential(
-            nn.Linear(self.embedding_dim, self.fw * self.embedding_dim),
-            nn.ReLU(),
-            nn.Linear(self.embedding_dim * self.fw, self.embedding_dim)
+            nn.Conv2d(self.embedding_dim, self.fw * self.embedding_dim, kernel_size=kernel, padding=(kernel - 1) // 2),
+            nn.SiLU(),
+            nn.Conv2d(self.embedding_dim * self.fw, self.embedding_dim, kernel_size=kernel, padding=(kernel - 1) // 2)
         )
         self.forward = self.forward_cp if checkpointing else self.forward_no_cp
+        self.dropout = nn.Dropout(p=dropout)
+        self.dropout2 = nn.Dropout(p=dropout)
+        self.dropout3 = nn.Dropout(p=dropout)
+        self.dropout4 = nn.Dropout(p=dropout)
+        self.dropout5 = nn.Dropout(p=dropout)
 
     def forward_no_cp(self, pair_rep, mask=None):
-        pair_rep = self.triangular_update_in(pair_rep, mask) + pair_rep
-        pair_rep = self.triangular_update_out(pair_rep, mask) + pair_rep
-        pair_rep = self.triangular_attention_in(pair_rep, mask) + pair_rep
-        pair_rep = self.triangular_attention_out(pair_rep, mask) + pair_rep
-        pair_rep = self.transition(pair_rep) + pair_rep
+        #pair_rep = self.dropout(self.triangular_update_in(pair_rep, mask)) + pair_rep
+        #pair_rep = self.dropout2(self.triangular_update_out(pair_rep, mask)) + pair_rep
+        pair_rep = self.dropout3(self.triangular_attention_in(pair_rep, mask)) + pair_rep
+
+        pair_rep = self.dropout4(self.triangular_attention_out(pair_rep, mask)) + pair_rep
+        o_pair_rep = pair_rep
+        pair_rep = pair_rep.permute(0, 3, 1, 2)
+
+        pair_rep = self.dropout5(self.transition(pair_rep))
+        pair_rep = pair_rep.permute(0, 2, 3, 1)
+        pair_rep = pair_rep + o_pair_rep
+
         if mask is not None:
             pair_rep = pair_rep * mask[..., None]
         return pair_rep
@@ -176,11 +189,19 @@ class PairUpdate(nn.Module):
             pair_rep.requires_grad = True
             if mask is not None:
                 mask.requires_grad = True
-        pair_rep = checkpoint(self.triangular_update_in, pair_rep, mask, use_reentrant=False) + pair_rep
-        pair_rep = checkpoint(self.triangular_update_out, pair_rep, mask, use_reentrant=False) + pair_rep
-        pair_rep = checkpoint(self.triangular_attention_in, pair_rep, mask, use_reentrant=False) + pair_rep
-        pair_rep = checkpoint(self.triangular_attention_out, pair_rep, mask, use_reentrant=False) + pair_rep
-        pair_rep = self.transition(pair_rep) + pair_rep
+        #pair_rep = self.dropout(checkpoint(self.triangular_update_in, pair_rep, mask, use_reentrant=False)) + pair_rep
+
+        #pair_rep = self.dropout2(checkpoint(self.triangular_update_out, pair_rep, mask, use_reentrant=False)) + pair_rep
+
+        pair_rep = self.dropout3(checkpoint(self.triangular_attention_in, pair_rep, mask, use_reentrant=False)) + pair_rep
+        pair_rep = self.dropout4(checkpoint(self.triangular_attention_out, pair_rep, mask, use_reentrant=False)) + pair_rep
+        o_pair_rep = pair_rep
+        pair_rep = pair_rep.permute(0, 3, 1, 2)
+
+        pair_rep = self.dropout5(self.transition(pair_rep))
+        pair_rep = pair_rep.permute(0, 2, 3, 1)
+        pair_rep = pair_rep + o_pair_rep
+
         if mask is not None:
             pair_rep = pair_rep * mask[..., None]
         return pair_rep
@@ -198,7 +219,7 @@ class PairUpdateSmall(nn.Module):
         )
         self.transition = nn.Sequential(
             nn.Linear(self.embedding_dim, self.fw * self.embedding_dim),
-            nn.ReLU(),
+            nn.SiLU(),
             nn.Linear(self.embedding_dim * self.fw, self.embedding_dim)
         )
         self.forward = self.forward_cp if checkpointing else self.forward_no_cp
@@ -246,20 +267,26 @@ class RNADISTAtteNCionE(nn.Module):
     def __init__(self, embedding_dim, nr_updates: int = 1, fw: int = 4, checkpointing: bool = False):
         super().__init__()
         self.nr_updates = nr_updates
+        self.embedding = nn.Linear(embedding_dim, embedding_dim)
+        self.init_norm = nn.LayerNorm(embedding_dim)
         self.pair_updates = nn.ModuleList(
             PairUpdate(embedding_dim, fw, checkpointing) for _ in range(self.nr_updates)
         )
         self.output = nn.Linear(embedding_dim, 1)
+        self.layer_norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, batch, mask=None):
         pair_rep = batch["pair_rep"]
+        pair_rep = self.embedding(pair_rep)
+        pair_rep = self.init_norm(pair_rep)
         for idx in range(self.nr_updates):
             pair_rep = self.pair_updates[idx](pair_rep, mask)
+        pair_rep = self.layer_norm(pair_rep)
         out = self.output(pair_rep)
         out = torch.squeeze(out)
         out = torch.relu(out)
         if mask is not None:
-            out = out * mask
+                out = out * mask
         return out
 
 
@@ -405,7 +432,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.graph_conv_adjust = nn.ModuleList(
             nn.Sequential(
                 nn.Linear(self.heads * self.embedding_dim, self.embedding_dim),
-                nn.LeakyReLU(),
+                nn.LeakySiLU(),
                 nn.LayerNorm(self.embedding_dim)
             )
                 for idx, _ in enumerate(range(self.graph_layers))
@@ -417,7 +444,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         )
         self.input_lin = nn.Sequential(
             nn.Linear(self.input_dim, self.embedding_dim),
-            nn.ReLU()
+            nn.SiLU()
         )
         self.max_length = torch.tensor(max_length).to(self.device)
         self.upper_bound = torch.tensor(upper_bound).to(self.device)
@@ -425,7 +452,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
 
         self.intermediate_rescale = nn.Sequential(
             nn.Linear((self.graph_layers + 1) * self.embedding_dim, self.embedding_dim),
-            nn.LeakyReLU(),
+            nn.LeakySiLU(),
             nn.LayerNorm(self.embedding_dim),
 
         )
@@ -438,7 +465,7 @@ class GraphRNADISTAtteNCionE(nn.Module):
         self.out_norm = nn.LayerNorm(32)
         self.output = nn.Sequential(
             nn.Linear(32, 1),
-            nn.ReLU()
+            nn.SiLU()
         )
 
         self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
@@ -610,7 +637,7 @@ class GraphRNADIST(nn.Module):
         )
         self.conv_rescale = nn.Sequential(
             nn.Linear(len(self.token_range) * self.embedding_dim, self.embedding_dim),
-            nn.LeakyReLU(),
+            nn.LeakySiLU(),
             nn.LayerNorm(self.embedding_dim),
 
         )
@@ -627,7 +654,7 @@ class GraphRNADIST(nn.Module):
         self.graph_conv_adjust = nn.ModuleList(
             nn.Sequential(
                 nn.Linear(self.heads * self.embedding_dim, self.embedding_dim),
-                nn.LeakyReLU(),
+                nn.LeakySiLU(),
                 nn.LayerNorm(self.embedding_dim)
             )
             for idx, _ in enumerate(range(self.graph_layers))
@@ -635,7 +662,7 @@ class GraphRNADIST(nn.Module):
 
         self.intermediate_rescale = nn.Sequential(
             nn.Linear((self.graph_layers + 1) * self.embedding_dim, self.embedding_dim),
-            nn.LeakyReLU(),
+            nn.LeakySiLU(),
             nn.LayerNorm(self.embedding_dim),
 
         )
@@ -648,7 +675,7 @@ class GraphRNADIST(nn.Module):
         self.out_norm = nn.LayerNorm(32)
         self.output = nn.Sequential(
             nn.Linear(32, 1),
-            nn.ReLU()
+            nn.SiLU()
         )
 
         self.graph_conv_function = self.graph_conv_checkpoint if checkpointing else self.graph_conv_wrapper
