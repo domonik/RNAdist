@@ -16,7 +16,7 @@ extern "C"
 #include "ViennaRNA/fold_compound.h"
 #include "ViennaRNA/eval.h"
 #include "ViennaRNA/part_func.h"
-#include "ViennaRNA/boltzmann_sampling.h"
+#include "ViennaRNA/sampling/basic.h"
 #include "ViennaRNA/mfe.h"
 
 }

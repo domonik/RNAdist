@@ -9,7 +9,6 @@ from Bio import SeqIO
 
 pytest_plugins = [
     "RNAdist.dp.tests.fixtures",
-    "RNAdist.nn.tests.data_fixtures",
     "RNAdist.tests.fasta_fixtures"
 ]
 

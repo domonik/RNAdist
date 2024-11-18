@@ -6,6 +6,7 @@
 #define RNADIST_EDSAMPLING_H
 
 #endif //RNADIST_EDSAMPLING_H
+
 #include<bits/stdc++.h>
 
 using namespace std;
@@ -13,11 +14,12 @@ using namespace std;
 
 extern "C"
 {
-  #include "ViennaRNA/fold_compound.h"
-  #include "ViennaRNA/eval.h"
-  #include "ViennaRNA/part_func.h"
-  #include "ViennaRNA/boltzmann_sampling.h"
-  #include "ViennaRNA/mfe.h"
+#include "ViennaRNA/fold_compound.h"
+#include "ViennaRNA/eval.h"
+#include "ViennaRNA/part_func.h"
+#include "ViennaRNA/mfe.h"
+
+#include "ViennaRNA/sampling/basic.h"
 
 }
 

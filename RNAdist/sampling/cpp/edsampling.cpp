@@ -10,7 +10,7 @@ using namespace std;
 extern "C"
 {
   #include "ViennaRNA/fold_compound.h"
-  #include "ViennaRNA/boltzmann_sampling.h"
+  #include "ViennaRNA/sampling/basic.h"
   #include "ViennaRNA/mfe.h"
   #include <ViennaRNA/utils/structures.h>
 }

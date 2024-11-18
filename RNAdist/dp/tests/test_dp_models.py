@@ -5,8 +5,7 @@ from RNAdist.dp.viennarna_helpers import _structural_probabilities
 from RNAdist.dp.pmcomp import pmcomp_distance
 import numpy as np
 
-pytest_plugins = ["RNAdist.dp.tests.fixtures",
-                  "RNAdist.nn.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures"]
 
 @pytest.mark.parametrize(
     "test_md",

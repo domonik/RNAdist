@@ -4,8 +4,8 @@ import pytest
 import RNA
 import numpy as np
 
-pytest_plugins = ["RNAdist.dp.tests.fixtures",
-                  "RNAdist.nn.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures"]
+
 
 @pytest.mark.parametrize(
     "test_md",
