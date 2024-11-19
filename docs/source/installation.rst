@@ -26,7 +26,6 @@ Pip
 
     Most of the required packages will be installed when using :code:`pip install RNAdist`.
     However, the ViennaRNA_ package needs to be in PATH during install and runtime.
-    Starting from :code:`v0.2.1` it is also necessary to have pytorch geometric during runtime.
     Since it is not possible to achieve this via a single :code:`pip install` call we highly
     recommend to use anaconda for environment setup and install the package without dependencies.
 
@@ -36,7 +35,7 @@ Pip
 
 .. code-block::
 
-	conda install -c pytorch -c nvidia -c pyg -c conda-forge -c bioconda -c defaults pytorch torchvision torchaudio pytorch-cuda smac pyg viennarna networkx biopython pandas plotly 'dash>=2.5' dash-bootstrap-components pybind11 cython 'python>=3.8' pip versioneer
+	conda install -c conda-forge -c bioconda -c defaults  'viennarna>=2.5 biopython pandas plotly 'dash>=2.5' dash-bootstrap-components pybind11 cython 'python>=3.10' pip versioneer
 
 After this you can install RNAdist via:
 
