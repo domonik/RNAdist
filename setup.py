@@ -47,7 +47,8 @@ sampling_extension = Pybind11Extension(
     sources=[
         "RNAdist/sampling/cpp/edsampling.cpp",
         "RNAdist/sampling/cpp/RNAGraph.cpp",
-        "RNAdist/sampling/cpp/pyedsampling.cpp"
+        "RNAdist/sampling/cpp/pyedsampling.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
     ],
     extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm",  "-lmpfr", f"-l{python_l}",
                                                                          "-Wl,--no-undefined"],
@@ -60,6 +61,8 @@ structural_extension = Pybind11Extension(
     sources=[
         "RNAdist/dp/cpp/structuralProbabilities.cpp",
         "RNAdist/dp/cpp/pyStructuralProbabilities.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
+
     ],
     extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", "-lmpfr", f"-l{python_l}",
                                                                          "-Wl,--no-undefined"],
@@ -67,13 +70,21 @@ structural_extension = Pybind11Extension(
     language="c++"
 )
 
-cp_exp_dist_extension = Extension(
-    "CPExpectedDistance.c_expected_distance",
-    sources=["CPExpectedDistance/CPExpectedDistance/c_expected_distance.c"],
-    extra_link_args=extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}", "-Wl,--no-undefined"],
-    include_dirs=include_dir,
-    language="c"
+
+clote_ponty_extension = Pybind11Extension(
+    "RNAdist.dp.cpp.CPExpectedDistance",
+    sources=[
+        "RNAdist/dp/cpp/pyClotePontyExpectedDistance.cpp",
+        "RNAdist/dp/cpp/clotePontyExpectedDistance.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
+
+    ],
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", "-lmpfr", f"-l{python_l}",
+                                                                         "-Wl,--no-undefined"],
+    include_dirs=[_include, pybind11.get_include()],
+    language="c++"
 )
+
 
 
 # class CustomBuildExtension(cpp_extension.BuildExtension):
@@ -119,7 +130,7 @@ setup(
     tests_require=["pytest"],
     ext_modules=cythonize("RNAdist/dp/_dp_calculations.pyx") + [
         sampling_extension,
-        cp_exp_dist_extension,
+        clote_ponty_extension,
         structural_extension],
     include_dirs=np.get_include(),
     scripts=[

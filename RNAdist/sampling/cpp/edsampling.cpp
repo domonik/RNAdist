@@ -57,7 +57,6 @@ void addDistancesRedundantCallback(const char *structure, void *data)
 
     if (structure) {
         struct sampling_data     *d      = (struct sampling_data *)data;
-        vrna_fold_compound_t  *fc     = d->fc;
         vector <vector<double>>*  exp_d = d->expected_distance;
         bool undirected = d->undirected;
         short *pt = vrna_ptable(structure);

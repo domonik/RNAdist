@@ -3,6 +3,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include "../../cpp/RNAHelpers.h"
+
 #include "edsampling.h"
 
 namespace py = pybind11;
@@ -15,21 +17,6 @@ extern "C"
 
 
 
-
-typedef struct {
-    PyObject_HEAD
-    void *ptr;
-    void *ty;
-    int own;
-    PyObject *next;
-    PyObject *dict;
-} SwigPyObject;
-
-static vrna_fold_compound_t *swigFcToFc(PyObject *swig_fold_compound) {
-    SwigPyObject *swf = (SwigPyObject*) swig_fold_compound;
-    vrna_fold_compound_t *fc = (vrna_fold_compound_t*) swf->ptr;
-    return fc;
-}
 
 static py::array edSampling(py::args args){
     vrna_fold_compound_t *fc = swigFcToFc(args[0].ptr());

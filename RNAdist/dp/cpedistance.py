@@ -2,7 +2,7 @@ import os
 from contextlib import redirect_stdout
 import numpy as np
 import RNA
-from CPExpectedDistance.p_expected_distance import expected_distance
+from RNAdist.dp.cpp.CPExpectedDistance import clote_ponty_expected_distance
 from typing import List, Tuple
 from tempfile import NamedTemporaryFile
 from io import TextIOBase
@@ -93,7 +93,9 @@ def compute_clote(fc):
             :code:`matrix[0][-1]`
 
     """
-    return expected_distance(fc)
+
+    ed = clote_ponty_expected_distance(fc.this)
+    return ed
 
 
 def binding_site_distance(fc: RNA.fold_compound, binding_sites: List[Tuple[int, int]]) -> float:
@@ -116,7 +118,7 @@ def binding_site_distance(fc: RNA.fold_compound, binding_sites: List[Tuple[int, 
     """
     binding_sites = sorted(binding_sites)
     _add_interval_constraints(fc, binding_sites)
-    ed = expected_distance(fc)
+    ed = compute_clote(fc)
     return float(ed[binding_sites[0][1]-1, binding_sites[1][0]])
 
 

@@ -1,6 +1,6 @@
 import pytest
 import RNA
-from RNAdist.dp.cpedistance import cp_expected_distance, _add_interval_constraints, binding_site_distance
+from RNAdist.dp.cpedistance import cp_expected_distance, _add_interval_constraints, binding_site_distance, compute_clote
 from RNAdist.dp.viennarna_helpers import _structural_probabilities
 from RNAdist.dp.pmcomp import pmcomp_distance
 import numpy as np
