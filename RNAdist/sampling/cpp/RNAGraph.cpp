@@ -62,6 +62,37 @@ void Graph::fillShortestPaths(){
     filled = true;
 }
 
+double Graph::shortestPath(int i, int j){
+    if (filled){
+        return shortestPaths[i][j];
+    }
+    else {
+        resizePaths();
+        queue<int> q;
+        vector<bool> used(V);
+        vector<int> d(V);
+        q.push(i);
+        used[i] = true;
+        while(!q.empty()) {
+            int current = q.front();
+            q.pop();
+            for (int k: adj[current]) {
+                if (!used[k]) {
+                    used[k] = true;
+                    q.push(k);
+                    d[k] = d[current] + 1;
+                    shortestPaths[i][k] += d[k];
+                }
+                if (k == j) {
+                    return shortestPaths[i][j];
+                }
+
+            }
+        }
+        throw std::range_error( "No path found from i to j" );
+    }
+}
+
 void Graph::addDistances(vector <vector<double>> &e_distances, double weight){
     if (filled){
         for(int i = 0; i != V; i++) {

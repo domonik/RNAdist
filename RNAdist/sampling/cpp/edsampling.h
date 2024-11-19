@@ -6,6 +6,7 @@
 #define RNADIST_EDSAMPLING_H
 
 #endif //RNADIST_EDSAMPLING_H
+
 #include<bits/stdc++.h>
 
 using namespace std;
@@ -13,11 +14,12 @@ using namespace std;
 
 extern "C"
 {
-  #include "ViennaRNA/fold_compound.h"
-  #include "ViennaRNA/eval.h"
-  #include "ViennaRNA/part_func.h"
-  #include "ViennaRNA/boltzmann_sampling.h"
-  #include "ViennaRNA/mfe.h"
+#include "ViennaRNA/fold_compound.h"
+#include "ViennaRNA/eval.h"
+#include "ViennaRNA/part_func.h"
+#include "ViennaRNA/mfe.h"
+
+#include "ViennaRNA/sampling/basic.h"
 
 }
 
@@ -29,6 +31,7 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
 vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold, bool undirected);
+double expectedDistanceIJ(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 
 struct sampling_data {
     vrna_fold_compound_t  *fc;
@@ -45,4 +48,12 @@ struct nr_sampling_data {
     double                      *prob_sum;
     vector<vector<double>>      *expected_distance;
     bool                        undirected;
+};
+
+struct ij_sampling_data {
+    double nr_samples;
+    double *distance;
+    int i;
+    int j;
+
 };

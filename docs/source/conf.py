@@ -46,6 +46,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "sphinx_rtd_theme",
     'sphinxarg.ext',
     'sphinx_design',
@@ -107,6 +108,7 @@ autosummary_mock_imports = [
     "RNAdist.nn.nn_helpers",
     "RNAdist.dp._dp_calulations",
     "RNAdist.dp._dp_calculations",
+    "RNAdist.dp.cpp",
     "RNAdist.sampling.cpp",
     "CPExpectedDistance.p_expected_distance",
     "networkx",
@@ -120,6 +122,7 @@ autosummary_mock_imports = [
     "smac",
     "dash_bootstrap_components",
     "dash",
-    "plotly.colors.qualitative.Light24"
+    "plotly.colors.qualitative.Light24",
+    "torch_geometric"
 
 ]

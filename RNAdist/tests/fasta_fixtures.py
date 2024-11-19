@@ -31,3 +31,8 @@ def example_output(example_output_path):
     with open(example_output_path, "rb") as handle:
         eop = pickle.load(handle)
     return eop
+
+
+@pytest.fixture
+def random_fasta():
+    return os.path.join(TESTDATADIR, "random_test.fa")

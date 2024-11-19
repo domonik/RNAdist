@@ -9,7 +9,6 @@ from Bio import SeqIO
 
 pytest_plugins = [
     "RNAdist.dp.tests.fixtures",
-    "RNAdist.nn.tests.data_fixtures",
     "RNAdist.tests.fasta_fixtures"
 ]
 
@@ -19,7 +18,6 @@ pytest_plugins = [
     [
         clote_ponty_from_fasta,
         pmcomp_from_fasta,
-        sampled_distance_from_fasta
     ]
 )
 @pytest.mark.parametrize(
@@ -31,6 +29,29 @@ pytest_plugins = [
 )
 def test_fasta_wrappers(random_fasta, md_config, threads, function):
     data = function(random_fasta, md_config, threads)
+    for sr in SeqIO.parse(random_fasta, "fasta"):
+        assert sr.description in data
+
+
+@pytest.mark.parametrize(
+    "md_config,threads",
+    [
+        ({"temperature": 35}, 1),
+        ({"temperature": 37}, 2),
+    ]
+)
+@pytest.mark.parametrize(
+    "redundant",
+    [False, True]
+)
+def test_fasta_sampling(random_fasta, md_config, threads, redundant):
+    data = sampled_distance_from_fasta(
+        fasta=random_fasta,
+        md_config=md_config,
+        num_threads=threads,
+        nr_samples=4,
+        redundant=False
+    )
     for sr in SeqIO.parse(random_fasta, "fasta"):
         assert sr.description in data
 

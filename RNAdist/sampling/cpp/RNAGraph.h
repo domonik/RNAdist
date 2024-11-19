@@ -4,10 +4,10 @@
 #define RNADIST_RNAGRAPH_H
 
 #endif //RNADIST_RNAGRAPH_H
+
 #include<bits/stdc++.h>
 
 using namespace std;
-
 
 
 class Graph {
@@ -17,10 +17,12 @@ class Graph {
     // lists
     vector <list<int>> adj;
     vector <vector<int>> shortestPaths;
-    void fillShortestPaths();
-    bool filled;
-    void resizePaths();
 
+    void fillShortestPaths();
+
+    bool filled;
+
+    void resizePaths();
 
 
 public:
@@ -30,10 +32,14 @@ public:
 
     // function to add an edge to graph
     void addEdge(int v, int w);
+
     // function to fill the shortest paths
-    vector<vector<int>> getShortestPaths();
+    vector <vector<int>> getShortestPaths();
+
     void addDistances(vector <vector<double>> &e_distances, double weight);
 
+    // function to get shortest path between two nodes
+    double shortestPath(int i, int j);
 
 };
 
