@@ -25,7 +25,9 @@ jobs:
           build
           --user
       - name: Build a binary wheel and a source tarball
-        run: python3 -m build --sdist
+        run:
+          export IGNORE_MISSING_RNALIB=1
+          python3 -m build --sdist
       - name: Store the distribution packages
         uses: actions/upload-artifact@v3
         with:

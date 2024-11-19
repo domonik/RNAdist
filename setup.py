@@ -31,11 +31,17 @@ svi = sys.version_info
 python_l = f"python{svi[0]}.{svi[1]}"
 
 RNALIB = os.path.join(prefix, "lib", "libRNA.a")
+
+IGNORE_MISSING_RNALIB = bool(os.environ.get('IGNORE_MISSING_RNALIB', 0))
 if not os.path.exists(RNALIB):
-    raise FileNotFoundError(f"Not able to find ViennaRNA RNAlib installation under {RNALIB}. This version of RNAdist requires ViennaRNA "
-                            "to be installed. You can easily install it using Conda:\n"
-                            "conda install -c bioconda viennarna"
-                            )
+    message = f"Not able to find ViennaRNA RNAlib installation under {RNALIB}. This version of RNAdist requires ViennaRNA "
+    "to be installed. You can easily install it using Conda:\n"
+    "conda install -c bioconda viennarna"
+    if IGNORE_MISSING_RNALIB:
+        print(message)
+        print("While you can run this script you wont be able to install the package like this")
+    else:
+        raise FileNotFoundError(message)
 if not os.path.exists(os.path.join(prefix, "lib", python_l, "site-packages", "RNA")):
     raise ImportError("Not able to find ViennaRNA python package in your current environment."
                       "Please install it e.g. via Conda\n"
