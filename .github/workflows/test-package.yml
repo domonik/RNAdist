@@ -43,4 +43,5 @@ jobs:
         run: |
           eval "$(conda shell.bash hook)"
           conda activate RNAdistEnv
+          rm RNAdist/ -r  # Needs to be removed since it will try to test uncompiled package instead
           pytest --pyargs RNAdist
