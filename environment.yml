@@ -9,6 +9,7 @@ dependencies:
   - viennarna
   - biopython
   - pandas
+  - networkx
   - plotly
   - dash >=2.5
   - dash-bootstrap-components
