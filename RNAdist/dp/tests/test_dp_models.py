@@ -1,12 +1,11 @@
 import pytest
 import RNA
-from RNAdist.dp.cpedistance import cp_expected_distance, _add_interval_constraints, binding_site_distance
-from RNAdist.dp.viennarna_helpers import structural_probabilities
+from RNAdist.dp.cpedistance import cp_expected_distance, _add_interval_constraints, binding_site_distance, compute_clote
+from RNAdist.dp.viennarna_helpers import _structural_probabilities
 from RNAdist.dp.pmcomp import pmcomp_distance
 import numpy as np
 
-pytest_plugins = ["RNAdist.dp.tests.fixtures",
-                  "RNAdist.nn.tests.data_fixtures"]
+pytest_plugins = ["RNAdist.dp.tests.fixtures"]
 
 @pytest.mark.parametrize(
     "test_md",
@@ -68,7 +67,7 @@ def test_interval_span_constraints(intervals, seq):
     md.window_size = plfold_w
     fc = RNA.fold_compound(seq, md, RNA.OPTION_WINDOW)
     fc = _add_interval_constraints(fc, intervals)
-    sprobs = structural_probabilities(fc)
+    sprobs = _structural_probabilities(fc)
     assert np.isclose(sprobs["exterior"][intervals[0][1]-1], 1, atol=0.001)
     assert np.isclose(sprobs["unpaired"][intervals[0][1]-1], 1)
     assert np.isclose(sprobs["exterior"][intervals[1][0]], 1, atol=0.001)

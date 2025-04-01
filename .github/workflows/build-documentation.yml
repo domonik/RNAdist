@@ -1,0 +1,59 @@
+name: build-github-pages
+env:
+  GITHUB_ACTOR: domonik
+  GITHUB_REPOSITORY: domonik/RNAdist
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+
+      - name: create environment with mamba
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          channels: conda-forge,defaults
+          auto-activate-base: false
+          activate-environment: rnadist_doc
+          environment-file: docs/environment.yml
+
+      - name: Render Rmd files
+        run: |
+          eval "$(conda shell.bash hook)"
+          conda activate rnadist_doc
+          cd docs
+          make html
+          cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          # Upload entire repository
+          path: 'docs/build/html'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2

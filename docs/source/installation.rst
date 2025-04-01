@@ -22,37 +22,29 @@ Building a conda package is in planning but not done yet
 Pip
 ---
 
-The Pip Package can be installed easily via:
-
-.. code-block::
-
-    pip install rnadist
-
 .. warning::
 
-    Most of the required packages will be installed. However, the ViennaRNA_ package needs to be in PATH.
-    For this reason we highly recommend to install ViennaRNA and check if the Python interface is installed correctly.
-    This can be achieved e.g. via
-
-    .. code-block::
-
-        conda install viennarna=2.5.1 -c bioconda
-
-    if you have issues doing that create a fresh environment and install ViennaRNA before any other dependencies.
-    Expecially you need to install it before installing python.
-
-    Further if you receive compiler errors during installation we recommend to use conda g++ and gcc compilers. Both
-    should be installed if you type
-
-     .. code-block::
-
-        conda install gxx -c conda-forge
+    Most of the required packages will be installed when using :code:`pip install RNAdist`.
+    However, the ViennaRNA_ package needs to be in PATH during install and runtime.
+    Since it is not possible to achieve this via a single :code:`pip install` call we highly
+    recommend to use anaconda for environment setup and install the package without dependencies.
 
 
     .. _ViennaRNA: https://www.tbi.univie.ac.at/RNA/
 
+
+.. code-block::
+
+	conda install -c conda-forge -c bioconda -c defaults  'viennarna>=2.5 biopython pandas plotly 'dash>=2.5' dash-bootstrap-components pybind11 cython 'python>=3.10' pip versioneer
+
+After this you can install RNAdist via:
+
+.. code-block::
+
+	pip install RNAdist --no-build-isolation --no-deps
+
 .. note::
-    You can test whether everything is installed correctly if you install pytest and run the following command:
+    You can test whether everything is installed correctly if you **install pytest** and run the following command:
 
     .. code-block::
 

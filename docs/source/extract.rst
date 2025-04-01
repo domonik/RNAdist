@@ -1,7 +1,7 @@
 Output and Extraction
 #####################
 
-Output files of any of the prediction methods (sampling, clote-ponty, pmcomp and Neural Network) contain just a Python
+Output files of any of the prediction methods (sampling, clote-ponty, pmcomp) contain just a Python
 dictionary of sequence identifiers as keys and numpy arrays as values. It is possible to load it via pythons
 pickle module.
 You can access the expected distance

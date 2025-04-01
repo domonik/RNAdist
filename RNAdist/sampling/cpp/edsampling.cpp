@@ -10,7 +10,7 @@ using namespace std;
 extern "C"
 {
   #include "ViennaRNA/fold_compound.h"
-  #include "ViennaRNA/boltzmann_sampling.h"
+  #include "ViennaRNA/sampling/basic.h"
   #include "ViennaRNA/mfe.h"
   #include <ViennaRNA/utils/structures.h>
 }
@@ -57,7 +57,6 @@ void addDistancesRedundantCallback(const char *structure, void *data)
 
     if (structure) {
         struct sampling_data     *d      = (struct sampling_data *)data;
-        vrna_fold_compound_t  *fc     = d->fc;
         vector <vector<double>>*  exp_d = d->expected_distance;
         bool undirected = d->undirected;
         short *pt = vrna_ptable(structure);
@@ -186,4 +185,42 @@ vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double thre
 }
 
 
+void distanceIJCallback(const char *structure, void *data)
+{
+
+    if (structure) {
+        struct ij_sampling_data     *d      = (struct ij_sampling_data *)data;
+        int i = d->i;
+        int j = d->j;
+        double *distance = d->distance;
+        short *pt = vrna_ptable(structure);
+        Graph g(pt);
+        double sp = g.shortestPath(i , j);
+
+        distance[0] +=  sp / d->nr_samples;
+
+        free(pt);
+
+    }
+}
+
+double expectedDistanceIJ(vrna_fold_compound_t *fc, int nr_samples, int i, int j) {
+    double mfe = (double)vrna_mfe(fc, NULL);
+    vrna_exp_params_rescale(fc, &mfe);
+    vrna_pf(fc, NULL);
+    double distance = 0.f;
+    struct ij_sampling_data data;
+    data.nr_samples = nr_samples;
+    data.i = i;
+    data.j = j;
+    data.distance = &distance;
+    vrna_pbacktrack_cb(
+            fc,
+            nr_samples,
+            &distanceIJCallback,
+            (void *) &data,
+            VRNA_PBACKTRACK_DEFAULT
+    );
+    return distance;
+}
 

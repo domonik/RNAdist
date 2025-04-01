@@ -59,6 +59,12 @@ def sampling_parser(subparsers, name: str):
         help="Number of samples used for expected distance calculation. (Default: 1000)",
         default=1000
     )
+    group1.add_argument(
+        '--non_redundant',
+        action="store_false",
+        help="Triggers non-redundant sampling. Will adjust for unseen probability mass. If this is not intended you have"
+             "to use the Python API",
+    )
     parser = add_md_parser(parser)
     return parser
 
