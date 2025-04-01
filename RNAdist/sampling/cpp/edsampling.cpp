@@ -103,9 +103,11 @@ void addDistancesNonRedundantCallback(const char *structure, void *data)
 
 vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected) {
     vector <vector<double>> e_distance(fc->length, vector<double>(fc->length));
-    double mfe = (double)vrna_mfe(fc, NULL);
-    vrna_exp_params_rescale(fc, &mfe);
-    vrna_pf(fc, NULL);
+    if (fc->exp_params == NULL || fc->exp_matrices == NULL) {
+        double mfe = (double)vrna_mfe(fc, NULL);
+        vrna_exp_params_rescale(fc, &mfe);
+        vrna_pf(fc, NULL);
+    };
     struct sampling_data data;
     data.fc = fc;
     data.expected_distance = &e_distance;
