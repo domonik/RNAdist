@@ -31,6 +31,8 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
 vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold, bool undirected);
+vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples);
+vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 double expectedDistanceIJ(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 
 struct sampling_data {
@@ -38,6 +40,13 @@ struct sampling_data {
     vector<vector<double>>  *expected_distance;
     double nr_samples;
     bool undirected;
+};
+
+struct tracking_data {
+    vrna_fold_compound_t  *fc;
+    vector<uint16_t>  *counts;
+    int i;
+    int j;
 };
 
 

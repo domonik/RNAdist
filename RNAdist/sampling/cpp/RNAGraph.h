@@ -37,9 +37,9 @@ public:
     vector <vector<int>> getShortestPaths();
 
     void addDistances(vector <vector<double>> &e_distances, double weight);
-
+    void distanceHistogram(vector<uint16_t> &distances);
     // function to get shortest path between two nodes
-    double shortestPath(int i, int j);
+    int shortestPath(int i, int j);
 
 };
 

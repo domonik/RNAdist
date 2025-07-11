@@ -51,6 +51,41 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
 
 }
 
+void trackDistancesCallback(const char *structure, void *data) {
+    if (structure) {
+        struct tracking_data *d = (struct tracking_data *) data;
+
+        vector <uint16_t>*counts = d->counts;
+        short *pt = vrna_ptable(structure);
+        Graph g(pt);
+        g.distanceHistogram(*counts);
+//        vector <vector<int>> distances = g.getShortestPaths();
+//        int n = distances.size();
+//        for (int i = 0; i < n; ++i)
+//            for (int j = 0; j < n; ++j) {
+//                (*counts)[i][j][distances[i][j]] += 1;
+//            }
+        free(pt);
+
+    }
+}
+
+void trackDistancesCallbackIJ(const char *structure, void *data) {
+    if (structure) {
+        struct tracking_data *d = (struct tracking_data *) data;
+
+        vector <uint16_t>*counts = d->counts;
+
+        short *pt = vrna_ptable(structure);
+        Graph g(pt);
+        int sp = g.shortestPath(d->i , d->j);
+        (*counts)[sp] += 1;
+        free(pt);
+
+    }
+}
+
+
 
 void addDistancesRedundantCallback(const char *structure, void *data)
 {
@@ -100,14 +135,63 @@ void addDistancesNonRedundantCallback(const char *structure, void *data)
     }
 }
 
+void ensurePartitionFunctionReady(vrna_fold_compound_t *fc) {
+    if (fc->exp_params == NULL || fc->exp_matrices == NULL) {
+        double mfe = static_cast<double>(vrna_mfe(fc, NULL));
+        vrna_exp_params_rescale(fc, &mfe);
+        vrna_pf(fc, NULL);
+    }
+}
+
+
+vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j) {
+
+    ensurePartitionFunctionReady(fc);
+    int n = fc->length;
+
+    vector<uint16_t> counts(n, 0);
+
+    struct tracking_data data;
+    data.fc = fc;
+    data.counts = &counts;
+    data.i = i;
+    data.j = j;
+    vrna_pbacktrack_cb(
+            fc,
+            nr_samples,
+            &trackDistancesCallbackIJ,
+            (void *) &data,
+            VRNA_PBACKTRACK_DEFAULT
+    );
+    return counts;
+}
+
+vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples) {
+
+    ensurePartitionFunctionReady(fc);
+    int n = fc->length;
+
+    vector<uint16_t> counts(n * n * n, 0);
+
+    struct tracking_data data;
+    data.fc = fc;
+    data.counts = &counts;
+
+    vrna_pbacktrack_cb(
+            fc,
+            nr_samples,
+            &trackDistancesCallback,
+    (void *) &data,
+    VRNA_PBACKTRACK_DEFAULT
+    );
+    return counts;
+
+}
+
 
 vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected) {
     vector <vector<double>> e_distance(fc->length, vector<double>(fc->length));
-    if (fc->exp_params == NULL || fc->exp_matrices == NULL) {
-        double mfe = (double)vrna_mfe(fc, NULL);
-        vrna_exp_params_rescale(fc, &mfe);
-        vrna_pf(fc, NULL);
-    };
+    ensurePartitionFunctionReady(fc);
     struct sampling_data data;
     data.fc = fc;
     data.expected_distance = &e_distance;
@@ -197,9 +281,9 @@ void distanceIJCallback(const char *structure, void *data)
         double *distance = d->distance;
         short *pt = vrna_ptable(structure);
         Graph g(pt);
-        double sp = g.shortestPath(i , j);
+        int sp = g.shortestPath(i , j);
 
-        distance[0] +=  sp / d->nr_samples;
+        distance[0] +=  static_cast<double>(sp) / d->nr_samples;
 
         free(pt);
 

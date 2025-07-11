@@ -62,36 +62,62 @@ void Graph::fillShortestPaths(){
     filled = true;
 }
 
-double Graph::shortestPath(int i, int j){
-    if (filled){
-        return shortestPaths[i][j];
-    }
-    else {
-        resizePaths();
-        queue<int> q;
-        vector<bool> used(V);
-        vector<int> d(V);
-        q.push(i);
-        used[i] = true;
-        while(!q.empty()) {
-            int current = q.front();
-            q.pop();
-            for (int k: adj[current]) {
-                if (!used[k]) {
-                    used[k] = true;
-                    q.push(k);
-                    d[k] = d[current] + 1;
-                    shortestPaths[i][k] += d[k];
-                }
-                if (k == j) {
-                    return shortestPaths[i][j];
-                }
+int Graph::shortestPath(int i, int j) {
+    queue<int> q;
+    vector<bool> used(V, false);
+    vector<int> d(V, -1);  // Distance from i to each node
 
+    q.push(i);
+    used[i] = true;
+    d[i] = 0;
+
+    while (!q.empty()) {
+        int current = q.front();
+        q.pop();
+
+        for (int k : adj[current]) {
+            if (!used[k]) {
+                used[k] = true;
+                d[k] = d[current] + 1;
+                q.push(k);
+            }
+            if (k == j) {
+                return d[k];
             }
         }
-        throw std::range_error( "No path found from i to j" );
     }
+
+    throw std::range_error("No path found from i to j");
 }
+
+
+inline uint16_t& get_count(std::vector<uint16_t>& counts, int i, int j, int d, int V ) {
+    return counts[i * V * V + j * V + d];
+}
+
+void Graph::distanceHistogram(vector<uint16_t> &distances) {
+        resizePaths();
+        for (int s=0; s<V; s++){
+            queue<int> q;
+            vector<bool> used(V);
+            vector<int> d(V);
+            q.push(s);
+            used[s] = true;
+            while (!q.empty()) {
+                int i = q.front();
+                q.pop();
+                for (int j: adj[i]) {
+                    if (!used[j]) {
+                        used[j] = true;
+                        q.push(j);
+                        d[j] = d[i] + 1;
+                        get_count(distances, s, j, d[j], V) += 1;
+                    }
+            }
+            }
+        }
+    }
+
 
 void Graph::addDistances(vector <vector<double>> &e_distances, double weight){
     if (filled){
