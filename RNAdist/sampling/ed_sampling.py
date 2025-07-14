@@ -5,8 +5,8 @@ import subprocess
 import os
 import networkx as nx
 from typing import List, Dict, Iterable
-from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling, cpp_sampling_ij, cpp_distance_tracking
-
+from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling, cpp_sampling_ij, cpp_distance_tracking, cpp_bit_to_structure
+import pandas as pd
 
 def undirected_distance(structure, data):
     matrix = shortest_paths_from_struct(structure)
@@ -252,7 +252,18 @@ def sample_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int = 
     distance = cpp_sampling_ij(fc.this, i, j, nr_samples)
     return distance
 
-def distance_histogram(fc: RNA.fold_compound, nr_samples: int = 1000, i: int = None, j: int = None):
+def bytes_to_structure(b: bytes, length: int):
+    """
+
+    Args:
+        b (bytes): bytes representation of the structure
+
+    Returns:
+        str: dot-bracket structure
+    """
+    return cpp_bit_to_structure(b, length)
+
+def distance_histogram(fc: RNA.fold_compound, nr_samples: int = 1000, i: int = None, j: int = None, return_samples: bool = False):
     """Samples structures for a sequence and returns the histogram of (all) pairwise distances.
 
     Uses a much faster implementation if i and j are specified. Else computes all pairwise histograms
@@ -262,12 +273,15 @@ def distance_histogram(fc: RNA.fold_compound, nr_samples: int = 1000, i: int = N
         nr_samples (int): How many samples should be drawn
         i (int): only use starting index i
         j (int): only use target index j
+        return_samples (bool): returns samples as dictionary containing bit compressed structures as keys and counts as
+            values. Structures can be decompressed using :func:`bit_to_structure`
 
 
     Returns:
          np.ndarray : :code:`N x N x N` matrix or  :code:`N` matrix depending on wheter i and j are specified
             Without i and j the fill matrix containins the histogram of distances from nucleotide :code:`i` to :code:`j`
              at :code:`matrix[i][j]`
+        dict: Dictionary containing bytes representation of structures if return samples if true
 
     It is possible to sample expected distances using the ViennaRNA fold compound as follows. Please make sure
     to enable unique multiloop decomposition via :code:`uniq_ML=1`.
@@ -280,7 +294,9 @@ def distance_histogram(fc: RNA.fold_compound, nr_samples: int = 1000, i: int = N
     array([  0, 867,   1, 109,   0,  14,   0,   0,   0,   0,   0,   0,   9], dtype=int32)
     """
     fc.params.model_details.uniq_ML = 1
-    res = cpp_distance_tracking(fc.this, nr_samples, i, j) if (i is not None and j is not None) else cpp_distance_tracking(fc.this, nr_samples)
+    res, hashed_sequences = cpp_distance_tracking(fc.this, nr_samples, i, j) if (i is not None and j is not None) else cpp_distance_tracking(fc.this, nr_samples)
+    if return_samples:
+        return res, hashed_sequences
     return res
 
 
@@ -291,3 +307,7 @@ def rna_shortest_paths(s, data: List[np.ndarray]):
     """
     if s:
         undirected_distance(s, data)
+
+
+
+        

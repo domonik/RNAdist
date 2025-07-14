@@ -51,22 +51,81 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
 
 }
 
+inline uint8_t encodeDotBracket(char c) {
+    switch (c) {
+        case '.': return 0;
+        case '(': return 1;
+        case ')': return 2;
+        default: throw std::invalid_argument("Invalid character");
+    }
+}
+
+char decodeDotBracket(uint8_t val) {
+    switch (val) {
+        case 0: return '.';
+        case 1: return '(';
+        case 2: return ')';
+        default: return '?';
+    }
+}
+
+
+std::vector<uint8_t> encodeStructure(const std::string& s) {
+    std::vector<uint8_t> packed;
+    packed.reserve((s.size() + 3) / 4);
+    uint8_t current = 0;
+    int bitsFilled = 0;
+
+    for (char c : s) {
+        uint8_t val = encodeDotBracket(c);
+        current = current * 3 + val;
+        bitsFilled++;
+
+        if (bitsFilled == 4) {  // 3^4 = 81 < 256, pack 4 digits in 1 byte
+            packed.push_back(current);
+            current = 0;
+            bitsFilled = 0;
+        }
+    }
+
+    if (bitsFilled > 0) {
+        // Pad remaining digits (acts like base-3 left padding)
+        while (bitsFilled < 4) {
+            current *= 3;
+            bitsFilled++;
+        }
+        packed.push_back(current);
+    }
+
+    return packed;
+}
+
+std::string decodeStructure(const std::vector<uint8_t>& packed, size_t originalLength) {
+    std::string result;
+    for (uint8_t byte : packed) {
+        uint8_t temp = byte;
+        uint8_t vals[4] = {};
+        for (int i = 3; i >= 0; --i) {
+            vals[i] = temp % 3;
+            temp /= 3;
+        }
+        for (int i = 0; i < 4 && result.size() < originalLength; ++i) {
+            result += decodeDotBracket(vals[i]);
+        }
+    }
+    return result;
+}
+
+
+
 void trackDistancesCallback(const char *structure, void *data) {
     if (structure) {
         struct tracking_data *d = (struct tracking_data *) data;
 
-        vector <uint16_t>*counts = d->counts;
-        short *pt = vrna_ptable(structure);
-        Graph g(pt);
-        g.distanceHistogram(*counts);
-//        vector <vector<int>> distances = g.getShortestPaths();
-//        int n = distances.size();
-//        for (int i = 0; i < n; ++i)
-//            for (int j = 0; j < n; ++j) {
-//                (*counts)[i][j][distances[i][j]] += 1;
-//            }
-        free(pt);
-
+        std::unordered_map<std::vector<uint8_t>, int, PackedKeyHash, PackedKeyEqual>*cache = d->cache;
+        // short *pt_raw = vrna_ptable(structure);
+        auto encoded = encodeStructure(structure);
+        (*cache)[encoded] += 1;
     }
 }
 
@@ -144,47 +203,91 @@ void ensurePartitionFunctionReady(vrna_fold_compound_t *fc) {
 }
 
 
-vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j) {
 
-    ensurePartitionFunctionReady(fc);
-    int n = fc->length;
 
-    vector<uint16_t> counts(n, 0);
+StructureCache sampleStructuresAndDistances(vrna_fold_compound_t *fc, int nr_samples) {
 
-    struct tracking_data data;
-    data.fc = fc;
-    data.counts = &counts;
-    data.i = i;
-    data.j = j;
-    vrna_pbacktrack_cb(
-            fc,
-            nr_samples,
-            &trackDistancesCallbackIJ,
-            (void *) &data,
-            VRNA_PBACKTRACK_DEFAULT
-    );
-    return counts;
-}
+    StructureCache cache;
 
-vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples) {
-
-    ensurePartitionFunctionReady(fc);
-    int n = fc->length;
-
-    vector<uint16_t> counts(n * n * n, 0);
 
     struct tracking_data data;
     data.fc = fc;
-    data.counts = &counts;
+    data.cache = &cache;
 
     vrna_pbacktrack_cb(
             fc,
             nr_samples,
             &trackDistancesCallback,
-    (void *) &data,
-    VRNA_PBACKTRACK_DEFAULT
+            (void *) &data,
+            VRNA_PBACKTRACK_DEFAULT
     );
+
+
+    return cache;
+
+
+}
+
+
+
+vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n) {
+    vector<uint16_t> counts(n * n * n, 0);
+    for (const auto &[key, value]: cache) {
+        // key is std::vector<uint8_t>
+        // value is int
+        std::string structure = decodeStructure(key, n);
+        short *pt = vrna_ptable(structure.c_str());
+        Graph g(pt);
+        vector <vector<int>> distances = g.getShortestPaths();
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < n; ++j) {
+                int d = distances[i][j];
+                counts[i * n * n + j * n + d] += value;
+            }
+        free(pt);
+    }
     return counts;
+
+}
+
+vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n, int i, int j) {
+    vector<uint16_t> counts(n, 0);
+    for (const auto &[key, value]: cache) {
+        std::string structure = decodeStructure(key, n);
+        short *pt = vrna_ptable(structure.c_str());
+        Graph g(pt);
+        int sp = g.shortestPath(i , j);
+        counts[sp] += value;
+        free(pt);
+    }
+    return counts;
+
+}
+
+
+tuple<vector <uint16_t>, StructureCache> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j) {
+    int n = fc->length;
+
+    ensurePartitionFunctionReady(fc);
+
+    StructureCache cache = sampleStructuresAndDistances(fc, nr_samples);
+
+    vector <uint16_t> counts = distancesFromStructureCache(cache, n, i, j);
+
+    return {counts, cache};
+}
+
+tuple<vector <uint16_t>, StructureCache>  trackDistances(vrna_fold_compound_t *fc, int nr_samples) {
+    int n = fc->length;
+    ensurePartitionFunctionReady(fc);
+
+
+    StructureCache cache = sampleStructuresAndDistances(fc, nr_samples);
+
+    vector <uint16_t> counts = distancesFromStructureCache(cache, n);
+
+
+    return {counts, cache};
 
 }
 

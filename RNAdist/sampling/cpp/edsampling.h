@@ -23,6 +23,27 @@ extern "C"
 
 }
 
+
+
+
+struct PackedKeyHash {
+    std::size_t operator()(const std::vector<uint8_t>& key) const {
+        std::size_t hash = 0;
+        for (uint8_t byte : key) {
+            hash ^= std::hash<uint8_t>()(byte) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+};
+
+struct PackedKeyEqual {
+    bool operator()(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const {
+        return a == b;
+    }
+};
+
+using StructureCache = std::unordered_map<std::vector<uint8_t>, int, PackedKeyHash, PackedKeyEqual>;
+
 void addDistancesRedundantCallback(const char *structure, void *data);
 void addDistancesNonRedundantCallback(const char *structure, void *data);
 void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_distances, double weight);
@@ -31,9 +52,10 @@ void addShortestPathDirected(short * pairtable, vector <vector<double>> &e_dista
 vector <vector<double>> edSampleRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edSampleNonRedundant(vrna_fold_compound_t *fc, int nr_samples, bool undirected);
 vector <vector<double>> edPThresholdSample(vrna_fold_compound_t *fc, double threshold, bool undirected);
-vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples);
-vector <uint16_t> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
+tuple<vector <uint16_t>, StructureCache> trackDistances(vrna_fold_compound_t *fc, int nr_samples);
+tuple<vector <uint16_t>, StructureCache> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 double expectedDistanceIJ(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
+std::string decodeStructure(const std::vector<uint8_t>& packed, size_t originalLength);
 
 struct sampling_data {
     vrna_fold_compound_t  *fc;
@@ -42,11 +64,14 @@ struct sampling_data {
     bool undirected;
 };
 
+
+
 struct tracking_data {
     vrna_fold_compound_t  *fc;
     vector<uint16_t>  *counts;
     int i;
     int j;
+    StructureCache *cache;
 };
 
 
