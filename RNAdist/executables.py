@@ -1,6 +1,7 @@
 import argparse
 from RNAdist.visualize.visualize import run_visualization
-from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, _sampled_distance_executable_wrapper
+from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, \
+    _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd
 
 
 def add_md_parser(parser):
@@ -58,6 +59,12 @@ def sampling_parser(subparsers, name: str):
         help="Number of samples used for expected distance calculation. (Default: 1000)",
         default=1000
     )
+    group1.add_argument(
+        '--non_redundant',
+        action="store_false",
+        help="Triggers non-redundant sampling. Will adjust for unseen probability mass. If this is not intended you have"
+             "to use the Python API",
+    )
     parser = add_md_parser(parser)
     return parser
 
@@ -88,6 +95,49 @@ def cp_parser(subparsers, name: str):
     )
     parser = add_md_parser(parser)
     return parser
+
+def _bs_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
+        description=f"Calculates the expected distance of binding sites specified via the beds option"
+    )
+    group1 = parser.add_argument_group("General Arguments")
+    group1.add_argument(
+        '--input',
+        type=str,
+        help="FASTA input file",
+        required=True
+    )
+    group1.add_argument(
+        '--bed_files',
+        type=str,
+        nargs="+",
+        help="whitespace seperated list of bed files containing binding sites (at least one)",
+        required=True
+    )
+    group1.add_argument(
+        '--names',
+        nargs="+",
+        help="whitespace seperated list of names that will be shown in the output. Uses the bed filenames"
+             " if not provided",
+        default=None
+    )
+    group1.add_argument(
+        '--output',
+        required=True,
+        type=str,
+        help="TSV Output file that stores expected distances of binding sites"
+    )
+    group1.add_argument(
+        '--num_threads',
+        type=int,
+        help="Number of parallel threads to use (Default: 1)",
+        default=1
+    )
+    parser = add_md_parser(parser)
+    return parser
+
+
 
 
 def visualization_parser(subparsers, name):
@@ -124,6 +174,26 @@ def visualization_parser(subparsers, name):
     )
     return parser
 
+def extract_parser(subparsers, name):
+    parser = subparsers.add_parser(
+        name,
+        description="Extracts TSV files from the prediction output that was generated via one of the "
+                    "prediction mechanisms"
+    )
+    parser.add_argument(
+        '--data_file',
+        type=str,
+        help="Path to the prediction files generated using one of the prediction mechansims.",
+        required=True
+    )
+    parser.add_argument(
+        '--outdir',
+        type=str,
+        help="Path to the output directory, where TSV files will be saved",
+        required=True
+    )
+    return parser
+
 
 class RNAdistParser:
     def __init__(self):
@@ -136,7 +206,9 @@ class RNAdistParser:
             "visualize": (visualization_parser, run_visualization),
             "clote-ponty": (cp_parser, _cp_executable_wrapper),
             "pmcomp": (cp_parser, _pmcomp_executable_wrapper),
-            "sample": (sampling_parser, _sampled_distance_executable_wrapper)
+            "sample": (sampling_parser, _sampled_distance_executable_wrapper),
+            "binding-site": (_bs_parser, _bs_bed_executable_wrapper),
+            "extract": (extract_parser, _export_all_cmd),
         }
         self.subparsers = self.parser.add_subparsers()
         self.__addparsers()

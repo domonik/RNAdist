@@ -9,8 +9,24 @@ RNAdist documentation
    tutorial
    api_doc
    cli
+   bibliography
+
+--------------------------------------
+
 
 **Version**: |release|
+
+--------------------------------------
+
+
+RNAdist is a tool suite to approximate expected distances of nucleotides on the thermodynamic ensemble of possible
+RNA secondary structures. It offers a simple Command line interface as well as a Python API to run algorithms such as
+"`Boltzmann Sampling`"
+and the one proposed in "`Expected distance between terminal nucleotides of RNA secondary structures`"  (:cite:t:`clote2012expected`).
+It therefore mainly uses the C API of the
+`ViennaRNA package <https://www.tbi.univie.ac.at/RNA/>`_ (:cite:t:`lorenz2011viennarna`)
+
+--------------------------------------
 
 .. grid:: 1 1 2 2
     :gutter: 3
@@ -46,8 +62,7 @@ RNAdist documentation
         ^^^^^^^^^^^^
 
         Various Tutorials on how to calculate expected distances of
-        binding sites and how to train a custom Neural Network to predict
-        expected Distances
+        binding sites.
 
 
         +++
@@ -103,11 +118,3 @@ RNAdist documentation
             :click-parent:
 
             To the API Documentation
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`

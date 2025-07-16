@@ -1,12 +1,13 @@
 from setuptools import setup, find_packages, Extension
 import versioneer
 from Cython.Build import cythonize
-from torch.utils import cpp_extension
+#from torch.utils import cpp_extension
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 import numpy as np
 import os
 import sys
 import pybind11
+import RNA
 
 NAME = "RNAdist"
 DESCRIPTION = "Package for Calculating Expected Distances on the " \
@@ -18,11 +19,9 @@ with open("README.md") as handle:
 
 extra_link_args = []
 include_dir = []
-prefix = os.getenv("CONDA_PREFIX")
-if prefix is None:
-    print("No conda environment found. Falling back to default installation path of ViennaRNA.\n"
-          "Consider using a conda environment instead")
-    prefix = "/usr/local"
+
+RNAPATH = RNA.__file__
+prefix = os.path.join("/", *(RNAPATH.split(os.sep)[:-5]))
 
 _include = os.path.join(prefix, "include")
 _lib = os.path.join(prefix, "lib")
@@ -31,35 +30,81 @@ include_dir += [_include] + [np.get_include()]
 svi = sys.version_info
 python_l = f"python{svi[0]}.{svi[1]}"
 
-if not os.path.exists(os.path.join(prefix, "lib", "libRNA.a")):
-    raise FileNotFoundError("Not able to find ViennaRNA RNAlib installation. This version of RNAdist requires ViennaRNA "
-                            "to be installed. You can easily install it using Conda:\n"
-                            "conda install -c bioconda viennarna"
-                            )
+RNALIB = os.path.join(prefix, "lib", "libRNA.a")
+
+IGNORE_MISSING_RNALIB = bool(os.environ.get('IGNORE_MISSING_RNALIB', 0))
+if not os.path.exists(RNALIB):
+    message = f"Not able to find ViennaRNA RNAlib installation under {RNALIB}. This version of RNAdist requires ViennaRNA "
+    "to be installed. You can easily install it using Conda:\n"
+    "conda install -c bioconda viennarna"
+    if IGNORE_MISSING_RNALIB:
+        print(message)
+        print("While you can run this script you wont be able to install the package like this")
+    else:
+        raise FileNotFoundError(message)
 if not os.path.exists(os.path.join(prefix, "lib", python_l, "site-packages", "RNA")):
     raise ImportError("Not able to find ViennaRNA python package in your current environment."
                       "Please install it e.g. via Conda\n"
                         "conda install -c bioconda viennarna"
 )
 
-samping_extension = Pybind11Extension(
+sampling_extension = Pybind11Extension(
     "RNAdist.sampling.cpp.sampling",
-    sources=["RNAdist/sampling/cpp/sampling.cpp"],
-    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}",
-                                       "-Wl,--no-undefined"],
+    sources=[
+        "RNAdist/sampling/cpp/edsampling.cpp",
+        "RNAdist/sampling/cpp/RNAGraph.cpp",
+        "RNAdist/sampling/cpp/pyedsampling.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
+    ],
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm",  "-lmpfr", f"-l{python_l}",
+                                                                         "-Wl,--no-undefined"],
     include_dirs=[_include, pybind11.get_include()],
     language="c++"
 )
 
-cp_exp_dist_extension = Extension(
-    "CPExpectedDistance.c_expected_distance",
-    sources=["CPExpectedDistance/CPExpectedDistance/c_expected_distance.c"],
-    extra_link_args=extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", f"-l{python_l}", "-Wl,--no-undefined"],
-    include_dirs=include_dir,
+structural_extension = Pybind11Extension(
+    "RNAdist.dp.cpp.RNAsProbs",
+    sources=[
+        "RNAdist/dp/cpp/structuralProbabilities.cpp",
+        "RNAdist/dp/cpp/pyStructuralProbabilities.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
 
+    ],
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", "-lmpfr", f"-l{python_l}",
+                                                                         "-Wl,--no-undefined"],
+    include_dirs=[_include, pybind11.get_include()],
+    language="c++"
 )
+
+
+clote_ponty_extension = Pybind11Extension(
+    "RNAdist.dp.cpp.CPExpectedDistance",
+    sources=[
+        "RNAdist/dp/cpp/pyClotePontyExpectedDistance.cpp",
+        "RNAdist/dp/cpp/clotePontyExpectedDistance.cpp",
+        "RNAdist/cpp/RNAHelpers.cpp",
+
+    ],
+    extra_link_args=[f"-I{pybind11.get_include()}"] + extra_link_args + ["-lRNA", "-lpthread", "-lstdc++", "-fopenmp", "-lm", "-lmpfr", f"-l{python_l}",
+                                                                         "-Wl,--no-undefined"],
+    include_dirs=[_include, pybind11.get_include()],
+    language="c++"
+)
+
+
+
+# class CustomBuildExtension(cpp_extension.BuildExtension):
+#
+#     def __init__(self, *args, **kwargs):
+#         # This has to stay until I rewrite the Clote-Ponty Extension or find out how to force ninja not to use
+#         # a c++ compiler for that extension
+#         kwargs["use_ninja"] = False
+#         super().__init__(*args, **kwargs)
+
+
+
 cmds = versioneer.get_cmdclass()
-cmds["build_ext"] = cpp_extension.BuildExtension
+#cmds["build_ext"] = CustomBuildExtension
 setup(
     name=NAME,
     version=versioneer.get_version(),
@@ -76,33 +121,23 @@ setup(
     include_package_data=True,
     package_data={
         "RNAdist.visualize": ["assets/*"],
-        "RNAdist.DPModels": ["tests/*.py", "tests/test_data"],
-        "RNAdist.NNModels": ["tests/*.py", "tests/test_data/*.fa", "tests/test_data/*.pt", "tests/test_data/expected*/*"],
+        "RNAdist": ["tests/*.py", "tests/test_data/*"],
+        "RNAdist.dp": ["tests/*.py", "tests/test_data/*"],
         "RNAdist.sampling": ["tests/*.py", "tests/test_data"],
     },
     install_requires=[
-        "torch==1.11",
-        "torchvision",
-        "torchaudio",
-        "networkx",
         "biopython",
         "pandas",
-        "smac>=1.4",
         "plotly",
         "dash>=2.5",
         "dash_bootstrap_components",
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    ext_modules=[
-        cpp_extension.CppExtension(
-            name="RNAdist.NNModels.nn_helpers",
-            sources=["RNAdist/NNModels/nn_helpers.cpp"],
-            include_dirs=cpp_extension.include_paths(),
-            extra_link_args=["-Wl,--no-undefined", f"-l{python_l}"],
-            language="c++"
-        ),
-    ] + cythonize("RNAdist/DPModels/_dp_calculations.pyx") + [cp_exp_dist_extension, samping_extension],
+    ext_modules=cythonize("RNAdist/dp/_dp_calculations.pyx") + [
+        sampling_extension,
+        clote_ponty_extension,
+        structural_extension],
     include_dirs=np.get_include(),
     scripts=[
         "RNAdist/executables.py",
@@ -110,7 +145,6 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "DISTAtteNCionE = RNAdist.distattencione_executables:main",
             "RNAdist = RNAdist.executables:main"
         ]
     },

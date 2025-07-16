@@ -1,0 +1,19 @@
+name:
+  RNAdistEnv
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python >= 3.8
+  - viennarna
+  - biopython
+  - pandas
+  - networkx
+  - plotly
+  - dash >=2.5
+  - dash-bootstrap-components
+  - pybind11
+  - cython
+  - pip
+  - versioneer

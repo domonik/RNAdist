@@ -20,3 +20,4 @@ dependencies:
     - autodoc
     - sphinx-autopackagesummary
     - sphinx_design
+    - sphinxcontrib-bibtex

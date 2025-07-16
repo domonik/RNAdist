@@ -16,10 +16,7 @@ import sys
 FPATH = os.path.abspath(__file__)
 __RNADISTPATH__ = os.path.abspath(os.path.join(FPATH, "../../"))
 __RNADISTPATH__ = os.path.abspath("../../")
-CP_PATH = os.path.join(__RNADISTPATH__, "CPExpectedDistance")
-assert os.path.exists(CP_PATH)
 sys.path.insert(1, __RNADISTPATH__)
-sys.path.append(CP_PATH)
 from RNAdist import _version
 
 # -- Project information -----------------------------------------------------
@@ -46,10 +43,15 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "sphinx_rtd_theme",
     'sphinxarg.ext',
-    'sphinx_design'
+    'sphinx_design',
+    'sphinxcontrib.bibtex',
 ]
+bibtex_bibfiles = ['refs.bib']
+bibtex_default_style = 'unsrt'
+bibtex_reference_style = "author_year"
 autosummary_generate = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -71,6 +73,7 @@ html_theme_options = {
     # Toc options
     "collapse_navigation": True,
     "navigation_depth": 4,
+    "show_prev_next": False,
     "logo": {
         "image_light": "RNAdist4.svg",
         "image_dark": "RNAdist4_dark.svg",
@@ -99,9 +102,10 @@ html_favicon = '_static/RNAdist_tabbar_dark.svg'
 
 autosummary_mock_imports = [
     'RNA',
-    "RNAdist.NNModels.nn_helpers",
-    "RNAdist.DPModels._dp_calulations",
-    "RNAdist.DPModels._dp_calculations",
+    "RNAdist.nn.nn_helpers",
+    "RNAdist.dp._dp_calulations",
+    "RNAdist.dp._dp_calculations",
+    "RNAdist.dp.cpp",
     "RNAdist.sampling.cpp",
     "CPExpectedDistance.p_expected_distance",
     "networkx",
@@ -115,6 +119,7 @@ autosummary_mock_imports = [
     "smac",
     "dash_bootstrap_components",
     "dash",
-    "plotly.colors.qualitative.Light24"
+    "plotly.colors.qualitative.Light24",
+    "torch_geometric"
 
 ]

@@ -1,7 +1,7 @@
-{{ fullname | escape | underline}}
+{{ name | escape | underline}}
+
 
 .. currentmodule:: {{ module }}
 
-.. autofunction:: {{ objname }}
-    :members:
+.. auto{{ objtype }}:: {{ objname }}
 
