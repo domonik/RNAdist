@@ -120,7 +120,7 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     package_data={
-        "RNAdist.visualize": ["assets/*"],
+        "RNAdist.dashboard": ["assets/*"],
         "RNAdist": ["tests/*.py", "tests/test_data/*"],
         "RNAdist.dp": ["tests/*.py", "tests/test_data/*"],
         "RNAdist.sampling": ["tests/*.py", "tests/test_data"],

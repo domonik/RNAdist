@@ -1,5 +1,4 @@
 import argparse
-from RNAdist.visualize.visualize import run_visualization
 from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, \
     _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd
 
@@ -45,7 +44,7 @@ def sampling_parser(subparsers, name: str):
         '--output',
         required=True,
         type=str,
-        help="Pickled Output file that stores matrices. Can be visualized via RNAdist visualize"
+        help="Pickled Output file that stores matrices. Can be visualized via RNAdist dashboard"
     )
     group1.add_argument(
         '--num_threads',
@@ -85,7 +84,7 @@ def cp_parser(subparsers, name: str):
         '--output',
         required=True,
         type=str,
-        help="Pickled Output file that stores matrices. Can be visualized via RNAdist visualize"
+        help="Pickled Output file that stores matrices. Can be visualized via RNAdist dashboard"
     )
     group1.add_argument(
         '--num_threads',
@@ -203,7 +202,7 @@ class RNAdistParser:
 
         )
         self.methods = {
-            "visualize": (visualization_parser, run_visualization),
+            "dashboard": (visualization_parser, run_visualization),
             "clote-ponty": (cp_parser, _cp_executable_wrapper),
             "pmcomp": (cp_parser, _pmcomp_executable_wrapper),
             "sample": (sampling_parser, _sampled_distance_executable_wrapper),

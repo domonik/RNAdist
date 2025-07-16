@@ -1,0 +1,193 @@
+.Select.is-focused:not(.is-open) > .Select-control {
+	border-color: var(--bs-primary);
+	box-shadow: none;
+	background: #fff;
+}
+
+.nav-link.active {
+    font-weight: bold;
+}
+
+.fa-xl {
+    vertical-align: 0 !important;
+}
+
+.dbc .Select-placeholder {
+	color: var(--bs-secondary) !important;
+	background-color: transparent !important;
+}
+
+.form-check {
+    margin-bottom: 0;
+}
+
+.form-check-input:focus {
+	border-color: var(--bs-secondary);
+	outline: 0;
+	box-shadow: none !important;
+}
+
+.form-switch .form-check-input:focus {
+	--bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255, 255, 255, 0.25%29'/%3e%3c/svg%3e");
+}
+
+h5 {
+    margin-top: .3em !important;
+    margin-bottom: .3em !important;
+}
+
+.dash-select-cell input[type=checkbox] {
+    margin: 0 !important;
+}
+
+
+.dash-select-cell input[type=checkbox]:checked:before {
+    content: "✓";
+    background-color: var(--bs-secondary);
+    float: left;
+    width: 1em;
+    height: 1em;
+    line-height: 1em;
+    text-align: center;
+}
+
+ul.icon-list {
+  list-style-type: none; /* Remove bullet points */
+  padding: 0; /* Remove default padding */
+  margin: 0; /* Remove default margin */
+  display: flex; /* Arrange items in a row */
+}
+
+li {
+    margin: .75em;
+}
+
+.dash-filter--case--sensitive:not(.disabled) {
+	color: var(--bs-accent1);
+	opacity: 1!important;
+    margin-right: 5px !important;
+    margin-left:  5px !important;
+}
+
+
+.form-check-input:checked {
+  background-color: var(--bs-dark);
+  border-color: var(--bs-dark);
+}
+
+body .dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+	background-color: var(--bs-body-bg);
+	color: var(--bs-body-color);
+	border: none !important;
+    padding: 10px 10px 10px 10px;
+}
+
+
+.column-actions {
+    order: 9;
+    margin-left: 10px;
+    margin-right: 5px;
+}
+
+#gff-table th:first-of-type.dash-header  {
+  border-top-left-radius: 5px;
+}
+
+#visible-gff-table th:first-of-type.dash-header  {
+  border-top-left-radius: 5px;
+}
+
+
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused{
+    outline: none !important;
+}
+
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) td.cell--selected {
+    background-color: var(--bs-secondary-bg) !important;
+}
+
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(odd) td.cell--selected {
+    background-color: var(--bs-tertiary-bg) !important;
+}
+
+#visible-gff-table .dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) td.cell--selected {
+    background-color: rgba(var(--bs-primary-rgb), 0.2) !important;
+}
+
+#visible-gff-table .dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(odd) td.cell--selected {
+    background-color: rgba(var(--bs-primary-rgb), 0.3) !important;
+}
+
+tr:first-of-type th:first-of-type.dash-select-header  {
+  border-top-left-radius: 5px;
+}
+
+th:last-of-type.dash-header {
+    border-top-right-radius: 5px;
+}
+
+tr:last-of-type td:first-of-type {
+    border-bottom-left-radius: 5px;
+}
+
+tr:last-of-type td:last-of-type {
+    border-bottom-right-radius: 5px;
+}
+
+.first-page, .previous-page, .next-page, .last-page {
+    border-radius: 5px;
+}
+
+.gff-legend2 {
+    width: 1.25rem;
+    height: 1.25rem;
+    background: linear-gradient(to bottom right, rgba(var(--bs-primary-rgb), 0.3) 50%, rgba(var(--bs-primary-rgb), 0.2) 50%);
+}
+
+.gff-legend {
+    width: 1.25rem;
+    height: 1.25rem;
+    background: linear-gradient(to bottom right, var(--bs-secondary-bg) 50%, var(--bs-tertiary-bg) 50%);
+}
+
+input:invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    outline: none;
+	box-shadow: 0 0 0 0.15rem rgba(220, 50, 69, 1);
+
+}
+
+.form-control:focus {
+	color: var(--bs-body-color);
+	background-color: var(--bs-body-bg);
+	border-color: inherit;
+	outline: 0;
+	box-shadow: inherit;
+}
+
+#visible-gff-table td.column-9 {
+    text-align: left !important;
+}
+
+#visible-gff-table td.column-9 input {
+    text-align: left !important;
+}
+
+#gff-table td.column-9 {
+    text-align: left !important;
+}
+
+#gff-table td.column-9 input {
+    text-align: left !important;
+}
+
+.gff-table .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th.column-9 input:not([type="radio"]):not([type="checkbox"]) {
+	direction: ltr !important;
+    text-align: left;
+    margin-left: 5px;
+}
