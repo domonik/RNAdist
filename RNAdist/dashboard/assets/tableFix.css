@@ -150,6 +150,10 @@ tr:last-of-type td:last-of-type {
     background: linear-gradient(to bottom right, var(--bs-secondary-bg) 50%, var(--bs-tertiary-bg) 50%);
 }
 
+.dbc .dash-table-tooltip {
+    background-color: var(--bs-secondary-bg) !important;
+}
+
 input:invalid {
     border-color: #dc3545;
     padding-right: calc(1.5em + 0.75rem);

@@ -56,12 +56,14 @@ def _delete_old_entries(db_path):
         WHERE hash IN (
             SELECT hash FROM submissions
             WHERE created_at < datetime('now', '-7 days')
+            AND protected = 0
         );
         """)
         cursor.execute("""
             DELETE FROM submissions
             WHERE created_at < datetime('now', '-7 days');
-        """)
+            AND protected = 0
+                       """)
         conn.commit()
     conn.close()
 
@@ -78,16 +80,31 @@ def _cleanup_oldest_if_needed(db_path):
         if count >= 1000:
             print(f"[cleanup] Table has {count} entries. Deleting 10 oldest.")
 
-            # Delete 10 oldest entries
             cursor.execute("""
-                DELETE FROM submissions
-                WHERE hash IN (
-                    SELECT hash FROM submissions
-                    ORDER BY created_at ASC
-                    LIMIT 10
-                )
-            """)
-            conn.commit()
+                           SELECT hash FROM submissions
+                           WHERE protected = 0
+                           ORDER BY created_at ASC
+                               LIMIT 10
+                           """)
+            hashes_to_delete = [row[0] for row in cursor.fetchall()]
+
+            if hashes_to_delete:
+                placeholders = ",".join("?" for _ in hashes_to_delete)
+
+                # Step 2: Update jobs table
+                cursor.execute(f"""
+                        UPDATE jobs
+                        SET status = 'deleted'
+                        WHERE hash IN ({placeholders})
+                    """, hashes_to_delete)
+
+                # Step 3: Delete from submissions
+                cursor.execute(f"""
+                        DELETE FROM submissions
+                        WHERE hash IN ({placeholders})
+                    """, hashes_to_delete)
+
+                conn.commit()
         else:
             print(f"[cleanup] Table size ({count}) below threshold. No cleanup.")
 
