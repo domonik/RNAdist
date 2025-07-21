@@ -24,6 +24,25 @@ py::dict convertStructureCacheToPython(const StructureCache& cache) {
     return result;
 }
 
+StructureCache convertPythonToStructureCache(const py::dict& dict) {
+    StructureCache cache;
+    for (const auto& item : dict) {
+        // Extract the key as a py::bytes object
+        py::bytes py_key = py::reinterpret_borrow<py::bytes>(item.first);
+
+        // Convert py::bytes to std::string, then to std::vector<uint8_t>
+        std::string key_str = static_cast<std::string>(py_key);
+        std::vector<uint8_t> key_vec(key_str.begin(), key_str.end());
+
+        // Extract the value and cast to int
+        int value = py::cast<int>(item.second);
+
+        // Insert into the StructureCache
+        cache.emplace(std::move(key_vec), value);
+    }
+    return cache;
+}
+
 static std::string convertBitRepresentationToStructure(py::args args){
     py::bytes py_key = args[0];
     size_t structure_len = args[1].cast<size_t>();
@@ -34,6 +53,27 @@ static std::string convertBitRepresentationToStructure(py::args args){
 
 
 };
+
+static py::array histogramFromStructureCache(py::dict py_cache, int n) {
+    StructureCache cache = convertPythonToStructureCache(py_cache);
+
+    vector<uint16_t> counts = distancesFromStructureCache(cache, n);
+
+    py::array_t<uint16_t> count_array = py::array_t<uint16_t>({n, n, n});
+
+    auto r = count_array.mutable_unchecked<3>();
+    for (size_t k = 0; k < n; ++k)
+        for (size_t l = 0; l < n; ++l)
+            for (size_t m = 0; m < n; ++m) {
+                uint16_t d = counts[k * n * n + m * n + l];
+                r(k, l, m) = d;// call original version
+                r(l, k, m) = d;// call original version
+
+            }
+
+    return count_array;
+}
+
 
 
 static std::tuple<py::array, py::dict> trackSampledDistances(py::args args){
@@ -121,6 +161,7 @@ PYBIND11_MODULE(sampling, m) {
     m.def("cpp_sampling", edSampling, "Samples redundant from possible RNA structures");
     m.def("cpp_distance_tracking", trackSampledDistances, "Tracks histogram of sampled distances");
     m.def("cpp_bit_to_structure", convertBitRepresentationToStructure, "Converts bit representation to dot brakcet structure");
+    m.def("cpp_histogram_from_structure_cache", &histogramFromStructureCache,py::arg("cache"), py::arg("n"), "Return histogram array from structure cache");
     m.def("cpp_nr_sampling", edNRSampling, "Samples non-redundant from possible RNA structures");
     m.def("cpp_sampling_ij", edIJ, "Return expected distance between i and j");
     m.def("cpp_pthreshold_sampling", edPThresholdSampling, "Samples non-redundant from possible RNA structures until "
