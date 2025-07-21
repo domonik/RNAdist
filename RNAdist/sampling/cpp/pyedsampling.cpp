@@ -42,21 +42,26 @@ static std::tuple<py::array, py::dict> trackSampledDistances(py::args args){
     size_t n = fc->length;
     vector<uint16_t> counts;
     StructureCache cache;
-    py::array_t<int> count_array;
+    py::array_t<uint16_t> count_array;
 
     if (args.size() == 2) {
         std::tie(counts, cache) = trackDistances(fc, nr_samples);
-        count_array = py::array_t<int>({n, n, n});
+        count_array = py::array_t<uint16_t>({n, n, n});
         auto r = count_array.mutable_unchecked<3>();
         for (size_t k = 0; k < n; ++k)
             for (size_t l = 0; l < n; ++l)
-                for (size_t m = 0; m < n; ++m)
-                    r(k, l, m) = counts[k * n * n + l * n + m];// call original version
+                for (size_t m = 0; m < n; ++m) {
+                    uint16_t d = counts[k * n * n + m * n + l];
+                    r(k, l, m) = d;// call original version
+                    r(l, k, m) = d;// call original version
+
+                }
+
     } else {
         int i = args[2].cast<int>();
         int j = args[3].cast<int>();
         std::tie(counts, cache) = trackDistances(fc, nr_samples, i, j);
-        count_array = py::array_t<int>({static_cast<py::ssize_t>(n)});
+        count_array = py::array_t<uint16_t>({static_cast<py::ssize_t>(n)});
         auto r = count_array.mutable_unchecked<1>();
         for (size_t k = 0; k < n; ++k){
             r(k) = counts[k];

@@ -232,18 +232,22 @@ StructureCache sampleStructuresAndDistances(vrna_fold_compound_t *fc, int nr_sam
 
 vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n) {
     vector<uint16_t> counts(n * n * n, 0);
+    vector <uint16_t> distances(n * n);
     for (const auto &[key, value]: cache) {
         // key is std::vector<uint8_t>
         // value is int
         std::string structure = decodeStructure(key, n);
         short *pt = vrna_ptable(structure.c_str());
         Graph g(pt);
-        vector <vector<int>> distances = g.getShortestPaths();
-        for (int i = 0; i < n; ++i)
-            for (int j = 0; j < n; ++j) {
-                int d = distances[i][j];
-                counts[i * n * n + j * n + d] += value;
+        g.fillShortestPaths(distances);
+        for (int i = 0; i < n; ++i) {
+            int iidx = i * n * n;
+            for (int j = i; j < n; ++j) {
+                uint16_t d = distances[i * n + j];
+                counts[iidx + d * n + j] += value;
             }
+        }
+
         free(pt);
     }
     return counts;
@@ -281,10 +285,14 @@ tuple<vector <uint16_t>, StructureCache>  trackDistances(vrna_fold_compound_t *f
     int n = fc->length;
     ensurePartitionFunctionReady(fc);
 
-
+    cout << "Done with pf calc";
     StructureCache cache = sampleStructuresAndDistances(fc, nr_samples);
+    cout << "Done with sampling";
+
 
     vector <uint16_t> counts = distancesFromStructureCache(cache, n);
+    cout << "Done with distance Calc";
+
 
 
     return {counts, cache};

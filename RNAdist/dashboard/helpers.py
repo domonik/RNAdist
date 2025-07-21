@@ -165,6 +165,67 @@ def insert_submission(sequence, histograms, samples, fc, md, db_path):
         conn.close()
 
 
+def sqlite_type(val):
+    if isinstance(val, int):
+        return "INTEGER"
+    elif isinstance(val, float):
+        return "FLOAT"
+    elif isinstance(val, str):
+        return "TEXT"
+    else:
+        return "BLOB"  # fallback for arrays, None, etc.
+
+
+
+
+def create_database(db_path: str):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    fields = get_md_fields()
+    md_columns = [
+        f"{key} {sqlite_type(fields[key])} NOT NULL"
+        for key in fields.keys()
+    ]
+    table_sql = f"""
+CREATE TABLE IF NOT EXISTS submissions (
+    hash BLOB PRIMARY KEY,
+    sequence TEXT NOT NULL,
+    length INTEGER NOT NULL,
+    matrix BLOB,
+    {',\n    '.join(md_columns)},
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+    jobs = f"""
+CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hash BLOB NOT NULL,
+    user_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    header TEXT NOT NULL,
+    UNIQUE (hash, user_id),
+    UNIQUE (user_id, header),
+    FOREIGN KEY (hash) REFERENCES submissions(hash)
+    );
+"""
+    cursor.execute(jobs)
+    cursor.execute(table_sql)
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS structures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hash BLOB NOT NULL,
+    structure BLOB NOT NULL,
+    count INTEGER NOT NULL,
+    FOREIGN KEY (hash) REFERENCES submissions(hash)
+);
+""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hash ON submissions(hash);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_structure_id ON structures(hash);")
+    conn.commit()
+    conn.close()
+
+
+
 
 if __name__ == '__main__':
     md = RNA.md()

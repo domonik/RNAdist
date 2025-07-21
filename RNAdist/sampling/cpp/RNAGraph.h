@@ -16,9 +16,7 @@ class Graph {
     // Pointer to an array containing adjacency
     // lists
     vector <list<int>> adj;
-    vector <vector<int>> shortestPaths;
 
-    void fillShortestPaths();
 
     bool filled;
 
@@ -34,7 +32,8 @@ public:
     void addEdge(int v, int w);
 
     // function to fill the shortest paths
-    vector <vector<int>> getShortestPaths();
+    vector <vector<uint16_t>> getShortestPaths();
+    void fillShortestPaths(vector <uint16_t>& shortestPaths);
 
     void addDistances(vector <vector<double>> &e_distances, double weight);
     void distanceHistogram(vector<uint16_t> &distances);
