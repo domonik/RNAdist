@@ -90,6 +90,7 @@ def plot_distances_with_running_j(distances, i, color:str ="#00a082"):
             go.Scatter(x=np.concat((x, x[::-1]), axis=-1), y=quantiles, line=dict(color="rgba(0,0,0,0)"), fillcolor=fillcolor, fill="toself", name="IQR")
         ]
     )
+    fig.update_layout(hovermode="x")
     return fig
 
 

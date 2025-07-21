@@ -35,5 +35,6 @@ def _cli_wrapper(args):
 
 
 if __name__ == '__main__':
-    database_file = "mydata.db"
+    database_file = "../../foo_db.db"
+    assert os.path.exists(database_file)
     cli_wrapper(db=database_file, debug=True, processes=3)

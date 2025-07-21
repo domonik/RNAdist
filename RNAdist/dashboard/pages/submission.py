@@ -9,7 +9,7 @@ import sqlite3
 import numpy as np
 import io
 from RNAdist.dashboard.helpers import hash_model_details, insert_submission, set_status, check_hash_exists, \
-    get_jobs_of_user, check_user_header_combination, check_user_hash_combination
+    get_jobs_of_user, check_user_header_combination, check_user_hash_combination, database_cleanup
 import zlib
 import uuid
 
@@ -244,6 +244,7 @@ def submit_sequence(n_clicks, sequence, header, user_id, is_open):
 def process_sequence(submitted_job, user_id):
     if submitted_job is None:
         return dash.no_update
+    database_cleanup(db_path=DATABASE_FILE)
     header, md_dict, sequence = submitted_job
     md = RNA.md(**md_dict)
     fc = RNA.fold_compound(sequence, md)

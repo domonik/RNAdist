@@ -6,7 +6,10 @@ import io
 import sqlite3
 import numpy as np
 import zlib
+from multiprocessing import Lock
 
+
+db_lock = Lock()
 def get_md_fields():
     fields, _ = hash_model_details(RNA.md(), "A")
     return fields
@@ -43,6 +46,59 @@ def check_user_hash_combination(db_path, user_id, md_hash):
     return row
 
 
+def _delete_old_entries(db_path):
+    conn = sqlite3.connect(db_path)  # replace with your DB path
+    cursor = conn.cursor()
+    with db_lock:
+        cursor.execute("""
+        UPDATE jobs
+        SET status = 'deleted'
+        WHERE hash IN (
+            SELECT hash FROM submissions
+            WHERE created_at < datetime('now', '-7 days')
+        );
+        """)
+        cursor.execute("""
+            DELETE FROM submissions
+            WHERE created_at < datetime('now', '-7 days');
+        """)
+        conn.commit()
+    conn.close()
+
+
+def _cleanup_oldest_if_needed(db_path):
+    with db_lock:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Count entries
+        cursor.execute("SELECT COUNT(*) FROM submissions")
+        count = cursor.fetchone()[0]
+
+        if count >= 1000:
+            print(f"[cleanup] Table has {count} entries. Deleting 10 oldest.")
+
+            # Delete 10 oldest entries
+            cursor.execute("""
+                DELETE FROM submissions
+                WHERE hash IN (
+                    SELECT hash FROM submissions
+                    ORDER BY created_at ASC
+                    LIMIT 10
+                )
+            """)
+            conn.commit()
+        else:
+            print(f"[cleanup] Table size ({count}) below threshold. No cleanup.")
+
+        conn.close()
+
+def database_cleanup(db_path):
+    _delete_old_entries(db_path)
+    _cleanup_oldest_if_needed(db_path)
+
+
+
 def check_hash_exists(db_path, hash_value):
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -76,17 +132,19 @@ def matrix_from_hash(db_path, md_hash):
     buf = io.BytesIO(row[0])
     decompressed = zlib.decompress(buf.getvalue())
     matrix = np.load(io.BytesIO(decompressed))
+    conn.close()
     return matrix
 
 def set_status(db_path, hash_value, status, user_id, header):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR REPLACE INTO jobs (hash, status, user_id, header)
-        VALUES (?, ?, ?, ?)
-    """, (hash_value, status, user_id, header))
-    conn.commit()
-    conn.close()
+    with db_lock:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO jobs (hash, status, user_id, header)
+            VALUES (?, ?, ?, ?)
+        """, (hash_value, status, user_id, header))
+        conn.commit()
+        conn.close()
 
 
 def get_structures_and_length_for_hash(db_path, md_hash):

@@ -82,7 +82,7 @@ def get_navbar():
                 ),
                 dbc.Collapse(
                     [
-                        dbc.Col(id="displayed_user_id"),
+                        dbc.Col(dbc.Input(id="displayed_user_id"), width=5, className="px-2"),
                         color_mode_switch
                     ] + [
                         dbc.NavItem(
@@ -163,28 +163,21 @@ def get_layout():
     )
     return layout
 
-app.clientside_callback(
-    """
-    function(user_id) {
-        if (user_id) {
-            return user_id;
-        }
-        return "";
-    }
-    """,
-    Output("displayed_user_id", "children"),
-    Input("user_id", "data"),
-)
 
 @app.callback(
     Output("user_id", "data"),
+    Output("displayed_user_id", "value"),
     Input("user_id", "data"),
+    Input("displayed_user_id", "value")
 )
-def assign_user_id(user_id):
+def assign_user_id(user_id, displayed_id):
+    print(user_id, displayed_id)
+    if displayed_id:
+        return displayed_id, displayed_id
     if user_id is not None:
-        return dash.no_update
+        return user_id, user_id
     uid = str(uuid.uuid4())
-    return uid
+    return uid, uid
 
 
 @app.callback(
