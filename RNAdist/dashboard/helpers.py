@@ -118,7 +118,12 @@ def get_jobs_of_user(db_path, user_id):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM jobs WHERE user_id = ?", (user_id,))
+    cursor.execute("""
+                   SELECT *
+                   FROM jobs
+                            JOIN submissions ON jobs.hash = submissions.hash
+                   WHERE jobs.user_id = ?
+                   """, (user_id,))
     jobs = cursor.fetchall()
     conn.close()
     return jobs
@@ -250,6 +255,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     sequence TEXT NOT NULL,
     length INTEGER NOT NULL,
     matrix BLOB,
+    protected BOOLEAN DEFAULT FALSE NOT NULL, 
     {',\n    '.join(md_columns)},
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

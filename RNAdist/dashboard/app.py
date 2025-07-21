@@ -148,6 +148,7 @@ def get_layout():
         [
             get_navbar(),
             dcc.Store(id="user_id", storage_type="session"),
+            dcc.Store(id="page-wide-seqid", storage_type="session"),
             dcc.Store(id="sequence-computation-finished"),
             dcc.Store(id="light-layout", data=LAYOUT),
             dcc.Store(id="dark-layout", data=DARK_LAYOUT),

@@ -293,19 +293,26 @@ def get_layout():
             dbc.Container(
                 [
                     dbc.Row(
-                        get_selected_sequence()
+                        get_selected_sequence(),
+                        className="py-2"
                     ),
                     dbc.Row(
                         [
                             get_distance_distrubution_box(),
                             get_expected_distance_box()
-                        ]
+                        ],
+                        className="py-2"
+
                     ),
                     dbc.Row(
-                        get_structures_table()
+                        get_structures_table(),
+                        className="py-2"
+
                     ),
                     dbc.Row(
-                        get_forna_container()
+                        get_forna_container(),
+                        className="py-2"
+
                     )
                 ],
 
@@ -326,15 +333,17 @@ def get_layout():
 
 layout = get_layout()
 
+
+
 @callback(
     Output("seqid", "options"),
+    Output("seqid", "value"),
     Input("url", "pathname"),
     Input("sequence-computation-finished", "data"),
-    Input("user_id", "data")
-
-
+    Input("user_id", "data"),
+    State("page-wide-seqid", "data")
 )
-def update_sequence_selection(_, comp_finish, user_id):
+def update_sequence_selection(_, comp_finish, user_id, seqid):
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
 
@@ -342,7 +351,8 @@ def update_sequence_selection(_, comp_finish, user_id):
     hashes = [row[0] for row in cursor.fetchall()]
 
     conn.close()
-    return hashes
+    seq_value = seqid if seqid is not None else dash.no_update
+    return hashes, seq_value
 
 
 @callback(

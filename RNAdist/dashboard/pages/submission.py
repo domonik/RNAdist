@@ -18,6 +18,7 @@ dash.register_page(__name__, path='/submission', name="Submission")
 
 
 def get_submissions_table():
+    columns = ["Header", "Job ID", "Status", "ModelDetails", "Sequence"]
     table = dbc.Col(dbc.Card(
         [
             dbc.CardHeader(
@@ -36,7 +37,7 @@ def get_submissions_table():
                         dash_table.DataTable(
                             id='submissions-table',
                             columns=[
-                                {"name": i, "id": i, "deletable": False, "selectable": False} for i in ["Header", "Job ID", "Status"]
+                                {"name": i, "id": i, "deletable": False, "selectable": False} for i in columns
                             ],
                             data=None,
                             editable=True,
@@ -60,6 +61,12 @@ def get_submissions_table():
                                     'if': {'row_index': 'even'},
                                     'backgroundColor': 'var(--bs-tertiary-bg)',
                                 },
+                                {
+                                    'if': {'column_id': 'Header'},
+                                    'color': 'var(--bs-secondary)',   # use Bootstrap link color variable
+                                    'textDecoration': 'underline',
+                                    'cursor': 'pointer',
+                                }
 
                             ],
                             style_header={
@@ -73,9 +80,22 @@ def get_submissions_table():
                                 "border": "none !important"
 
                             },
-                            style_data={'border': 'none !important'}
+
+                            # style_cell_conditional=[
+                            #     {'if': {'column_id': 'ModelDetails'}, 'maxWidth': '20%', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap'},
+                            #     {'if': {'column_id': 'Sequence'}, 'maxWidth': '20%', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap'},
+                            # ],
+                            style_data={'border': 'none !important'},
+                            style_table={'width': '100%', "tableLayout": "fixed", "overflowX": "auto"},
+                            style_cell={
+                                'minWidth': '100px', 'maxWidth': '300px',
+                                'overflow': 'hidden',
+                                'textOverflow': 'ellipsis',
+                                'whiteSpace': 'nowrap',
+                            },
                         ),
-                        width=12, style={"overflow": "auto", 'backgroundColor': 'var(--bs-primary-bg)'},
+
+                        width=12, style={'backgroundColor': 'var(--bs-primary-bg)', "width": "100%", "overflow-y": "visible !important"},
                     )
 
                 ],
@@ -110,19 +130,61 @@ def get_sequence_submission_box():
                 dbc.Row(
                     [
                         dbc.Col(
-                            dbc.Input(id="submitted-sequence", value="AATGATGAGACCGGCACTAACTGAGTTGTGATGAGCACTCGGTTGGCTGA"),
-                            width=6
+                            dbc.FormFloating(
+                                [
+                                    dbc.Input(id="submitted-header", value="ENA|AF254836|AF254836.1"),
+                                    dbc.Label("Header"),
+
+                                ]
+
+                            ),
+                            width=12, className="p-1"
                         ),
                         dbc.Col(
-                            dbc.Input(id="submitted-header", value="ENA|AF254836|AF254836.1"),
-                            width=6
+                            dbc.FormFloating(
+                                [
+                                    dbc.Textarea(
+                                        id="submitted-sequence",
+                                        value="AATGATGAGACCGGCACTAACTGAGTTGTGATGAGCACTCGGTTGGCTGA".replace("T", "U"),
+                                        placeholder="",
+                                        style={"minHeight": "7rem"}
+                                    ),
+                                    dbc.Label("Sequence"),
+
+                                ]
+
+                            ),
+                            width=12, className="p-1"
+                        ),
+
+                        dbc.Col(
+                            [
+                                dbc.FormFloating(
+                                    [
+                                        dbc.Input(id="md-temperature-input", placeholder="", value=37.0, type="number", max=60, min=1, step=0.1),
+                                        dbc.Label("Temperature"),
+                                    ]
+                                )
+                            ], width=6, md=3, xl=2, className="p-1"
                         ),
                         dbc.Col(
-                            dbc.Button("Submit Sequence", id="submit-sequence", className="m-1"),
-                            width=3, className="d-flex justify-content-end"
+                            [
+                                dbc.FormFloating(
+                                    [
+                                        dbc.Input(id="md-bpspan-input", value=None, type="number", min=-1, step=1),
+                                        dbc.Label("Max bp span"),
+                                    ]
+                                )
+                            ], width=6, md=3, xl=2, className="p-1"
+                        ),
+
+                        dbc.Col(
+                            dbc.Button("Submit Sequence", id="submit-sequence",),
+                            width=12, className="d-flex justify-content-end p-1"
                         )
 
-                    ]
+                    ],
+                    className="px-5 py-4 justify-content-end"
                 )
 
 
@@ -158,9 +220,12 @@ def get_layout():
                 [
                     submission_failed_modal(),
                     dbc.Row(
-                        get_sequence_submission_box()
+                        get_sequence_submission_box(),
+                        className="py-2",
                     ),
-                    dbc.Row(get_submissions_table()),
+                    dbc.Row(
+                        get_submissions_table(), className="py-2",
+                    ),
                     dbc.Row(
                         [
                             dcc.Interval(id="interval-component", interval=10000, n_intervals=0),
@@ -189,6 +254,27 @@ layout = get_layout()
 
 
 
+def has_invalid_letters(seq):
+    return bool(set(seq.upper()) - {'A', 'U', 'G', 'C', 'T'})
+
+
+def check_valid_input(sequence, temperature, bpspan, user_id, header):
+    text = None
+    if has_invalid_letters(sequence):
+
+        text = html.Div(
+            [
+                html.P(f"Your sequence contains non valid letters."),
+                html.P("Allowed letters: A, U, G, C, T")
+            ]
+        )
+    if len(sequence) > MAX_SEQ_LENGTH:
+        text = f"Your sequence is too long. Maximum allowed: {MAX_SEQ_LENGTH}\n." \
+               f" You can change this when running your own RNAdist instance"
+
+    if check_user_header_combination(DATABASE_FILE, user_id, header):
+        text = "An Entry with the header and user ID already exists. Please rename the sequence"
+    return text
 
 @callback(
     Output("submitted-job", "data"),
@@ -198,24 +284,27 @@ layout = get_layout()
     State("submitted-sequence", "value"),
     State("submitted-header", "value"),
     State("user_id", "data"),
+    State("md-temperature-input", "value"),
+    State("md-bpspan-input", "value"),
     State("submission-fail-modal", "is_open"),
     prevent_initial_call=True
 
 )
-def submit_sequence(n_clicks, sequence, header, user_id, is_open):
+def submit_sequence(n_clicks, sequence, header, user_id, temperature, max_bp_span, is_open):
     if n_clicks is None:
         raise dash.exceptions.PreventUpdate
-    if len(sequence) > MAX_SEQ_LENGTH:
-        text = f"Your sequence is too long. Maximum allowed: {MAX_SEQ_LENGTH}\n." \
-               f" You can change this when running your own RNAdist instance"
-        return dash.no_update, True, text
 
-    if check_user_header_combination(DATABASE_FILE, user_id, header):
-        text = "An Entry with the header and user ID already exists. Please rename the sequence"
-        return dash.no_update, True, text
+    text = check_valid_input(sequence, temperature, max_bp_span, user_id, header)
+    if text:
+        return dash.no_update, 1, text
 
+    md_dict = {
+        "temperature": temperature,
+        "max_bp_span": max_bp_span,
+    }
+    md_dict = {key: value for key, value in md_dict.items() if value is not None}
 
-    md = RNA.md()
+    md = RNA.md(**md_dict)
     fields, md_hash = hash_model_details(md, sequence)
     if row := check_user_hash_combination(DATABASE_FILE, user_id, md_hash):
         name = row[0]
@@ -264,6 +353,8 @@ def process_sequence(submitted_job, user_id):
 
 @callback(
     Output("submissions-table", "data"),
+    Output("submissions-table", "tooltip_data"),
+    Output("interval-component", "disabled"),
     Input("interval-component", "n_intervals"),
     Input("user_id", "data"),
     Input("submitted-job", "data"),
@@ -273,8 +364,42 @@ def display_status(n, user_id, _, _2):
 
     status = get_jobs_of_user(DATABASE_FILE, user_id)
     table = []
+    tooltips = []
+    all_finished = True
     for row in status:
         job_id = str(row["hash"].hex())
         state = row["status"]
-        table.append({"Status": state, "Job ID": job_id, "Header": row["header"]})
-    return table
+        if state != "finished":
+            all_finished = False
+        model_details = str({key: row[key] for key in ["temperature", "max_bp_span"]})
+        seq = row["sequence"]
+        tooltips.append({
+            "Status": {"value": "", "type": "text"},
+            "Job ID": {"value": "", "type": "text"},
+            "Header": {"value": "", "type": "text"},
+            "ModelDetails": {"value": "", "type": "text"},
+            "Sequence": {"value": seq, "type": "text"}  # tooltip shows full sequence on hover
+        })
+        table.append({"Status": state, "Job ID": job_id, "Header": row["header"], "ModelDetails": model_details, "Sequence": seq})
+
+    interval_disabled = all_finished
+
+    return table, tooltips, interval_disabled
+
+
+@callback(
+    Output("page-wide-seqid", "data"),
+    Output('url', 'pathname'),
+    Input('submissions-table', 'active_cell'),
+    State('submissions-table', 'data'),
+)
+def on_row_select(active_cell, data):
+    if not active_cell or active_cell["column_id"] != "Header":
+        raise dash.exceptions.PreventUpdate
+    row_idx = active_cell['row']
+    clicked_row = data[row_idx]
+    header_value = clicked_row.get('Header', None)
+    if header_value is None:
+        raise dash.exceptions.PreventUpdate
+
+    return header_value, "visualization"
