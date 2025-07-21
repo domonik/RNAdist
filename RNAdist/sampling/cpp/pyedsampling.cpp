@@ -63,7 +63,7 @@ static py::array histogramFromStructureCache(py::dict py_cache, int n) {
 
     auto r = count_array.mutable_unchecked<3>();
     for (size_t k = 0; k < n; ++k)
-        for (size_t l = 0; l < n; ++l)
+        for (size_t l = k; l < n; ++l)
             for (size_t m = 0; m < n; ++m) {
                 uint16_t d = counts[k * n * n + m * n + l];
                 r(k, l, m) = d;// call original version
@@ -89,7 +89,7 @@ static std::tuple<py::array, py::dict> trackSampledDistances(py::args args){
         count_array = py::array_t<uint16_t>({n, n, n});
         auto r = count_array.mutable_unchecked<3>();
         for (size_t k = 0; k < n; ++k)
-            for (size_t l = 0; l < n; ++l)
+            for (size_t l = k; l < n; ++l)
                 for (size_t m = 0; m < n; ++m) {
                     uint16_t d = counts[k * n * n + m * n + l];
                     r(k, l, m) = d;// call original version
