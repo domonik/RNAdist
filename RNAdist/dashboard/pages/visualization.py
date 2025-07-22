@@ -390,6 +390,8 @@ WHERE jobs.user_id = ? AND jobs.header = ?;
     Input("displayed-seq-hash", "data"),
 )
 def update_structures_table(md_hash):
+    if md_hash is None:
+        raise dash.exceptions.PreventUpdate
     rows, length = get_structures_and_length_for_hash(DATABASE_FILE, bytes.fromhex(md_hash))
     data = [{"id": row["id"],"Count": row["Count"], "Structure": bytes_to_structure(row["structure"], length)} for row in rows]
     return data
