@@ -6,7 +6,7 @@ from RNAdist.dp.pmcomp import pmcomp_distance
 import pandas as pd
 from RNAdist.dp.cpedistance import cp_expected_distance, binding_site_distance
 from RNAdist.sampling.ed_sampling import sample, sample_non_redundant, distance_histogram
-from RNAdist.dashboard.helpers import insert_submission, hash_model_details, set_status
+from RNAdist.dashboard.helpers import insert_submission, hash_model_details, set_status, create_database
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
@@ -124,6 +124,7 @@ def _sample_histograms_mp_wrapper(seq, md_config, nr_samples, db_path, user_id, 
 def sample_histograms_from_fasta(fasta, md_config: Dict[str, Any],  db_path: str, user_id: str,  nr_samples: int = 1000, num_threads: int = 1):
     calls = []
     desc = set()
+    create_database(db_path)
 
     for sr in SeqIO.parse(fasta, "fasta"):
         if sr.description in desc:
@@ -276,6 +277,17 @@ def _bs_bed_executable_wrapper(args):
     )
     df.to_csv(args.output, sep="\t", index=False)
 
+def _histogram_executable_wrapper(args):
+    md_config = md_config_from_args(args)
+
+    sample_histograms_from_fasta(
+        args.input,
+        md_config=md_config,
+        num_threads=args.num_threads,
+        nr_samples=args.nr_samples,
+        db_path=args.database,
+        user_id=args.user_id,
+    )
 
 def md_config_from_args(args):
     md_config = {

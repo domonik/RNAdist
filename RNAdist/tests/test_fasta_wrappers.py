@@ -43,7 +43,6 @@ def test_fasta_wrappers(random_fasta, md_config, threads, function):
 )
 def test_fasta_histogram_sampling(random_fasta, md_config, threads):
     database = NamedTemporaryFile(prefix="RNAdistTests_")
-    create_database(database.name)
     sample_histograms_from_fasta(random_fasta, md_config, database.name, user_id="RNAdistTest", num_threads=threads)
     database.close()
 
@@ -51,8 +50,8 @@ def test_fasta_histogram_sampling(random_fasta, md_config, threads):
 @pytest.mark.parametrize(
     "md_config,threads",
     [
-        ({"temperature": 35}, 1),
-        ({"temperature": 37}, 2),
+        ({"temperature": 35}, 8),
+        ({"temperature": 37}, 8),
     ]
 )
 @pytest.mark.parametrize(

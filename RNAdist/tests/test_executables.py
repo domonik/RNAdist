@@ -23,7 +23,7 @@ env["PYTHONPATH"] = ":".join(([os.path.abspath(os.path.dirname(os.path.dirname(R
 
 
 
-
+@pytest.mark.parametrize("threads", [1, 2])
 @pytest.mark.parametrize(
     "command,redundant",
     [
@@ -33,7 +33,7 @@ env["PYTHONPATH"] = ":".join(([os.path.abspath(os.path.dirname(os.path.dirname(R
         ("sample", True),
     ]
 )
-def test_rnadist_cmd(tmp_path, random_fasta, command, redundant):
+def test_rnadist_cmd(tmp_path, random_fasta, command, redundant, threads):
     op = os.path.join(tmp_path, "test_data.pckl")
     process = [
         "python", EXECUTABLES_FILE, command,
@@ -44,7 +44,7 @@ def test_rnadist_cmd(tmp_path, random_fasta, command, redundant):
     if command == "sample" and redundant:
         process += ["--non_redundant", "--nr_samples", "5"]
     data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
-    assert data.stderr.decode() == ""
+    assert data.returncode == 0, f"Command failed with return code {data.returncode}, stderr: {data.stderr.decode()}"
     assert os.path.exists(op)
     with open(op, "rb") as handle:
         data = pickle.load(handle)
@@ -63,14 +63,26 @@ def test_binding_site_executable(tmp_path, bed_test_fasta, bed_test_bed, names):
         "--output", op,
         "--num_threads", str(os.cpu_count()),
     ]
-    if names is not None:
-        process += ["--names", "bed1", "bed2"]
     data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
     assert data.stderr.decode() == ""
     assert os.path.exists(op)
     df = pd.read_csv(op, sep="\t")
     assert df.shape[0] >= 1
     assert df.shape[1] == 8
+
+
+def test_histogram_executable(tmp_path, random_fasta):
+    op = os.path.join(tmp_path, "test_data.pckl")
+    process = [
+        "python", EXECUTABLES_FILE, "histograms",
+        "--input", random_fasta,
+        "--database", op,
+        "--num_threads", str(os.cpu_count()),
+    ]
+    data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
+    assert data.stderr.decode() == ""
+    assert os.path.exists(op)
+
 
 
 def test_rnadist_extract(tmp_path, example_output, example_output_path):
