@@ -131,9 +131,12 @@ setup(
         "plotly",
         "dash>=2.5",
         "dash_bootstrap_components",
+        "networkx",
+        "numpy",
+        "pybind11",
+        "versioneer"
     ],
     setup_requires=["pytest-runner"],
-    tests_require=["pytest"],
     ext_modules=cythonize("RNAdist/dp/_dp_calculations.pyx") + [
         sampling_extension,
         clote_ponty_extension,
