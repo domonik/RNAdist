@@ -196,7 +196,7 @@ def get_structures_by_ids(db_path, structure_indices):
     return rows
 
 
-def insert_submission(sequence, histograms, samples, fc, md, db_path):
+def insert_submission(sequence, histograms, structure_cache, fc, md, db_path):
     fields, md_hash = hash_model_details(md, sequence)
     non_zero_mask = histograms != 0
     non_zero_any_z = np.any(non_zero_mask, axis=(0, 1))
@@ -234,7 +234,7 @@ def insert_submission(sequence, histograms, samples, fc, md, db_path):
             INSERT INTO submissions ({columns}) VALUES ({placeholders})
         """, values)
 
-        values = [(md_hash, struct, count) for struct, count in samples.items()]
+        values = [(md_hash, struct, count) for struct, count in structure_cache.items()]
 
         cursor.executemany(
             "INSERT INTO structures (hash, structure, count) VALUES (?, ?, ?)",

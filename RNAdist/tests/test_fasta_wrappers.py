@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 import os
 import pytest
-from RNAdist.fasta_wrappers import (clote_ponty_from_fasta, pmcomp_from_fasta, sampled_distance_from_fasta,
-                                    bed_distance_wrapper, export_array, export_all)
+from RNAdist.fasta_wrappers import (clote_ponty_from_fasta, pmcomp_from_fasta, sampled_expected_distance_from_fasta,
+                                    bed_distance_wrapper, export_array, export_all, sample_histograms_from_fasta)
 from Bio import SeqIO
-
+from tempfile import NamedTemporaryFile
+from RNAdist.dashboard.helpers import create_database
 
 pytest_plugins = [
     "RNAdist.dp.tests.fixtures",
@@ -32,6 +33,20 @@ def test_fasta_wrappers(random_fasta, md_config, threads, function):
     for sr in SeqIO.parse(random_fasta, "fasta"):
         assert sr.description in data
 
+@pytest.mark.parametrize(
+    "md_config,threads",
+    [
+        ({"temperature": 35}, 1),
+        ({"temperature": 37}, 2),
+        ({"max_bp_span": 10}, 2)
+    ]
+)
+def test_fasta_histogram_sampling(random_fasta, md_config, threads):
+    database = NamedTemporaryFile(prefix="RNAdistTests_")
+    create_database(database.name)
+    sample_histograms_from_fasta(random_fasta, md_config, database.name, user_id="RNAdistTest", num_threads=threads)
+    database.close()
+
 
 @pytest.mark.parametrize(
     "md_config,threads",
@@ -45,7 +60,7 @@ def test_fasta_wrappers(random_fasta, md_config, threads, function):
     [False, True]
 )
 def test_fasta_sampling(random_fasta, md_config, threads, redundant):
-    data = sampled_distance_from_fasta(
+    data = sampled_expected_distance_from_fasta(
         fasta=random_fasta,
         md_config=md_config,
         num_threads=threads,

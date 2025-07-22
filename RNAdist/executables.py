@@ -95,48 +95,6 @@ def cp_parser(subparsers, name: str):
     parser = add_md_parser(parser)
     return parser
 
-def _bs_parser(subparsers, name: str):
-    parser = subparsers.add_parser(
-        name,
-        description=f"Calculates the expected distance of binding sites specified via the beds option"
-    )
-    group1 = parser.add_argument_group("General Arguments")
-    group1.add_argument(
-        '--input',
-        type=str,
-        help="FASTA input file",
-        required=True
-    )
-    group1.add_argument(
-        '--bed_files',
-        type=str,
-        nargs="+",
-        help="whitespace seperated list of bed files containing binding sites (at least one)",
-        required=True
-    )
-    group1.add_argument(
-        '--names',
-        nargs="+",
-        help="whitespace seperated list of names that will be shown in the output. Uses the bed filenames"
-             " if not provided",
-        default=None
-    )
-    group1.add_argument(
-        '--output',
-        required=True,
-        type=str,
-        help="TSV Output file that stores expected distances of binding sites"
-    )
-    group1.add_argument(
-        '--num_threads',
-        type=int,
-        help="Number of parallel threads to use (Default: 1)",
-        default=1
-    )
-    parser = add_md_parser(parser)
-    return parser
-
-
 
 
 def visualization_parser(subparsers, name):
