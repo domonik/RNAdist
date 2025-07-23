@@ -2,7 +2,7 @@ import RNA
 import dash
 from dash import callback, html, clientside_callback, Input, Output, dcc, dash_table, State, Patch, clientside_callback
 import dash_bootstrap_components as dbc
-from RNAdist.dashboard import DATABASE_FILE, CACHE, LAYOUT, DARK_LAYOUT, COLORS
+from RNAdist.dashboard import CONFIG, CACHE, LAYOUT, DARK_LAYOUT, COLORS
 from RNAdist.sampling.ed_sampling import distance_histogram
 from RNAdist.sampling.ed_sampling import bytes_to_structure
 from RNAdist.plots.sampling_plots import distance_histo_from_matrix, expected_median_distance_maxtrix, empty_figure, plot_distances_with_running_j
@@ -15,6 +15,8 @@ import uuid
 import dash_bio as dashbio
 from dash import ClientsideFunction
 import zlib
+
+DATABASE_FILE = CONFIG['DATABASE']
 
 
 dash.register_page(__name__, path='/visualization', name="Visualization")

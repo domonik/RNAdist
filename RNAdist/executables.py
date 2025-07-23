@@ -2,6 +2,7 @@ import argparse
 from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, \
     _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd, _histogram_executable_wrapper
 
+from RNAdist.dashboard.cli import _cli_wrapper
 
 def add_md_parser(parser):
     group2 = parser.add_argument_group("ViennaRNA Model Details")
@@ -178,25 +179,17 @@ def histogram_parser(subparsers, name: str):
 
     return parser
 
-def visualization_parser(subparsers, name):
+def dash_parser(subparsers, name):
     parser = subparsers.add_parser(
         name,
         description="Runs the Dash visualization tool"
     )
     parser.add_argument(
-        '--input',
+        '--database',
+        required=True,
         type=str,
-        nargs="+",
-        help="Path to the prediction files generated using one of the prediction mechansims. It is possible to "
-             "include multiple files using whitespace separated paths",
-        required=True
-    )
-    parser.add_argument(
-        '--fasta',
-        type=str,
-        help="Fasta file containing sequences from the prediction. Leavong the default None will lead to missing"
-             " nucleotide information (Default: None)",
-        default=None
+        help="Sqlite3 database to store results. If it already exists, its possible to access data from the existing "
+             "database"
     )
     parser.add_argument(
         '--port',
@@ -209,6 +202,12 @@ def visualization_parser(subparsers, name):
         type=str,
         help="Host IP used by the dash server to serve the application (Default: 0.0.0.0)",
         default="0.0.0.0"
+    )
+    parser.add_argument(
+        '--processes',
+        type=int,
+        help="Number of processes to use (Default: 1)",
+        default=1
     )
     return parser
 
@@ -241,7 +240,7 @@ class RNAdistParser:
 
         )
         self.methods = {
-            #"dashboard": (visualization_parser, run_visualization),
+            "Dash": (dash_parser, _cli_wrapper),
             "clote-ponty": (cp_parser, _cp_executable_wrapper),
             "pmcomp": (cp_parser, _pmcomp_executable_wrapper),
             "sample": (sampling_parser, _sampled_distance_executable_wrapper),

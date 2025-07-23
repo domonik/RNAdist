@@ -1,0 +1,17 @@
+
+DATABASE: "mydatabase.db"
+
+REDIS:
+  # Set this to an integer other than zero when using redis as db for queuing long callbacks. You need to run celery in order to process these tasks.
+  # If this is set to false long_callbacks will use a cache inside the backend specified underneath
+  long_callbacks: False
+  database: False # Set this to another integer than the callbacks if you want to store user data in a redis db. (Not recommended)
+  host: "" # Host of the redis db
+  port: "" # port of the redis db
+
+
+backend:
+  name: "filesystem_backend" # If REDIS database is false this will use the Filesystem Backend named like the directory here
+  threshold: 100
+
+

@@ -1,8 +1,10 @@
+import time
+
 import RNA
 import dash
 from dash import callback, html, clientside_callback, Input, Output, dcc, dash_table, State, Patch
 import dash_bootstrap_components as dbc
-from RNAdist.dashboard import DATABASE_FILE, MAX_SEQ_LENGTH
+from RNAdist.dashboard import MAX_SEQ_LENGTH, CONFIG
 from RNAdist.sampling.ed_sampling import distance_histogram
 from RNAdist.plots.sampling_plots import distance_histo_from_matrix
 import sqlite3
@@ -12,6 +14,8 @@ from RNAdist.dashboard.helpers import hash_model_details, insert_submission, set
     get_jobs_of_user, check_user_header_combination, check_user_hash_combination, database_cleanup
 import zlib
 import uuid
+
+DATABASE_FILE = CONFIG['DATABASE']
 
 dash.register_page(__name__, path='/submission', name="Submission")
 
@@ -361,7 +365,6 @@ def process_sequence(submitted_job, user_id):
     Input("submission-fail-modal", "is_open")
 )
 def display_status(n, user_id, _, _2):
-
     status = get_jobs_of_user(DATABASE_FILE, user_id)
     table = []
     tooltips = []
@@ -371,8 +374,9 @@ def display_status(n, user_id, _, _2):
         state = row["status"]
         if state != "finished":
             all_finished = False
-        model_details = str({key: row[key] for key in ["temperature", "max_bp_span"]})
-        seq = row["sequence"]
+        seq = row["sequence"] if row["sequence"] is not None else "waiting"
+        model_details = str({key: row[key] for key in ["temperature", "max_bp_span"]}) if seq != "waiting" else "waiting"
+
         tooltips.append({
             "Status": {"value": "", "type": "text"},
             "Job ID": {"value": "", "type": "text"},
@@ -380,7 +384,9 @@ def display_status(n, user_id, _, _2):
             "ModelDetails": {"value": "", "type": "text"},
             "Sequence": {"value": seq, "type": "text"}  # tooltip shows full sequence on hover
         })
-        table.append({"Status": state, "Job ID": job_id, "Header": row["header"], "ModelDetails": model_details, "Sequence": seq})
+        row = {"Status": state, "Job ID": job_id, "Header": row["header"], "ModelDetails": model_details, "Sequence": seq}
+        print(row)
+        table.append(row)
 
     interval_disabled = all_finished
 

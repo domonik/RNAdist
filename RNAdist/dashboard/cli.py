@@ -12,7 +12,8 @@ def cli_wrapper(
         host: str = "127.0.0.1",
         processes: int = 1
 ):
-    RNAdist.dashboard.DATABASE_FILE = db
+
+    RNAdist.dashboard.CONFIG['DATABASE'] = db
 
     from RNAdist.dashboard.app import app, get_layout
     if not os.path.exists(db):
@@ -28,7 +29,7 @@ def cli_wrapper(
 
 
 def _cli_wrapper(args):
-    cli_wrapper(args.config, args.run_dir, args.debug, args.port, args.host, args.processes)
+    cli_wrapper(args.database, debug=False, port=args.port, host=args.host, processes=args.processes)
 
 
 

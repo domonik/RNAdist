@@ -1,3 +1,20 @@
+import os
+import yaml
+
+
+DASHDIR = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_FILE = os.path.join(DASHDIR, "dashConfig.yaml")
+assert os.path.exists(CONFIG_FILE), "Config file does not exist"
+with open(CONFIG_FILE, "r") as handle:
+    CONFIG = yaml.load(handle, Loader=yaml.SafeLoader)
+
+EXTERNAL_CONFIG_FILE = os.getenv('RNADIST_CONFIG_FILE')
+if EXTERNAL_CONFIG_FILE:
+    with open(EXTERNAL_CONFIG_FILE, "r") as handle:
+        EXTERNEL_CONFIG = yaml.load(handle, Loader=yaml.SafeLoader)
+
+    CONFIG.update(EXTERNEL_CONFIG)
 
 CACHE = None
 DATABASE_FILE = None

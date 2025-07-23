@@ -61,7 +61,7 @@ def _delete_old_entries(db_path):
         """)
         cursor.execute("""
             DELETE FROM submissions
-            WHERE created_at < datetime('now', '-7 days');
+            WHERE created_at < datetime('now', '-7 days')
             AND protected = 0
                        """)
         conn.commit()
@@ -138,7 +138,7 @@ def get_jobs_of_user(db_path, user_id):
     cursor.execute("""
                    SELECT *
                    FROM jobs
-                            JOIN submissions ON jobs.hash = submissions.hash
+                   LEFT JOIN submissions ON jobs.hash = submissions.hash
                    WHERE jobs.user_id = ?
                    """, (user_id,))
     jobs = cursor.fetchall()

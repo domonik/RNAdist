@@ -35,7 +35,7 @@ Pip
 
 .. code-block::
 
-	conda install -c conda-forge -c bioconda -c defaults  'viennarna>=2.5' networkx biopython pandas plotly 'dash>=2.5' dash-bootstrap-components pybind11 cython 'python>=3.10' pip versioneer
+	conda install -c conda-forge -c bioconda -c defaults  'viennarna>=2.5' pyyaml networkx biopython pandas plotly 'dash>=2.5' dash-bootstrap-components pybind11 cython 'python>=3.10' pip versioneer
 
 After this you can install RNAdist via:
 

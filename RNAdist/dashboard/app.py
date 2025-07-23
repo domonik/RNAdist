@@ -4,8 +4,7 @@ import dash
 from dash import Dash, html, dcc, clientside_callback, Input, Output, State, ALL, ClientsideFunction, DiskcacheManager
 import dash_bootstrap_components as dbc
 from RNAdist.dashboard import DATABASE_FILE, LAYOUT, DARK_LAYOUT
-import RNAdist.dashboard
-import diskcache
+from RNAdist.dashboard.backends import BACKGROUND_CALLBACK_MANAGER, celery
 import uuid
 
 FILEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,17 +16,13 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.mi
 
 print("Defining APP")
 
-CACHE = diskcache.Cache(DATABASE_FILE + ".callbacks")
-RNAdist.dashboard.CACHE = CACHE
-background_callback_manager = DiskcacheManager(CACHE)
-
 app = Dash(
     __name__,
     external_stylesheets=["custom.css", dbc.icons.FONT_AWESOME, dbc_css],
     assets_folder=ASSETS_DIR,
     prevent_initial_callbacks='initial_duplicate',
     use_pages=True,
-    background_callback_manager=background_callback_manager
+    background_callback_manager=BACKGROUND_CALLBACK_MANAGER
 
 )
 print("APP defined")
@@ -42,9 +37,6 @@ color_mode_switch = html.Span(
 )
 
 
-# Initialize status store if not exists
-if "job_status" not in CACHE:
-    CACHE["job_status"] = {}
 
 
 
@@ -82,7 +74,7 @@ def get_navbar():
                 ),
                 dbc.Collapse(
                     [
-                        dbc.Col(dbc.Input(id="displayed_user_id"), width=5, className="px-2"),
+                        dbc.Col(dbc.Input(id="displayed_user_id", debounce=True), width=5, className="px-2"),
                         color_mode_switch
                     ] + [
                         dbc.NavItem(
