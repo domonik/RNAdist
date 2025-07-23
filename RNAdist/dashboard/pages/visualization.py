@@ -323,7 +323,6 @@ def get_layout():
             )
         ],
         style={
-            'minHeight': '85vh',  # Ensures the div takes at least the full viewport height
             'width': '100%',  # Full width
             'padding': '20px'  # Optional: adds some spacing
         },

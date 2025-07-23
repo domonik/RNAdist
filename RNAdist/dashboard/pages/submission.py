@@ -214,6 +214,18 @@ def submission_failed_modal():
     )
     return modal
 
+def not_finished_modal():
+    modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Error")),
+            dbc.ModalBody("Computation not finished. Wait until results are ready",),
+        ],
+        id="not-finished-modal",
+        is_open=False,
+        centered=True,
+        backdrop="static",  # Prevent closing by clicking outside
+    )
+    return modal
 
 def get_layout():
     layout = html.Div(
@@ -223,6 +235,7 @@ def get_layout():
             dbc.Container(
                 [
                     submission_failed_modal(),
+                    not_finished_modal(),
                     dbc.Row(
                         get_sequence_submission_box(),
                         className="py-2",
@@ -246,7 +259,6 @@ def get_layout():
             )
         ],
         style={
-            'minHeight': '85vh',  # Ensures the div takes at least the full viewport height
             'width': '100%',  # Full width
             'padding': '20px'  # Optional: adds some spacing
         },
@@ -396,6 +408,7 @@ def display_status(n, user_id, _, _2):
 @callback(
     Output("page-wide-seqid", "data"),
     Output('url', 'pathname'),
+    Output("not-finished-modal", "is_open"),
     Input('submissions-table', 'active_cell'),
     State('submissions-table', 'data'),
 )
@@ -405,7 +418,10 @@ def on_row_select(active_cell, data):
     row_idx = active_cell['row']
     clicked_row = data[row_idx]
     header_value = clicked_row.get('Header', None)
+    status = clicked_row.get('Status', None)
     if header_value is None:
         raise dash.exceptions.PreventUpdate
+    if status != "finished":
+        return dash.no_update, dash.no_update, True
 
-    return header_value, "visualization"
+    return header_value, "visualization", dash.no_update

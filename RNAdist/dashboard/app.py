@@ -101,7 +101,7 @@ def get_navbar():
         ),
         dark=True,
         color="var(--bs-ufr-navbar)",
-        className="ufr-navbar shadow w-100", style={"position": "fixed", "z-index": "99999"}
+        className="ufr-navbar shadow w-100", style={"position": "fixed", "z-index": "99999", "height": "7vh"}
     )
     return navbar
 
@@ -131,7 +131,7 @@ def _get_footer():
             ],
             fluid=True
         ),
-        className="ufr-navbar text-light mt-4", style={"z-index": "20"}
+        className="ufr-navbar text-light mt-4", style={"z-index": "20", "height": "10vh"}
     )
     return div
 
@@ -148,7 +148,7 @@ def get_layout():
             dbc.Container(
                 dash.page_container,
                 fluid=True,
-                style={"padding-top": "65px"}
+                style={"padding-top": "65px", "min-height": "89vh"}
 
             ),
             _get_footer()
