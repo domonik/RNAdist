@@ -148,12 +148,21 @@ def get_jobs_of_user(db_path, user_id):
 
 def matrix_from_hash(db_path, md_hash):
     conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
     cursor = conn.cursor()
-    cursor.execute("SELECT matrix FROM submissions WHERE hash = ?", (md_hash,))
+    cursor.execute("SELECT matrix, length FROM submissions WHERE hash = ?", (md_hash,))
     row = cursor.fetchone()
-    buf = io.BytesIO(row[0])
+    buf = io.BytesIO(row["matrix"])
     decompressed = zlib.decompress(buf.getvalue())
-    matrix = np.load(io.BytesIO(decompressed))
+    compressed_mat = np.load(io.BytesIO(decompressed))
+    z = compressed_mat.shape[1]
+    n = row["length"]
+    tri_upper = np.triu_indices(n)
+    matrix = np.zeros((n, n, z), dtype=compressed_mat.dtype)
+    matrix[tri_upper[0][:, None], tri_upper[1][:, None], np.arange(z)] = compressed_mat
+    matrix[tri_upper[1][:, None], tri_upper[0][:, None], np.arange(z)] = compressed_mat  # mirror
+
     conn.close()
     return matrix
 
@@ -204,7 +213,13 @@ def insert_submission(sequence, histograms, structure_cache, fc, md, db_path):
     # Find the last index where it's True
     last_nonzero_index = np.where(non_zero_any_z)[0].max()
     histograms = histograms[:, :, :last_nonzero_index + 1]
-    # Serialize matrix
+
+
+    n, _, z = histograms.shape
+
+# Get indices of upper triangle
+    tri_upper_indices = np.triu_indices(n)
+    histograms = histograms[tri_upper_indices[0][:, None], tri_upper_indices[1][:, None], np.arange(z)]    # Serialize matrix
     buf = io.BytesIO()
     np.save(buf, histograms)
     compressed_blob = zlib.compress(buf.getvalue())
