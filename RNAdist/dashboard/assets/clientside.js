@@ -24,6 +24,29 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 
             return sequences;
         },
+        downloadStructureTable: function(n_clicks, data, columns, seqid) {
+            if (!n_clicks || !data || !columns) {
+                return;
+            }
+
+            let tsv = '';
+            const headers = columns.map(col => col.name).join('\t');
+            tsv += headers + '\n';
+
+            for (const row of data) {
+                const line = columns.map(col => row[col.id]).join('\t');
+                tsv += line + '\n';
+            }
+
+            const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sampled_structures_' + seqid + '.tsv';
+            a.click();
+            URL.revokeObjectURL(url);
+        },
         switchLayout: function (mode, fig, lightLayout, darkLayout) {
             let layout = mode ? lightLayout : darkLayout;
             return {

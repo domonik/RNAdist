@@ -351,6 +351,7 @@ def process_sequence(submitted_job, user_id):
         return dash.no_update
     database_cleanup(db_path=DATABASE_FILE)
     header, md_dict, sequence = submitted_job
+    RNA.init_rand(42)
     md = RNA.md(**md_dict)
     fc = RNA.fold_compound(sequence, md)
     _, md_hash = hash_model_details(md, sequence)

@@ -176,6 +176,8 @@ def get_structures_table():
                 dbc.Row(
                     [
                         dbc.Col(html.H5("Sampled Structures"), width=6, align="center"),
+                        dbc.Col(dbc.Button("Download TSV", id="download-structures", disabled=True), width=6, className="d-flex justify-content-end"),
+                        dcc.Download(id="download-tsv")
                     ],
                     justify="between"
                 ),
@@ -265,15 +267,16 @@ def get_forna_container():
                     [
                         dbc.Col(html.H5("Structures"), width=6, align="center"),
                         dbc.Col(
-                            html.Span(
+                            html.Div(
                                 [
-                                    dbc.Label("Show MFE", html_for="switch", className="d-inline-block align-items-center",
-                                              style={"vertical-align": "0 !important"}),
-                                    dbc.Switch(id="show-mfe", value=True, className="d-inline-block ms-3 fs-4",
-                                               persistence=False),
-                                ]
+                                    dbc.Label("Show MFE", html_for="show-mfe", className="me-2 mb-0"),
+                                    dbc.Switch(id="show-mfe", value=True, className="fs-5", persistence=False),
+                                ],
+                                className="d-flex align-items-center"
                             ),
-                            width=2)
+                            width=2,
+                            className="d-flex justify-content-end"
+                        )
                     ],
                     justify="between"
                 ),
@@ -432,6 +435,7 @@ WHERE jobs.user_id = ? AND jobs.header = ?;
 
 @callback(
     Output('structures-table', "data"),
+    Output('download-structures', "disabled"),
     Input("displayed-seq-hash", "data"),
 )
 def update_structures_table(md_hash):
@@ -439,7 +443,7 @@ def update_structures_table(md_hash):
         raise dash.exceptions.PreventUpdate
     rows, length = get_structures_and_length_for_hash(DATABASE_FILE, bytes.fromhex(md_hash))
     data = [{"id": row["id"],"Count": row["Count"], "Structure": bytes_to_structure(row["structure"], length)} for row in rows]
-    return data
+    return data, False
 
 
 @callback(
@@ -537,4 +541,16 @@ clientside_callback(
     ),
     output=Output("forna-container", "customColors"),
     inputs=[Input("nt-i", "value"), Input("nt-j", "value")]
+)
+
+clientside_callback(
+    ClientsideFunction(
+        namespace="clientside",
+        function_name="downloadStructureTable"
+    ),
+    Output("download-tsv", "data"),  # dummy output; no real download component used
+    Input("download-structures", "n_clicks"),
+    State('structures-table', "data"),
+    State('structures-table', "columns"),
+    State("seqid", "value")
 )
