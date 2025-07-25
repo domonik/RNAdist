@@ -82,7 +82,7 @@ def plot_distances_with_running_j(distances, i, color:str ="#00a082", mfe: np.nd
     quantiles = np.concat((q25, q75[::-1]), axis=-1)
     fig = go.Figure()
     fillcolor = css_color_to_rgba(color, 0.3)
-    x = np.arange(i+1, distances.shape[0]+1)
+    x = np.arange(1, distances.shape[0]+1)
     fig.add_traces(
         [
             go.Scatter(x=[i+1], y=[0], mode="markers", marker=dict(color=color), name="i"),

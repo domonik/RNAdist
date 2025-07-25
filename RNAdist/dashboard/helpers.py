@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import RNA
 from types import MappingProxyType
 import hashlib
@@ -146,7 +148,7 @@ def get_jobs_of_user(db_path, user_id):
     conn.close()
     return jobs
 
-
+@lru_cache(maxsize=8) # This only works in production with gunicorn
 def matrix_from_hash(db_path, md_hash, return_mfe: bool = False):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
