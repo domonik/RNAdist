@@ -54,6 +54,27 @@ static std::string convertBitRepresentationToStructure(py::args args){
 
 };
 
+
+static py::array distancesFromStructureString(py::str& pystructure) {
+    string structure = pystructure.cast<string>();
+    size_t n = structure.size();
+    vector <uint16_t> distances(n * n, 0);
+    fillDistancesFromStructureString(structure, distances);
+
+    py::array_t<uint16_t> dist_array = py::array_t<uint16_t>({n, n});
+
+    auto r = dist_array.mutable_unchecked<2>();
+    for (size_t k = 0; k < n; ++k)
+        for (size_t l = k; l < n; ++l) {
+            uint16_t d = distances[k * n + l];
+            r(k, l) = d;
+            r(l, k) = d;
+        }
+
+    return dist_array;
+}
+
+
 static py::array histogramFromStructureCache(py::dict py_cache, int n) {
     StructureCache cache = convertPythonToStructureCache(py_cache);
 
@@ -164,6 +185,7 @@ PYBIND11_MODULE(sampling, m) {
     m.def("cpp_histogram_from_structure_cache", &histogramFromStructureCache,py::arg("cache"), py::arg("n"), "Return histogram array from structure cache");
     m.def("cpp_nr_sampling", edNRSampling, "Samples non-redundant from possible RNA structures");
     m.def("cpp_sampling_ij", edIJ, "Return expected distance between i and j");
+    m.def("distances_from_structure", distancesFromStructureString, "Returns distance matrix for a given structure");
     m.def("cpp_pthreshold_sampling", edPThresholdSampling, "Samples non-redundant from possible RNA structures until "
                                                    "probability threshold is reached");
 }

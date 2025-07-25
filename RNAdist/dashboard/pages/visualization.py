@@ -15,6 +15,7 @@ import uuid
 import dash_bio as dashbio
 from dash import ClientsideFunction
 import zlib
+import time
 
 DATABASE_FILE = CONFIG['DATABASE']
 
@@ -29,12 +30,13 @@ def get_selected_sequence():
                 dbc.CardHeader(
                     dbc.Row(
                         [
-                            dbc.Col(html.H5("Sequence"), width=3),
+                            dbc.Col(html.H5("Sequence"), width=12),
                             dbc.Col(dcc.Dropdown(
                                 style={"width": "100%"},
                                 id="seqid",
 
                             ), width=3, className="d-flex align-items-center"),
+                            dbc.Col(html.Span(id="mfe"),id="seq-str", width=12, className="p-1 px-3"),
 
                         ]
 
@@ -211,6 +213,10 @@ def get_structures_table():
                                     'if': {'row_index': 'even'},
                                     'backgroundColor': 'var(--bs-tertiary-bg)',
                                 },
+                                {
+                                    'if': {'column_id': 'Structure'},
+                                    'fontFamily': 'monospace',
+                                },
 
                             ],
                             style_header={
@@ -258,6 +264,16 @@ def get_forna_container():
                 dbc.Row(
                     [
                         dbc.Col(html.H5("Structures"), width=6, align="center"),
+                        dbc.Col(
+                            html.Span(
+                                [
+                                    dbc.Label("Show MFE", html_for="switch", className="d-inline-block align-items-center",
+                                              style={"vertical-align": "0 !important"}),
+                                    dbc.Switch(id="show-mfe", value=True, className="d-inline-block ms-3 fs-4",
+                                               persistence=False),
+                                ]
+                            ),
+                            width=2)
                     ],
                     justify="between"
                 ),
@@ -356,12 +372,24 @@ def update_sequence_selection(_, comp_finish, user_id, seqid):
     return hashes, seq_value
 
 
+def make_ruler(length, interval=10):
+    numbers = [" " for _ in range(length)]
+    for i in range(0, length+1, 10):
+        if i:
+            n = str(i)
+            numbers[i-len(n):i] = n
+
+    ticks = ['|' if (i + 1) % interval == 0 else ' ' for i in range(length)]
+    return ''.join(ticks), ''.join(numbers)
+
 @callback(
     Output("nt-i", "options"),
     Output("nt-i", "value"),
     Output("nt-j", "options"),
+    Output("nt-j", "value"),
     Output("displayed-seq-hash", "data"),
     Output("displayed-seq", "data"),
+    Output("seq-str", "children"),
     Input("seqid", "value"),
     State("user_id", "data")
 )
@@ -375,15 +403,31 @@ def update_ij_selection(header, user_id):
     cursor = conn.cursor()
 
     cursor.execute("""
-    SELECT submissions.length, submissions.hash , submissions.sequence
+    SELECT submissions.length, submissions.hash , submissions.sequence, submissions.mfe
 FROM jobs
 JOIN submissions ON jobs.hash = submissions.hash
 WHERE jobs.user_id = ? AND jobs.header = ?;
 """, (user_id, header))
     result = cursor.fetchone()
     print(list(result))
-    d = list(range(result["length"]))
-    return d, 0, d,  result["hash"].hex(), result["sequence"]
+    d = list(range(1, result["length"]+1))
+    marks, numbers = make_ruler(result["length"])
+
+    seq_str = html.Div(
+        [
+            html.Span(result["sequence"]),
+            html.Br(),
+            html.Span(result["mfe"], id="mfe"),
+            html.Br(),
+            html.Span(marks),
+            html.Br(),
+            html.Span(numbers),
+        ],
+        style={"fontFamily": "monospace", "overflow-x": "scroll", "white-space": "pre"},
+        className="p-2"
+
+    )
+    return d, 1, d, None,  result["hash"].hex(), result["sequence"], seq_str
 
 
 @callback(
@@ -434,19 +478,25 @@ def plot_expected_distance(md_hash, switch):
 
 )
 def plot_histo(seq_hash, i, j, switch):
+    s = time.time()
     if seq_hash is None or i is None:
         return dash.no_update
     seq_hash = bytes.fromhex(seq_hash)
-    matrix = matrix_from_hash(DATABASE_FILE, seq_hash)
     if j is None:
-        fig = plot_distances_with_running_j(matrix, i)
+        matrix, mfe = matrix_from_hash(DATABASE_FILE, seq_hash, return_mfe=True)
+
+        fig = plot_distances_with_running_j(matrix, i-1, mfe=mfe)
     else:
-        fig = distance_histo_from_matrix(matrix, i, j)
+        matrix = matrix_from_hash(DATABASE_FILE, seq_hash)
+
+        fig = distance_histo_from_matrix(matrix, i-1, j-1)
 
     if not switch:
         fig.update_layout(DARK_LAYOUT)
     else:
         fig.update_layout(LAYOUT)
+    e = time.time()
+    print(f"update took {e-s} seconds")
     return fig
 
 
@@ -456,7 +506,9 @@ clientside_callback(
     Output("forna-container", "sequences"),
     Input("structures-table", "derived_virtual_data"),
     Input("structures-table", "selected_row_ids"),
+    Input("show-mfe", "value"),
     State("displayed-seq", "data"),
+    State("mfe", "children"),
 )
 
 

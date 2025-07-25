@@ -7,7 +7,8 @@ import sqlite3
 import numpy as np
 import zlib
 from multiprocessing import Lock
-
+from RNAdist.sampling.cpp.sampling import distances_from_structure
+import time
 
 db_lock = Lock()
 def get_md_fields():
@@ -146,12 +147,12 @@ def get_jobs_of_user(db_path, user_id):
     return jobs
 
 
-def matrix_from_hash(db_path, md_hash):
+def matrix_from_hash(db_path, md_hash, return_mfe: bool = False):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
     cursor = conn.cursor()
-    cursor.execute("SELECT matrix, length FROM submissions WHERE hash = ?", (md_hash,))
+    cursor.execute("SELECT matrix, length, mfe FROM submissions WHERE hash = ?", (md_hash,))
     row = cursor.fetchone()
     buf = io.BytesIO(row["matrix"])
     decompressed = zlib.decompress(buf.getvalue())
@@ -164,6 +165,13 @@ def matrix_from_hash(db_path, md_hash):
     matrix[tri_upper[1][:, None], tri_upper[0][:, None], np.arange(z)] = compressed_mat  # mirror
 
     conn.close()
+    if return_mfe:
+        s = time.time()
+        mfe_distances = distances_from_structure(row["mfe"])
+        e = time.time()
+        print(e - s, "seconds")
+
+        return matrix, mfe_distances
     return matrix
 
 def set_status(db_path, hash_value, status, user_id, header):
@@ -228,6 +236,7 @@ def insert_submission(sequence, histograms, structure_cache, fc, md, db_path):
     submission = {
         "hash": md_hash,
         "sequence": sequence,
+        "mfe": fc.mfe()[0],
         "matrix": compressed_blob,
         "length": fc.length,
     }
@@ -285,6 +294,7 @@ def create_database(db_path: str):
 CREATE TABLE IF NOT EXISTS submissions (
     hash BLOB PRIMARY KEY,
     sequence TEXT NOT NULL,
+    mfe TEXT NOT NULL,
     length INTEGER NOT NULL,
     matrix BLOB,
     protected BOOLEAN DEFAULT FALSE NOT NULL, 

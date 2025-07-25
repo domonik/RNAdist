@@ -1,6 +1,7 @@
 import plotly.graph_objs as go
 import numpy as np
 import re
+import time
 
 
 def empty_figure(annotation: str = None):
@@ -67,7 +68,7 @@ def histogram_quantile(histos, q, total_counts: int, cum_counts = None, ):
     quantile_estimate = (val1s + val2s) / 2.0
     return quantile_estimate
 
-def plot_distances_with_running_j(distances, i, color:str ="#00a082"):
+def plot_distances_with_running_j(distances, i, color:str ="#00a082", mfe: np.ndarray = None):
     total_counts = distances[0, 0, 0]
     d = distances[i]
     cum_counts = np.cumsum(d, axis=-1)
@@ -81,15 +82,21 @@ def plot_distances_with_running_j(distances, i, color:str ="#00a082"):
     quantiles = np.concat((q25, q75[::-1]), axis=-1)
     fig = go.Figure()
     fillcolor = css_color_to_rgba(color, 0.3)
-    x = np.arange(distances.shape[0])
+    x = np.arange(i+1, distances.shape[0]+1)
     fig.add_traces(
         [
-            go.Scatter(x=[i], y=[0], mode="markers", marker=dict(color=color), name="i"),
+            go.Scatter(x=[i+1], y=[0], mode="markers", marker=dict(color=color), name="i"),
             go.Scatter(x=x, y=ed, line=dict(color=color), name="Mean"),
             go.Scatter(x=x, y=median, line=dict(dash="dash", color=color), name="Median"),
             go.Scatter(x=np.concat((x, x[::-1]), axis=-1), y=quantiles, line=dict(color="rgba(0,0,0,0)"), fillcolor=fillcolor, fill="toself", name="IQR")
         ]
     )
+    if mfe is not None:
+        mfe = mfe[i]
+        fig.add_trace(
+            go.Scatter(x=x, y=mfe, line=dict(dash="dot", color=color), name="MFE"),
+        )
+
     fig.update_layout(hovermode="x")
     return fig
 
@@ -106,10 +113,11 @@ def expected_median_distance_maxtrix(distances, colorscale=None):
     median = histogram_quantile(distances, q=0.5, total_counts=total_counts)
     ed[i_lower] = median[i_lower]
     fig = go.Figure()
+    xy = np.arange(1, distances.shape[-1]+1)
     fig.add_trace(
         go.Heatmap(
-            x=np.arange(distances.shape[-1]),
-            y=np.arange(distances.shape[-1]),
+            x=xy,
+            y=xy,
             z=ed,
             colorscale=colorscale
         )

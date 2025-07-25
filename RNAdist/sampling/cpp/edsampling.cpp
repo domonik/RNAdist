@@ -229,6 +229,13 @@ StructureCache sampleStructuresAndDistances(vrna_fold_compound_t *fc, int nr_sam
 }
 
 
+void fillDistancesFromStructureString(std::string& structure, vector <uint16_t>& distances) {
+    short *pt = vrna_ptable(structure.c_str());
+    Graph g(pt);
+    g.fillShortestPaths(distances);
+    free(pt);
+}
+
 
 vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n) {
     vector<uint16_t> counts(n * n * n, 0);
@@ -237,9 +244,7 @@ vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n
         // key is std::vector<uint8_t>
         // value is int
         std::string structure = decodeStructure(key, n);
-        short *pt = vrna_ptable(structure.c_str());
-        Graph g(pt);
-        g.fillShortestPaths(distances);
+        fillDistancesFromStructureString(structure, distances);
         for (int i = 0; i < n; ++i) {
             int iidx = i * n * n;
             for (int j = i; j < n; ++j) {
@@ -248,7 +253,6 @@ vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n
             }
         }
 
-        free(pt);
     }
     return counts;
 

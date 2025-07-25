@@ -1,19 +1,25 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
     clientside: {
-        updateFornaContainer: function (tableData, selectedRowIds, sequence) {
-            if (!tableData || !selectedRowIds || !sequence) {
+        updateFornaContainer: function (tableData, selectedRowIds, show_mfe, sequence, mfe) {
+            if (!tableData  || !sequence) {
                 return window.dash_clientside.no_update;
             }
 
             const length = sequence.length;
+            let sequences = [];
+            if (selectedRowIds) {
+                sequences = selectedRowIds.map(id => {
+                    const row = tableData.find(r => r.id === id);
+                    return {
+                        sequence: sequence, structure: row.Structure
+                    };
+                });
 
-            const sequences = selectedRowIds.map(id => {
-                const row = tableData.find(r => r.id === id);
-                return {
-                    sequence: sequence, structure: row.Structure
-                };
-            });
-            console.log(sequences);
+            }
+
+            if (show_mfe) {
+                sequences.push({sequence: sequence, structure: mfe});
+            }
 
 
             return sequences;
@@ -31,10 +37,10 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 
             let colorValues = {};
             if (nt_i != null) {
-                colorValues[(nt_i +1).toString()] = 'red';
+                colorValues[(nt_i).toString()] = "var(--bs-secondary)";
             }
             if (nt_j != null) {
-                colorValues[(nt_j+1).toString()] = 'red';
+                colorValues[(nt_j).toString()] = "var(--bs-primary)";
             }
 
             return {
