@@ -35,7 +35,7 @@ def get_selected_sequence():
                                 style={"width": "100%"},
                                 id="seqid",
 
-                            ), width=3, className="d-flex align-items-center"),
+                            ), width=12, lg=3, className="d-flex align-items-center"),
                             dbc.Col(html.Span(id="mfe"),id="seq-str", width=12, className="p-1 px-3"),
 
                         ]
@@ -71,23 +71,23 @@ def get_distance_distrubution_box():
                                             ),
                                         ],
                                     )
-                                ], width=4,
+                                ], width=12, lg=4,
                                 className="d-flex align-items-center"
                             ),
-                            dbc.Col(html.Span("i"), width=1,
+                            dbc.Col(html.Span("i"), width=2, lg=1,
                                     className="d-flex align-items-center justify-content-end"),
                             dbc.Col(dcc.Dropdown(
                                 style={"width": "100%"},
                                 id="nt-i",
 
-                            ), width=2, className="d-flex align-items-center"),
-                            dbc.Col(html.Span("j"), width=1,
+                            ), width=10, lg=2, className="d-flex align-items-center"),
+                            dbc.Col(html.Span("j"), width=2, lg=1,
                                     className="d-flex align-items-center justify-content-end"),
                             dbc.Col(dcc.Dropdown(
                                 style={"width": "100%"},
                                 id="nt-j",
 
-                            ), width=2, className="d-flex align-items-center"),
+                            ), width=10, lg=2, className="d-flex align-items-center"),
 
                         ]
 
@@ -461,6 +461,16 @@ def plot_expected_distance(md_hash, switch):
     matrix = matrix_from_hash(DATABASE_FILE, md_hash)
     colorscale = [COLORS["green"], COLORS["blue"]]
     fig = expected_median_distance_maxtrix(matrix, colorscale=colorscale)
+    fig.update_traces(colorbar=dict(
+        orientation='h',
+        x=0.5,
+        y=1.1,
+        xanchor='center',
+        yanchor='bottom',
+        ticklabelposition='inside',
+        ticks='inside',# Put tick labels on top
+        tickcolor="white"
+    ),)
     if not switch:
         fig.update_layout(DARK_LAYOUT)
     else:
@@ -490,6 +500,7 @@ def plot_histo(seq_hash, i, j, switch):
         matrix, mfe = matrix_from_hash(DATABASE_FILE, seq_hash, return_mfe=True)
 
         fig = plot_distances_with_running_j(matrix, i-1, mfe=mfe)
+        fig.update_layout(legend=dict(orientation="h"))
     else:
         matrix = matrix_from_hash(DATABASE_FILE, seq_hash)
 

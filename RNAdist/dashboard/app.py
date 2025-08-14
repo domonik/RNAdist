@@ -74,7 +74,7 @@ def get_navbar():
                 ),
                 dbc.Collapse(
                     [
-                        dbc.Col(dbc.Input(id="displayed_user_id", debounce=True), width=5, className="px-2"),
+                        dbc.Col(dbc.Input(id="displayed_user_id", debounce=True), width=5, className="px-lg-2 px-0 py-2 py-lg-0"),
                         color_mode_switch
                     ] + [
                         dbc.NavItem(
@@ -96,7 +96,8 @@ def get_navbar():
 
             ],
             fluid=True,
-            className="dbc text-light"
+            className="dbc text-light",
+            style={"background-color": "var(--bs-ufr-navbar)"}
 
         ),
         dark=True,
