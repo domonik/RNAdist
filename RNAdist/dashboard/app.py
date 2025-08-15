@@ -36,6 +36,16 @@ color_mode_switch = html.Span(
     ]
 )
 
+SHOWUFR = False
+
+ufr_logo = dbc.NavItem(
+        html.Img(
+            src="https://cd.uni-freiburg.de/wp-content/uploads/2022/09/ufr-logo-white-2.png",
+            height="50px"),
+        className="ps-0 ps-md-3"
+
+    )
+
 
 
 
@@ -76,15 +86,7 @@ def get_navbar():
                     [
                         dbc.Col(dbc.Input(id="displayed_user_id", debounce=True), width=5, className="px-lg-2 px-0 py-2 py-lg-0"),
                         color_mode_switch
-                    ] + [
-                        dbc.NavItem(
-                            html.Img(
-                                src="https://cd.uni-freiburg.de/wp-content/uploads/2022/09/ufr-logo-white-2.png",
-                                height="50px"),
-                            className="ps-0 ps-md-3"
-
-                        )
-                    ],
+                    ] + ([ufr_logo] if SHOWUFR else []),
                     id="navbar-collapse",
                     className="justify-content-end",
                     is_open=False,
@@ -174,29 +176,28 @@ def assign_user_id(user_id, displayed_id):
     return uid, uid
 
 
-@app.callback(
+app.clientside_callback(
+    ClientsideFunction(namespace="clientside", function_name="toggleNavbarCollapse"),
     Output("navbar-collapse", "is_open"),
     Output("navbar-collapse2", "is_open"),
-    [Input("navbar-toggler", "n_clicks")],
-    [
-        State("navbar-collapse", "is_open"),
-    ],
+    Input("navbar-toggler", "n_clicks"),
+    Input({'type': 'nav-item', 'index': ALL}, 'n_clicks'),
+    State("navbar-collapse", "is_open"),
 )
-def toggle_navbar_collapse(n, is_open):
-    if n:
-        return not is_open, not is_open
-    return is_open, is_open
 
 
-@app.callback(
-    Output({'type': 'nav-item', 'index': ALL}, 'active'),
+app.clientside_callback(
+    """
+    function(url, hrefs) {
+        return hrefs.map(function(href) {
+            return url === href;
+        });
+    }
+    """,
+    Output({'type': 'nav-item', 'index': dash.ALL}, 'active'),
     Input("url", "pathname"),
-    State({'type': 'nav-item', 'index': ALL}, 'href'),
+    State({'type': 'nav-item', 'index': dash.ALL}, 'href'),
 )
-def update_active_nav(url, state):
-    d = [url == href for href in state]
-    return d
-
 
 clientside_callback(
     """

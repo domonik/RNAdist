@@ -471,6 +471,8 @@ def plot_expected_distance(md_hash, switch):
         ticks='inside',# Put tick labels on top
         tickcolor="white"
     ),)
+    fig.update_layout({"margin": {"b": 20, "r": 10, "t": 10, "l": 10}})
+
     if not switch:
         fig.update_layout(DARK_LAYOUT)
     else:
@@ -505,7 +507,7 @@ def plot_histo(seq_hash, i, j, switch):
         matrix = matrix_from_hash(DATABASE_FILE, seq_hash)
 
         fig = distance_histo_from_matrix(matrix, i-1, j-1)
-
+    fig.update_layout({"margin": {"b": 20, "r": 10, "t": 10, "l": 10}})
     if not switch:
         fig.update_layout(DARK_LAYOUT)
     else:

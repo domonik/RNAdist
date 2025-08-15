@@ -33,7 +33,6 @@ LAYOUT = {
     'paper_bgcolor': 'rgba(0,0,0,0)',
     'plot_bgcolor': 'rgb(219, 219, 219)',
     "font": {"color": "black", "size": 16},
-    "margin": {"b": 20, "r": 10, "t": 10, "l": 10}
 
 
 }
@@ -42,7 +41,6 @@ DARK_LAYOUT = {
     'paper_bgcolor': 'rgba(0,0,0,0)',
     'plot_bgcolor': 'rgba(0,0,0,0)',
     "font": {"color": "white", "size": 16},
-    "margin": {"b": 20, "r": 10, "t": 10, "l": 10}
 
 }
 

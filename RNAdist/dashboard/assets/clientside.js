@@ -1,5 +1,22 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
     clientside: {
+        toggleNavbarCollapse: function(toggleClicks, linkClicks, is_open) {
+            let ctx = dash_clientside.callback_context;
+            let triggeredId = ctx.triggered[0].prop_id.split('.')[0];
+
+            // If a nav link triggered, always close
+            if (triggeredId.includes('"type":"nav-item"')) {
+                return [false, false];
+            }
+
+            // If toggler triggered, flip the state
+            if (triggeredId === "navbar-toggler") {
+                return [!is_open, !is_open];
+            }
+
+            // Fallback
+            return [is_open, is_open];
+        },
         updateFornaContainer: function (tableData, selectedRowIds, show_mfe, sequence, mfe) {
             if (!tableData  || !sequence) {
                 return window.dash_clientside.no_update;
@@ -47,10 +64,24 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             a.click();
             URL.revokeObjectURL(url);
         },
-        switchLayout: function (mode, fig, lightLayout, darkLayout) {
-            let layout = mode ? lightLayout : darkLayout;
+        switchLayout: function(mode, fig, lightLayout, darkLayout) {
+            let newLayout = mode ? lightLayout : darkLayout;
+
+            // Keep existing margin
+            let preservedMargin = fig.layout && fig.layout.margin ? fig.layout.margin : {};
+
+            // Force axis labels to push margins
+            let xaxis = { ...fig.layout.xaxis, automargin: true };
+            let yaxis = { ...fig.layout.yaxis, automargin: true };
+
             return {
-                ...fig, layout: {...fig.layout, ...layout}
+                ...fig,
+                layout: {
+                    ...newLayout,
+                    margin: preservedMargin,
+                    xaxis: xaxis,
+                    yaxis: yaxis
+                }
             };
         },
         highlightNucleotides: function(nt_i, nt_j) {
