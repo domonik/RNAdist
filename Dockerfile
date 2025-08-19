@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . /rnadist
 WORKDIR /rnadist
 RUN micromamba create -n myenv -f environment.yml && micromamba clean --all --yes && \
-    micromamba run -n myenv pip install ./ --no-deps --no-build-isolation
+    micromamba run -n myenv pip install ./ --no-deps --no-build-isolation && \
+    cd / && rm -rf /rnadist
 
+ENV PATH=/opt/conda/envs/myenv/bin:$PATH
 RUN micromamba run -n myenv pip install pytest && \
     micromamba run -n myenv pytest --pyargs RNAdist
 
@@ -26,4 +28,4 @@ WORKDIR /app
 ENV PATH=/opt/conda/envs/myenv/bin:$PATH
 ENV LD_LIBRARY_PATH=/opt/conda/envs/myenv/lib:$LD_LIBRARY_PATH
 
-CMD ["/bin/bash"]
+
