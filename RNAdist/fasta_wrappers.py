@@ -5,7 +5,8 @@ from Bio import SeqIO
 from RNAdist.dp.pmcomp import pmcomp_distance
 import pandas as pd
 from RNAdist.dp.cpedistance import cp_expected_distance, binding_site_distance
-from RNAdist.sampling.ed_sampling import sample, sample_non_redundant
+from RNAdist.sampling.ed_sampling import sample, sample_non_redundant, distance_histogram
+from RNAdist.dashboard.helpers import insert_submission, hash_model_details, set_status, create_database
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
@@ -39,19 +40,19 @@ def _fasta_wrapper(func: Callable, fasta: str, md_config: Dict[str, Any], num_th
 
 def _pmcomp_mp_wrapper(seq, md_config):
     md = RNA.md()
-    md = set_md_from_config(md, config=md_config)
+    set_md_from_config(md, config=md_config)
     return pmcomp_distance(sequence=seq, md=md)
 
 
 def _cp_mp_wrapper(seq, md_config):
     md = RNA.md()
-    md = set_md_from_config(md, config=md_config)
+    set_md_from_config(md, config=md_config)
     return cp_expected_distance(sequence=seq, md=md)
 
 
 def _sampling_mp_wrapper(seq, md_config, nr_samples, redundant):
     md = RNA.md()
-    md = set_md_from_config(md, config=md_config)
+    set_md_from_config(md, config=md_config)
     if redundant:
         return sample(seq, nr_samples, md)
     else:
@@ -86,7 +87,7 @@ def clote_ponty_from_fasta(fasta: str, md_config: Dict[str, Any], num_threads: i
     return _fasta_wrapper(_cp_mp_wrapper, fasta, md_config, num_threads)
 
 
-def sampled_distance_from_fasta(
+def sampled_expected_distance_from_fasta(
         fasta: str,
         md_config: Dict[str, Any],
         num_threads: int = 1,
@@ -106,6 +107,36 @@ def sampled_distance_from_fasta(
            The sequence identifier is the dict key and the expected distance matrices are the values
        """
     return _fasta_wrapper(_sampling_mp_wrapper, fasta, md_config, num_threads, nr_samples, redundant=redundant)
+
+
+
+def _sample_histograms_mp_wrapper(seq, md_config, nr_samples, db_path, user_id, header):
+    md = RNA.md()
+    set_md_from_config(md, config=md_config)
+    fc = RNA.fold_compound(seq, md)
+    histograms, structure_cache = distance_histogram(fc, nr_samples, return_samples=True)
+    insert_submission(seq, histograms, structure_cache, fc, md, db_path=db_path)
+    fields, md_hash = hash_model_details(md, seq)
+    set_status(db_path, md_hash, "finished", user_id, header)
+
+
+
+def sample_histograms_from_fasta(fasta, md_config: Dict[str, Any],  db_path: str, user_id: str,  nr_samples: int = 1000, num_threads: int = 1):
+    calls = []
+    desc = set()
+    create_database(db_path)
+
+    for sr in SeqIO.parse(fasta, "fasta"):
+        if sr.description in desc:
+            raise ValueError("Duplicate sequence description found - please adjust your fasta file")
+        desc.add(sr.description)
+        calls.append((str(sr.seq), md_config, nr_samples, db_path, user_id, sr.description))
+
+    if num_threads <= 1:
+        _ = [_sample_histograms_mp_wrapper(*call) for call in calls]
+    else:
+        with Pool(num_threads) as pool:
+            _ = pool.starmap(_sample_histograms_mp_wrapper, calls)
 
 
 def _read_beds(beds, names):
@@ -205,7 +236,7 @@ def _pickle_data(data, outfile):
 
 def _sampled_distance_executable_wrapper(args):
     md_config = md_config_from_args(args)
-    data = sampled_distance_from_fasta(
+    data = sampled_expected_distance_from_fasta(
         fasta=args.input,
         md_config=md_config,
         num_threads=args.num_threads,
@@ -246,6 +277,17 @@ def _bs_bed_executable_wrapper(args):
     )
     df.to_csv(args.output, sep="\t", index=False)
 
+def _histogram_executable_wrapper(args):
+    md_config = md_config_from_args(args)
+
+    sample_histograms_from_fasta(
+        args.input,
+        md_config=md_config,
+        num_threads=args.num_threads,
+        nr_samples=args.nr_samples,
+        db_path=args.database,
+        user_id=args.user_id,
+    )
 
 def md_config_from_args(args):
     md_config = {

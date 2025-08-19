@@ -1,8 +1,8 @@
 import argparse
-from RNAdist.visualize.visualize import run_visualization
 from RNAdist.fasta_wrappers import _cp_executable_wrapper, _pmcomp_executable_wrapper, \
-    _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd
+    _sampled_distance_executable_wrapper, _bs_bed_executable_wrapper, _export_all_cmd, _histogram_executable_wrapper
 
+from RNAdist.dashboard.cli import _cli_wrapper
 
 def add_md_parser(parser):
     group2 = parser.add_argument_group("ViennaRNA Model Details")
@@ -45,7 +45,7 @@ def sampling_parser(subparsers, name: str):
         '--output',
         required=True,
         type=str,
-        help="Pickled Output file that stores matrices. Can be visualized via RNAdist visualize"
+        help="Pickled Output file that stores matrices. Can be visualized via RNAdist dashboard"
     )
     group1.add_argument(
         '--num_threads',
@@ -85,7 +85,7 @@ def cp_parser(subparsers, name: str):
         '--output',
         required=True,
         type=str,
-        help="Pickled Output file that stores matrices. Can be visualized via RNAdist visualize"
+        help="Pickled Output file that stores matrices. Can be visualized via RNAdist dashboard"
     )
     group1.add_argument(
         '--num_threads',
@@ -95,6 +95,7 @@ def cp_parser(subparsers, name: str):
     )
     parser = add_md_parser(parser)
     return parser
+
 
 def _bs_parser(subparsers, name: str):
     parser = subparsers.add_parser(
@@ -138,27 +139,57 @@ def _bs_parser(subparsers, name: str):
     return parser
 
 
+def histogram_parser(subparsers, name: str):
+    parser = subparsers.add_parser(
+        name,
+        description=f"Calculates the histogram of distances between all nt i and j for each sequence in a fasta file"
+    )
+    group1 = parser.add_argument_group("General Arguments")
+    group1.add_argument(
+        '--input',
+        type=str,
+        help="FASTA input file",
+        required=True
+    )
+    group1.add_argument(
+        '--database',
+        required=True,
+        type=str,
+        help="Sqlite3 database to store results. This is compatible with the Dashboard."
+    )
+    group1.add_argument(
+        '--nr_samples',
+        type=int,
+        help="Number of samples used for calculation of histograms. (Default: 1000)",
+        default=1000
+    )
+    group1.add_argument(
+        '--user_id',
+        type=str,
+        help="User ID to access the results in the dashboard. Default LocalUser",
+        default="LocalUser"
+    )
+    group1.add_argument(
+        '--num_threads',
+        type=int,
+        help="Number of parallel threads to use (Default: 1)",
+        default=1
+    )
+    parser = add_md_parser(parser)
 
+    return parser
 
-def visualization_parser(subparsers, name):
+def dash_parser(subparsers, name):
     parser = subparsers.add_parser(
         name,
         description="Runs the Dash visualization tool"
     )
     parser.add_argument(
-        '--input',
+        '--database',
+        required=True,
         type=str,
-        nargs="+",
-        help="Path to the prediction files generated using one of the prediction mechansims. It is possible to "
-             "include multiple files using whitespace separated paths",
-        required=True
-    )
-    parser.add_argument(
-        '--fasta',
-        type=str,
-        help="Fasta file containing sequences from the prediction. Leavong the default None will lead to missing"
-             " nucleotide information (Default: None)",
-        default=None
+        help="Sqlite3 database to store results. If it already exists, its possible to access data from the existing "
+             "database"
     )
     parser.add_argument(
         '--port',
@@ -171,6 +202,12 @@ def visualization_parser(subparsers, name):
         type=str,
         help="Host IP used by the dash server to serve the application (Default: 0.0.0.0)",
         default="0.0.0.0"
+    )
+    parser.add_argument(
+        '--processes',
+        type=int,
+        help="Number of processes to use (Default: 1)",
+        default=1
     )
     return parser
 
@@ -203,12 +240,13 @@ class RNAdistParser:
 
         )
         self.methods = {
-            "visualize": (visualization_parser, run_visualization),
+            "Dash": (dash_parser, _cli_wrapper),
             "clote-ponty": (cp_parser, _cp_executable_wrapper),
             "pmcomp": (cp_parser, _pmcomp_executable_wrapper),
             "sample": (sampling_parser, _sampled_distance_executable_wrapper),
             "binding-site": (_bs_parser, _bs_bed_executable_wrapper),
             "extract": (extract_parser, _export_all_cmd),
+            "histograms": (histogram_parser, _histogram_executable_wrapper)
         }
         self.subparsers = self.parser.add_subparsers()
         self.__addparsers()

@@ -56,6 +56,8 @@ tuple<vector <uint16_t>, StructureCache> trackDistances(vrna_fold_compound_t *fc
 tuple<vector <uint16_t>, StructureCache> trackDistances(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 double expectedDistanceIJ(vrna_fold_compound_t *fc, int nr_samples, int i, int j);
 std::string decodeStructure(const std::vector<uint8_t>& packed, size_t originalLength);
+vector <uint16_t> distancesFromStructureCache(const StructureCache& cache, int n);
+void fillDistancesFromStructureString(std::string& structure, vector <uint16_t>& distances);
 
 struct sampling_data {
     vrna_fold_compound_t  *fc;

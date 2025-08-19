@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 *Datasets/
 *$py.class
+*.db
 .snakemake/
 *.plot
 *foo*

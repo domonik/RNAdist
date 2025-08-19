@@ -1,6 +1,8 @@
 include versioneer.py
 include RNAdist/_version.py
 include RNAdist/dp/_dp_calculations.pyx
+include RNAdist/dashboard/dashConfig.yaml
+include RNAdist/dashboard/index.md
 include *.pyx
 global-include cpp/*.h
 global-include tests/*.py

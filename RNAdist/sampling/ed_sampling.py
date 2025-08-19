@@ -5,7 +5,7 @@ import subprocess
 import os
 import networkx as nx
 from typing import List, Dict, Iterable
-from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling, cpp_sampling_ij, cpp_distance_tracking, cpp_bit_to_structure
+from RNAdist.sampling.cpp.sampling import cpp_nr_sampling, cpp_sampling, cpp_pthreshold_sampling, cpp_sampling_ij, cpp_distance_tracking, cpp_bit_to_structure, cpp_histogram_from_structure_cache
 import pandas as pd
 
 def undirected_distance(structure, data):
@@ -251,6 +251,11 @@ def sample_distance_ij(fc: RNA.fold_compound, i: int, j: int, nr_samples: int = 
     fc.params.model_details.uniq_ML = 1
     distance = cpp_sampling_ij(fc.this, i, j, nr_samples)
     return distance
+
+
+def histogram_from_structure_cache(cache, length: int):
+    return cpp_histogram_from_structure_cache(cache, length)
+
 
 def bytes_to_structure(b: bytes, length: int):
     """
