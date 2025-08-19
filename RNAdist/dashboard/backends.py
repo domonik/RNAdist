@@ -4,12 +4,13 @@ import os
 
 
 
-if CONFIG["REDIS"]["long_callbacks"]:
-    URL = f"redis://{CONFIG['REDIS']['host']}:{CONFIG['REDIS']['port']}/{CONFIG['REDIS']['long_callbacks']}"
+if CONFIG["REDIS"]["URL"]:
+    URL = CONFIG["REDIS"]["URL"]
     try:
         from celery import Celery
     except ImportError:
         raise ImportError("The optional dependency celery is not installed. Install it via pip install celery[redis]")
+    print(f"Managing background tasks via celery and URL - {URL}")
     celery = Celery(__name__, broker=URL, backend=URL)
     BACKGROUND_CALLBACK_MANAGER = CeleryManager(celery)
 

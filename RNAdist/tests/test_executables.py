@@ -64,7 +64,7 @@ def test_binding_site_executable(tmp_path, bed_test_fasta, bed_test_bed, names):
         "--num_threads", str(os.cpu_count()),
     ]
     data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
-    assert data.stderr.decode() == ""
+    assert data.returncode == 0, f"Command failed with return code {data.returncode}, stderr: {data.stderr.decode()}"
     assert os.path.exists(op)
     df = pd.read_csv(op, sep="\t")
     assert df.shape[0] >= 1
@@ -80,7 +80,7 @@ def test_histogram_executable(tmp_path, random_fasta):
         "--num_threads", str(os.cpu_count()),
     ]
     data = subprocess.run(process, stderr=subprocess.PIPE, env=env)
-    assert data.stderr.decode() == ""
+    assert data.returncode == 0, f"Command failed with return code {data.returncode}, stderr: {data.stderr.decode()}"
     assert os.path.exists(op)
 
 

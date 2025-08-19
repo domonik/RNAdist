@@ -19,6 +19,9 @@ DATABASE_FILE = CONFIG['DATABASE']
 
 dash.register_page(__name__, path='/submission', name="Submission")
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_submissions_table():
@@ -347,6 +350,8 @@ def submit_sequence(n_clicks, sequence, header, user_id, temperature, max_bp_spa
     prevent_initial_call=True
 )
 def process_sequence(submitted_job, user_id):
+    logger.info("STARTED long running task")
+
     if submitted_job is None:
         return dash.no_update
     database_cleanup(db_path=DATABASE_FILE)
@@ -365,7 +370,7 @@ def process_sequence(submitted_job, user_id):
         print("RUNNING")
         set_status(DATABASE_FILE, md_hash, "failed", user_id, header)
         raise e
-
+    logger.info(f"FINISHED long running task result stored in {DATABASE_FILE}")
     return True
 
 @callback(
