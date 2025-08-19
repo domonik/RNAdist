@@ -139,7 +139,7 @@ def get_sequence_submission_box():
                         dbc.Col(
                             dbc.FormFloating(
                                 [
-                                    dbc.Input(id="submitted-header", value="ENA|AF254836|AF254836.1"),
+                                    dbc.Input(id="submitted-header", value="ENA|AF254836|AF254836.1", maxlength=40),
                                     dbc.Label("Header"),
 
                                 ]
@@ -263,7 +263,7 @@ def get_layout():
         ],
         style={
             'width': '100%',  # Full width
-            'padding': '20px'  # Optional: adds some spacing
+            #'padding': '20px'  # Optional: adds some spacing
         },
     )
     return layout

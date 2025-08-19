@@ -111,7 +111,7 @@ def get_distance_distrubution_box():
 
             ],
 
-        ), width=12, md=6
+        ), width=12, md=6, className="py-2 py-xl-0"
     )
     return distance_distribution_box
 
@@ -322,7 +322,7 @@ def get_layout():
                             get_distance_distrubution_box(),
                             get_expected_distance_box()
                         ],
-                        className="py-2"
+                        className="py-1 py-xl-2"
 
                     ),
                     dbc.Row(
@@ -343,7 +343,6 @@ def get_layout():
         ],
         style={
             'width': '100%',  # Full width
-            'padding': '20px'  # Optional: adds some spacing
         },
     )
     return layout
