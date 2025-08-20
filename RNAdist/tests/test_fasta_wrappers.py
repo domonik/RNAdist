@@ -6,7 +6,7 @@ from RNAdist.fasta_wrappers import (clote_ponty_from_fasta, pmcomp_from_fasta, s
                                     bed_distance_wrapper, export_array, export_all, sample_histograms_from_fasta)
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
-from RNAdist.dashboard.helpers import create_database
+from RNAdist.dashboard.helpers import Database
 
 pytest_plugins = [
     "RNAdist.dp.tests.fixtures",

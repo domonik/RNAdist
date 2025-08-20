@@ -6,7 +6,7 @@ from RNAdist.dp.pmcomp import pmcomp_distance
 import pandas as pd
 from RNAdist.dp.cpedistance import cp_expected_distance, binding_site_distance
 from RNAdist.sampling.ed_sampling import sample, sample_non_redundant, distance_histogram
-from RNAdist.dashboard.helpers import insert_submission, hash_model_details, set_status, create_database
+from RNAdist.dashboard.helpers import Database, hash_model_details
 from multiprocessing import Pool
 from RNAdist.dp.viennarna_helpers import set_md_from_config
 import RNA
@@ -111,20 +111,24 @@ def sampled_expected_distance_from_fasta(
 
 
 def _sample_histograms_mp_wrapper(seq, md_config, nr_samples, db_path, user_id, header):
+    db_config = {"type": "sqlite", "path": db_path}
+    db = Database(db_config)
     md = RNA.md()
     set_md_from_config(md, config=md_config)
     fc = RNA.fold_compound(seq, md)
     histograms, structure_cache = distance_histogram(fc, nr_samples, return_samples=True)
-    insert_submission(seq, histograms, structure_cache, fc, md, db_path=db_path)
+    db.compress_and_insert_into_submissions(seq, histograms, structure_cache, fc, md)
     fields, md_hash = hash_model_details(md, seq)
-    set_status(db_path, md_hash, "finished", user_id, header)
+    db.set_status(md_hash, "finished", user_id, header)
 
 
 
 def sample_histograms_from_fasta(fasta, md_config: Dict[str, Any],  db_path: str, user_id: str,  nr_samples: int = 1000, num_threads: int = 1):
     calls = []
     desc = set()
-    create_database(db_path)
+    db_config = {"type": "sqlite", "path": db_path}
+    db = Database(db_config)
+    db.create_database()
 
     for sr in SeqIO.parse(fasta, "fasta"):
         if sr.description in desc:

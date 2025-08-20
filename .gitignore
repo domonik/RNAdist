@@ -20,6 +20,7 @@ papers/
 *_dp_calulations.*
 *_dp_calculations.c
 *_dp_calculations.html
+*pgdata/
 
 # C extensions
 *.so

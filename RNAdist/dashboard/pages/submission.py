@@ -10,16 +10,15 @@ from RNAdist.plots.sampling_plots import distance_histo_from_matrix
 import sqlite3
 import numpy as np
 import io
-from RNAdist.dashboard.helpers import hash_model_details, insert_submission, set_status, check_hash_exists, \
-    get_jobs_of_user, check_user_header_combination, check_user_hash_combination, database_cleanup
-import zlib
-import uuid
+from RNAdist.dashboard.helpers import Database, hash_model_details
 
-DATABASE_FILE = CONFIG['DATABASE']
+
+DB = Database(CONFIG["DATABASE"])
 
 dash.register_page(__name__, path='/submission', name="Submission")
 
 import logging
+logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -291,7 +290,7 @@ def check_valid_input(sequence, temperature, bpspan, user_id, header):
         text = f"Your sequence is too long. Maximum allowed: {MAX_SEQ_LENGTH}\n." \
                f" You can change this when running your own RNAdist instance"
 
-    if check_user_header_combination(DATABASE_FILE, user_id, header):
+    if DB.check_user_header_combination(user_id, header):
         text = "An Entry with the header and user ID already exists. Please rename the sequence"
     return text
 
@@ -325,17 +324,24 @@ def submit_sequence(n_clicks, sequence, header, user_id, temperature, max_bp_spa
 
     md = RNA.md(**md_dict)
     fields, md_hash = hash_model_details(md, sequence)
-    if row := check_user_hash_combination(DATABASE_FILE, user_id, md_hash):
+    if row := DB.check_user_hash_combination(user_id, md_hash):
         name = row[0]
         text = f"This Sequence was already processed using the Header: {name}"
         return dash.no_update, True, text
-    status = check_hash_exists(DATABASE_FILE, md_hash)
+    status = DB.check_hash_exists(md_hash)
     print(f"status: {status}")
     if status:
-        set_status(DATABASE_FILE, md_hash, status, user_id, header)
+        DB.set_status(md_hash, status, user_id, header)
         return dash.no_update, is_open, dash.no_update
     else:
-        set_status(DATABASE_FILE, md_hash, "queued", user_id, header)
+        submission = {
+            "hash": md_hash,
+            "sequence": sequence,
+            "length": len(sequence),
+            "protected": False,
+        }
+        DB.insert_submission_rows(submission)
+        DB.set_status(md_hash, "queued", user_id, header)
 
     return [header, fields, sequence], is_open, dash.no_update
 
@@ -354,7 +360,7 @@ def process_sequence(submitted_job, user_id):
 
     if submitted_job is None:
         return dash.no_update
-    database_cleanup(db_path=DATABASE_FILE)
+    DB.database_cleanup()
     header, md_dict, sequence = submitted_job
     RNA.init_rand(42)
     md = RNA.md(**md_dict)
@@ -362,15 +368,15 @@ def process_sequence(submitted_job, user_id):
     _, md_hash = hash_model_details(md, sequence)
     try:
 
-        set_status(DATABASE_FILE, md_hash, "running", user_id, header)
+        DB.set_status(md_hash, "running", user_id, header)
         histograms, samples = distance_histogram(fc, 10000, return_samples=True)
-        insert_submission(sequence, histograms, samples, fc, md, DATABASE_FILE)
-        set_status(DATABASE_FILE, md_hash, "finished", user_id, header)
+        DB.compress_and_insert_into_submissions(sequence, histograms, samples, fc, md)
+        DB.set_status(md_hash, "finished", user_id, header)
     except Exception as e:
         print("RUNNING")
-        set_status(DATABASE_FILE, md_hash, "failed", user_id, header)
+        DB.set_status(md_hash, "failed", user_id, header)
         raise e
-    logger.info(f"FINISHED long running task result stored in {DATABASE_FILE}")
+    logger.info(f"FINISHED long running task")
     return True
 
 @callback(
@@ -383,12 +389,14 @@ def process_sequence(submitted_job, user_id):
     Input("submission-fail-modal", "is_open")
 )
 def display_status(n, user_id, _, _2):
-    status = get_jobs_of_user(DATABASE_FILE, user_id)
+    status = DB.get_jobs_of_user(user_id)
+    logger.info(f"status: {status}")
     table = []
     tooltips = []
     all_finished = True
     for row in status:
-        job_id = str(row["hash"].hex())
+        logger.info(row)
+        job_id = str(row["job_hash"].hex())
         state = row["status"]
         if state != "finished":
             all_finished = False
