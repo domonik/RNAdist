@@ -2,6 +2,11 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
     clientside: {
         toggleNavbarCollapse: function(toggleClicks, linkClicks, is_open) {
             let ctx = dash_clientside.callback_context;
+            if (!ctx.triggered || ctx.triggered.length === 0) {
+                // Nothing triggered yet, just return current state(s)
+                return [is_open, is_open]; // adjust second collapse if needed
+            }
+
             let triggeredId = ctx.triggered[0].prop_id.split('.')[0];
 
             // If a nav link triggered, always close

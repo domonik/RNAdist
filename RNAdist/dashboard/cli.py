@@ -1,28 +1,22 @@
 import os
 import sqlite3
 import RNAdist.dashboard
-from RNAdist.dashboard.helpers import get_md_fields, create_database
+from RNAdist.dashboard.helpers import Database
 
 
 
 def cli_wrapper(
-        db: str,
         debug: bool = False,
         port: int = 8090,
         host: str = "127.0.0.1",
         processes: int = 1
 ):
 
-    RNAdist.dashboard.CONFIG['DATABASE'] = db
 
     from RNAdist.dashboard.app import app, get_layout
-    if not os.path.exists(db):
-        create_database(db)
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM jobs WHERE status != 'finished';")
-    conn.commit()
-    conn.close()
+    db = Database(RNAdist.dashboard.CONFIG["DATABASE"])
+    db.create_database(db)
+    db.delete_unfinished_jobs()
 
     app.layout = get_layout()
     app.run(debug=debug, port=port, host=host, processes=processes, threaded=False)
@@ -38,4 +32,4 @@ def _cli_wrapper(args):
 if __name__ == '__main__':
     database_file = "../../foo_db.db"
     #assert os.path.exists(database_file)
-    cli_wrapper(db=database_file, debug=True, processes=3)
+    cli_wrapper(debug=True, processes=3)

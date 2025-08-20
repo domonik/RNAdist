@@ -11,8 +11,16 @@ import zlib
 from multiprocessing import Lock
 from RNAdist.sampling.cpp.sampling import distances_from_structure
 import time
+import logging
+import datetime
+from sqlalchemy import create_engine, text
+from collections import OrderedDict
+import os
+from pathlib import Path
 
-db_lock = Lock()
+logger = logging.getLogger(__name__)
+
+
 def get_md_fields():
     fields, _ = hash_model_details(RNA.md(), "A")
     return fields
@@ -32,245 +40,418 @@ def hash_model_details(md: RNA.md, sequence):
     md_hash = hashlib.sha256(encoded).digest()
     return fields, md_hash
 
-
-def check_user_header_combination(db_path, user_id, header):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT status FROM jobs WHERE user_id = ? AND header = ? LIMIT 1", (user_id, header))
-    row = cursor.fetchone()
-    return bool(row)
-
-
-def check_user_hash_combination(db_path, user_id, md_hash):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT header FROM jobs WHERE user_id = ? AND hash = ? LIMIT 1", (user_id, md_hash))
-    row = cursor.fetchone()
-    return row
+class Database:
+    def __init__(self, config, max_cache_size:int =8):
+        self.engine = self._get_engine(config)
+        self._matrix_cache = {}
+        self.max_cache_size = max_cache_size
+        self.config = config
 
 
-def _delete_old_entries(db_path):
-    conn = sqlite3.connect(db_path)  # replace with your DB path
-    cursor = conn.cursor()
-    with db_lock:
-        cursor.execute("""
-        UPDATE jobs
-        SET status = 'deleted'
-        WHERE hash IN (
-            SELECT hash FROM submissions
-            WHERE created_at < datetime('now', '-7 days')
-            AND protected = 0
-        );
-        """)
-        cursor.execute("""
-            DELETE FROM submissions
-            WHERE created_at < datetime('now', '-7 days')
-            AND protected = 0
-                       """)
-        conn.commit()
-    conn.close()
+    def delete_unfinished_jobs(self):
+        with self.engine.connect() as conn:
+            conn.execute(
+                text("DELETE FROM jobs WHERE status != 'finished';")
+            )
+            conn.commit()
 
-
-def _cleanup_oldest_if_needed(db_path):
-    with db_lock:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Count entries
-        cursor.execute("SELECT COUNT(*) FROM submissions")
-        count = cursor.fetchone()[0]
-
-        if count >= 1000:
-            print(f"[cleanup] Table has {count} entries. Deleting 10 oldest.")
-
-            cursor.execute("""
-                           SELECT hash FROM submissions
-                           WHERE protected = 0
-                           ORDER BY created_at ASC
-                               LIMIT 10
-                           """)
-            hashes_to_delete = [row[0] for row in cursor.fetchall()]
-
-            if hashes_to_delete:
-                placeholders = ",".join("?" for _ in hashes_to_delete)
-
-                # Step 2: Update jobs table
-                cursor.execute(f"""
-                        UPDATE jobs
-                        SET status = 'deleted'
-                        WHERE hash IN ({placeholders})
-                    """, hashes_to_delete)
-
-                # Step 3: Delete from submissions
-                cursor.execute(f"""
-                        DELETE FROM submissions
-                        WHERE hash IN ({placeholders})
-                    """, hashes_to_delete)
-
-                conn.commit()
+    def _get_engine(self, config):
+        if config["type"] == "sqlite":
+            return create_engine(
+                f"sqlite:///{config['path']}",
+                connect_args={"check_same_thread": False}
+            )
+        elif config["type"] == "postgresql":
+            return create_engine(
+                f"postgresql+psycopg2://{config['user']}:{config['password']}@"
+                f"{config['host']}/{config['database']}"
+            )
         else:
-            print(f"[cleanup] Table size ({count}) below threshold. No cleanup.")
+            raise ValueError(f"Unsupported db_type: {config['db_type']}")
 
-        conn.close()
+    # ---------- Queries ----------
 
-def database_cleanup(db_path):
-    _delete_old_entries(db_path)
-    _cleanup_oldest_if_needed(db_path)
+    def check_user_header_combination(self, user_id, header):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT status FROM jobs WHERE user_id = :user_id AND header = :header LIMIT 1"),
+                {"user_id": user_id, "header": header}
+            ).fetchone()
+            return bool(result)
+
+    def check_user_hash_combination(self, user_id, md_hash):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT header FROM jobs WHERE user_id = :user_id AND hash = :md_hash LIMIT 1"),
+                {"user_id": user_id, "md_hash": md_hash}
+            ).fetchone()
+            return result[0] if result else None
+
+    def check_hash_exists(self, hash_value):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT status FROM jobs WHERE hash = :hash_value LIMIT 1"),
+                {"hash_value": hash_value}
+            ).fetchone()
+            return result[0] if result else False
+
+    # ---------- Maintenance ----------
+
+    def _delete_old_entries(self):
+        cutoff_date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=7)
+        with self.engine.begin() as conn:
+            conn.execute(
+                text("""
+                     UPDATE jobs
+                     SET status = 'deleted'
+                     WHERE hash IN (
+                         SELECT hash FROM submissions
+                         WHERE created_at < :cutoff
+                           AND protected = FALSE
+                     )
+                     """),
+                {"cutoff": cutoff_date}
+            )
+            conn.execute(
+                text("""
+                     DELETE FROM submissions
+                     WHERE created_at < :cutoff
+                       AND protected = FALSE
+                     """),
+                {"cutoff": cutoff_date}
+            )
+
+    def _cleanup_oldest_if_needed(self, max_entries: int = 1000, batch_size: int = 10):
+        with self.engine.begin() as conn:
+            count = conn.execute(text("SELECT COUNT(*) FROM submissions")).scalar()
+
+            if count >= max_entries:
+                logger.info("[cleanup] Table has %s entries. Deleting %s oldest.", count, batch_size)
+
+                result = conn.execute(
+                    text("""
+                         SELECT hash FROM submissions
+                         WHERE protected = 0
+                         ORDER BY created_at ASC
+                             LIMIT :limit
+                         """),
+                    {"limit": batch_size}
+                )
+                hashes_to_delete = [row[0] for row in result.fetchall()]
+
+                if hashes_to_delete:
+                    placeholders = ", ".join(f":h{i}" for i in range(len(hashes_to_delete)))
+                    params = {f"h{i}": h for i, h in enumerate(hashes_to_delete)}
+
+                    conn.execute(
+                        text(f"UPDATE jobs SET status = 'deleted' WHERE hash IN ({placeholders})"),
+                        params
+                    )
+                    conn.execute(
+                        text(f"DELETE FROM submissions WHERE hash IN ({placeholders})"),
+                        params
+                    )
+            else:
+                logger.info("[cleanup] Table size (%s) below threshold. No cleanup.", count)
+
+    def database_cleanup(self):
+        self._delete_old_entries()
+        self._cleanup_oldest_if_needed()
+
+    def get_submission_for_user_header(self, user_id, header):
+        """Return submission details for a given user and header."""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                     SELECT submissions.length,
+                            submissions.hash,
+                            submissions.sequence,
+                            submissions.mfe
+                     FROM jobs
+                              JOIN submissions ON jobs.hash = submissions.hash
+                     WHERE jobs.user_id = :user_id AND jobs.header = :header
+                     """),
+                {"user_id": user_id, "header": header}
+            ).mappings().first()  # returns a dict-like row or None
+        return result
+
+    def get_finished_headers(self, user_id):
+        """Return distinct headers for finished jobs of a given user."""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                     SELECT DISTINCT header
+                     FROM jobs
+                     WHERE status = :status AND user_id = :user_id
+                     """),
+                {"status": "finished", "user_id": user_id}
+            )
+            headers = [row["header"] for row in result.mappings().all()]
+        return headers
 
 
+    def get_jobs_of_user(self, user_id):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                     SELECT jobs.hash AS job_hash,
+                            submissions.hash AS submission_hash,
+                            jobs.user_id,
+                            jobs.status,
+                            jobs.header,
+                            submissions.sequence,
+                            submissions.mfe,
+                            submissions.length,
+                            submissions.temperature,
+                            submissions.max_bp_span
+                     FROM jobs
+                              LEFT JOIN submissions ON jobs.hash = submissions.hash
+                     WHERE jobs.user_id = :user_id
+                     """),
+                {"user_id": user_id}
+            )
+        return result.mappings().all()
 
-def check_hash_exists(db_path, hash_value):
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    cursor = conn.cursor()
+    def _fetch_matrix_from_db(self, md_hash, return_mfe: bool = False):
+        """Fetch the matrix (and optional MFE distances) from the database."""
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT matrix, length, mfe FROM submissions WHERE hash = :md_hash"),
+                {"md_hash": md_hash}
+            ).mappings().first()
 
-    # Check if hash exists
-    cursor.execute("SELECT status FROM jobs WHERE hash = ?", (hash_value,))
-    row = cursor.fetchone()
-    if row is not None:
-        status = row[0]
-        return status
-    else:
-        return False
+        buf = io.BytesIO(row["matrix"])
+        decompressed = zlib.decompress(buf.getvalue())
+        compressed_mat = np.load(io.BytesIO(decompressed))
+        z = compressed_mat.shape[1]
+        n = row["length"]
 
+        tri_upper = np.triu_indices(n)
+        matrix = np.zeros((n, n, z), dtype=compressed_mat.dtype)
+        matrix[tri_upper[0][:, None], tri_upper[1][:, None], np.arange(z)] = compressed_mat
+        matrix[tri_upper[1][:, None], tri_upper[0][:, None], np.arange(z)] = compressed_mat  # mirror
 
-def get_jobs_of_user(db_path, user_id):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("""
-                   SELECT *
-                   FROM jobs
-                   LEFT JOIN submissions ON jobs.hash = submissions.hash
-                   WHERE jobs.user_id = ?
-                   """, (user_id,))
-    jobs = cursor.fetchall()
-    conn.close()
-    return jobs
+        if return_mfe:
+            mfe_distances = distances_from_structure(row["mfe"])
+            return matrix, mfe_distances
 
-@lru_cache(maxsize=8) # This only works in production with gunicorn
-def matrix_from_hash(db_path, md_hash, return_mfe: bool = False):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+        return matrix
 
-    cursor = conn.cursor()
-    cursor.execute("SELECT matrix, length, mfe FROM submissions WHERE hash = ?", (md_hash,))
-    row = cursor.fetchone()
-    buf = io.BytesIO(row["matrix"])
-    decompressed = zlib.decompress(buf.getvalue())
-    compressed_mat = np.load(io.BytesIO(decompressed))
-    z = compressed_mat.shape[1]
-    n = row["length"]
-    tri_upper = np.triu_indices(n)
-    matrix = np.zeros((n, n, z), dtype=compressed_mat.dtype)
-    matrix[tri_upper[0][:, None], tri_upper[1][:, None], np.arange(z)] = compressed_mat
-    matrix[tri_upper[1][:, None], tri_upper[0][:, None], np.arange(z)] = compressed_mat  # mirror
-
-    conn.close()
-    if return_mfe:
+    def matrix_from_hash(self, md_hash, return_mfe: bool = False):
+        """Return matrix with optional caching."""
         s = time.time()
-        mfe_distances = distances_from_structure(row["mfe"])
+
+        key = (md_hash, return_mfe)
+        if key in self._matrix_cache:
+            return self._matrix_cache[key]
+
+        matrix = self._fetch_matrix_from_db(md_hash, return_mfe)
+        self._matrix_cache[key] = matrix
+        if len(self._matrix_cache) > self.max_cache_size:
+            # Evict oldest
+            self._matrix_cache.popitem(last=False)
         e = time.time()
-        print(e - s, "seconds")
+        logger.info(f"fetching matrix took {e-s} seconds")
+        return matrix
 
-        return matrix, mfe_distances
-    return matrix
-
-def set_status(db_path, hash_value, status, user_id, header):
-    with db_lock:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO jobs (hash, status, user_id, header)
-            VALUES (?, ?, ?, ?)
-        """, (hash_value, status, user_id, header))
-        conn.commit()
-        conn.close()
-
-
-def get_structures_and_length_for_hash(db_path, md_hash):
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.row_factory = sqlite3.Row
-
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM structures WHERE hash = ? ORDER BY count DESC", (md_hash,))
-    rows = cursor.fetchall()
-    cursor.execute("SELECT length FROM submissions WHERE hash = ? LIMIT 1", (md_hash,))
-    length = cursor.fetchone()["length"]
-    conn.close()
-    return rows, length
+    def set_status(self, hash_value, status, user_id, header):
+        """Insert or update a job's status."""
+        with self.engine.begin() as conn:
+            logger.info(f"Setting status: {hash_value} to {status}")
+            conn.execute(
+                text("""
+                     INSERT INTO jobs (hash, status, user_id, header)
+                     VALUES (:hash, :status, :user_id, :header)
+                         ON CONFLICT(hash, user_id) DO UPDATE SET
+                         status = excluded.status,
+                         header = excluded.header
+                     """),
+                {"hash": hash_value, "status": status, "user_id": user_id, "header": header}
+            )
 
 
-def get_structures_by_ids(db_path, structure_indices):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    def get_structures_and_length_for_hash(self, md_hash):
+        """Return all structures for a hash (ordered by count) and the sequence length."""
+        with self.engine.connect() as conn:
+            # Fetch structures
+            structures = conn.execute(
+                text("SELECT * FROM structures WHERE hash = :md_hash ORDER BY num_samples DESC"),
+                {"md_hash": md_hash}
+            ).mappings().all()  # returns list of dict-like rows
 
-    cursor = conn.cursor()
-    placeholders = ','.join(['?'] * len(structure_indices))  # "?,?,?" if 3 hashes
+            # Fetch length
+            length_row = conn.execute(
+                text("SELECT length FROM submissions WHERE hash = :md_hash LIMIT 1"),
+                {"md_hash": md_hash}
+            ).mappings().first()
+            length = length_row["length"] if length_row else None
 
-    query = f"SELECT * FROM structures WHERE id IN ({placeholders})"
-    cursor.execute(query, structure_indices)
-    rows = cursor.fetchall()
-    return rows
+        return structures, length
+
+    def get_structures_by_ids(self, structure_indices):
+        """Fetch structures given a list of structure IDs."""
+        if not structure_indices:
+            return []
+
+        placeholders = ", ".join(f":id{i}" for i in range(len(structure_indices)))
+        params = {f"id{i}": sid for i, sid in enumerate(structure_indices)}
+
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                text(f"SELECT * FROM structures WHERE id IN ({placeholders})"),
+                params
+            ).mappings().all()  # dict-like rows
+
+        return rows
+
+    @staticmethod
+    def compress_histograms(histograms: np.ndarray) -> bytes:
+        """Trim histograms to last non-zero z-slice and compress them."""
+        non_zero_mask = histograms != 0
+        non_zero_any_z = np.any(non_zero_mask, axis=(0, 1))
+        last_nonzero_index = np.where(non_zero_any_z)[0].max()
+        histograms = histograms[:, :, :last_nonzero_index + 1]
+
+        n, _, z = histograms.shape
+        tri_upper_indices = np.triu_indices(n)
+        histograms = histograms[tri_upper_indices[0][:, None], tri_upper_indices[1][:, None], np.arange(z)]
+
+        buf = io.BytesIO()
+        np.save(buf, histograms)
+        compressed_blob = zlib.compress(buf.getvalue())
+        return compressed_blob
+
+    @staticmethod
+    def build_submission_dict(sequence, fc, md, compressed_blob, protected=False):
+        """Build the submission dictionary including model detail fields."""
+        fields, md_hash = hash_model_details(md, sequence)
+        submission = {
+            "hash": md_hash,
+            "sequence": sequence,
+            "mfe": fc.mfe()[0],
+            "matrix": compressed_blob,
+            "length": fc.length,
+            "protected": protected,
+        }
+        submission.update(fields)
+        return submission, md_hash
+
+    def insert_submission_rows(self, submission: dict, structure_cache: dict = None):
+        """Insert the submission and related structures into the DB."""
+        with self.engine.begin() as conn:
+            cols = ", ".join(submission.keys())
+            params = ", ".join(f":{k}" for k in submission.keys())
+
+            # Prefix existing columns with table name to avoid ambiguity
+            update_clause = ", ".join(
+                f"{k} = COALESCE(submissions.{k}, EXCLUDED.{k})"
+                for k in submission.keys() if k != "hash"
+            )
+
+            conn.execute(
+                text(f"""
+                    INSERT INTO submissions ({cols}) VALUES ({params})
+                    ON CONFLICT (hash) DO UPDATE
+                    SET {update_clause}
+                """),
+                submission
+            )
+
+            if structure_cache is not None:
+                    # Insert structures
+                    structure_rows = [{"hash": submission["hash"], "structure": s, "num_samples": c}
+                                      for s, c in structure_cache.items()]
+                    if structure_rows:
+                        conn.execute(
+                            text("""
+                                 INSERT INTO structures (hash, structure, num_samples)
+                                 VALUES (:hash, :structure, :num_samples)
+                                     ON CONFLICT (hash, structure) DO UPDATE
+                                                                          SET num_samples = EXCLUDED.num_samples
+                                 """),
+                            structure_rows
+                        )
 
 
-def insert_submission(sequence, histograms, structure_cache, fc, md, db_path, protected=False):
-    fields, md_hash = hash_model_details(md, sequence)
-    non_zero_mask = histograms != 0
-    non_zero_any_z = np.any(non_zero_mask, axis=(0, 1))
+    def compress_and_insert_into_submissions(self, sequence, histograms, structure_cache, fc, md, protected=False):
+        """High-level function to insert a submission and its structures."""
+        compressed_blob = self.compress_histograms(histograms)
+        submission, md_hash = self.build_submission_dict(sequence, fc, md, compressed_blob, protected)
+        self.insert_submission_rows(submission, structure_cache)
+        return md_hash
 
-    # Find the last index where it's True
-    last_nonzero_index = np.where(non_zero_any_z)[0].max()
-    histograms = histograms[:, :, :last_nonzero_index + 1]
+    def create_database(self, create_file_if_missing=True):
+        """Create the SQLite database file and tables if they don't exist."""
 
+    # Ensure the SQLite file exists
+        if self.config["type"] == "sqlite":
+            # Ensure SQLite file exists
+            if create_file_if_missing and not os.path.exists(self.config["path"]):
+                Path(self.config["path"]).touch()
+            blob_type = "BLOB"
+            auto_inc = "INTEGER PRIMARY KEY AUTOINCREMENT"
+            timestamp_default = "CURRENT_TIMESTAMP"
+        elif self.config["type"] == "postgresql":
+            blob_type = "BYTEA"
+            auto_inc = "SERIAL PRIMARY KEY"
+            timestamp_default = "NOW()"
+        else:
+            raise ValueError(f"Unsupported database type: {self.config['type']}")
 
-    n, _, z = histograms.shape
+        fields = get_md_fields()
+        md_columns = [
+            f"{key} {sqlite_type(fields[key])}"
+            for key in fields.keys()
+        ]
 
-# Get indices of upper triangle
-    tri_upper_indices = np.triu_indices(n)
-    histograms = histograms[tri_upper_indices[0][:, None], tri_upper_indices[1][:, None], np.arange(z)]    # Serialize matrix
-    buf = io.BytesIO()
-    np.save(buf, histograms)
-    compressed_blob = zlib.compress(buf.getvalue())
+        submissions_sql = f"""
+        CREATE TABLE IF NOT EXISTS submissions (
+            hash {blob_type} PRIMARY KEY,
+            sequence TEXT NOT NULL,
+            mfe TEXT,
+            length INTEGER NOT NULL,
+            matrix {blob_type},
+            protected BOOLEAN DEFAULT FALSE NOT NULL, 
+            {',\n    '.join(md_columns)},
+            created_at TIMESTAMP DEFAULT {timestamp_default}
+        );
+        """
 
-    # Base columns
-    submission = {
-        "hash": md_hash,
-        "sequence": sequence,
-        "mfe": fc.mfe()[0],
-        "matrix": compressed_blob,
-        "length": fc.length,
-        "protected": protected,
-    }
+        jobs_sql = f"""
+        CREATE TABLE IF NOT EXISTS jobs (
+            id {auto_inc},
+            hash {blob_type} NOT NULL,
+            user_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            header TEXT NOT NULL,
+            UNIQUE (hash, user_id),
+            UNIQUE (user_id, header),
+            FOREIGN KEY (hash) REFERENCES submissions(hash)
+        );
+        """
 
-    # Merge in model detail fields
-    submission.update(fields)
+        structures_sql = f"""
+        CREATE TABLE IF NOT EXISTS structures (
+            id {auto_inc},
+            hash {blob_type} NOT NULL,
+            structure {blob_type} NOT NULL,
+            num_samples INTEGER NOT NULL,
+            FOREIGN KEY (hash) REFERENCES submissions(hash),
+            UNIQUE(hash, structure)
+        );
+        """
 
-    # Ensure order is correct for SQLite
-    columns = ", ".join(submission.keys())
-    placeholders = ", ".join("?" for _ in submission)
-    values = tuple(submission.values())
+        index_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_hash ON submissions(hash);",
+            "CREATE INDEX IF NOT EXISTS idx_structure_id ON structures(hash);"
+        ]
 
-    # Connect and insert
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"""
-            INSERT INTO submissions ({columns}) VALUES ({placeholders})
-        """, values)
-
-        values = [(md_hash, struct, count) for struct, count in structure_cache.items()]
-
-        cursor.executemany(
-            "INSERT INTO structures (hash, structure, count) VALUES (?, ?, ?)",
-            values
-        )
-    finally:
-        conn.commit()
-        conn.close()
-
+        with self.engine.begin() as conn:
+            conn.execute(text(submissions_sql))
+            conn.execute(text(jobs_sql))
+            conn.execute(text(structures_sql))
+            for idx in index_sql:
+                conn.execute(text(idx))
 
 def sqlite_type(val):
     if isinstance(val, int):
@@ -281,57 +462,6 @@ def sqlite_type(val):
         return "TEXT"
     else:
         return "BLOB"  # fallback for arrays, None, etc.
-
-
-
-
-def create_database(db_path: str):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    fields = get_md_fields()
-    md_columns = [
-        f"{key} {sqlite_type(fields[key])} NOT NULL"
-        for key in fields.keys()
-    ]
-    table_sql = f"""
-CREATE TABLE IF NOT EXISTS submissions (
-    hash BLOB PRIMARY KEY,
-    sequence TEXT NOT NULL,
-    mfe TEXT NOT NULL,
-    length INTEGER NOT NULL,
-    matrix BLOB,
-    protected BOOLEAN DEFAULT FALSE NOT NULL, 
-    {',\n    '.join(md_columns)},
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
-    jobs = f"""
-CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash BLOB NOT NULL,
-    user_id TEXT NOT NULL,
-    status TEXT NOT NULL,
-    header TEXT NOT NULL,
-    UNIQUE (hash, user_id),
-    UNIQUE (user_id, header),
-    FOREIGN KEY (hash) REFERENCES submissions(hash)
-    );
-"""
-    cursor.execute(jobs)
-    cursor.execute(table_sql)
-    cursor.execute("""
-CREATE TABLE IF NOT EXISTS structures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash BLOB NOT NULL,
-    structure BLOB NOT NULL,
-    count INTEGER NOT NULL,
-    FOREIGN KEY (hash) REFERENCES submissions(hash)
-);
-""")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hash ON submissions(hash);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_structure_id ON structures(hash);")
-    conn.commit()
-    conn.close()
 
 
 

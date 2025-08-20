@@ -2,6 +2,7 @@
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*filesystem_backend
 *.py[cod]
 *Datasets/
 *$py.class
@@ -19,6 +20,7 @@ papers/
 *_dp_calulations.*
 *_dp_calculations.c
 *_dp_calculations.html
+*pgdata/
 
 # C extensions
 *.so

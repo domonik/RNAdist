@@ -9,7 +9,7 @@ from RNAdist.plots.sampling_plots import distance_histo_from_matrix, expected_me
 import sqlite3
 import numpy as np
 import io
-from RNAdist.dashboard.helpers import get_structures_and_length_for_hash, matrix_from_hash, get_structures_by_ids
+from RNAdist.dashboard.helpers import Database
 import zlib
 import uuid
 import dash_bio as dashbio
@@ -17,8 +17,8 @@ from dash import ClientsideFunction
 import zlib
 import time
 
-DATABASE_FILE = CONFIG['DATABASE']
 
+DB = Database(CONFIG['DATABASE'])
 
 dash.register_page(__name__, path='/visualization', name="Visualization")
 
@@ -111,7 +111,7 @@ def get_distance_distrubution_box():
 
             ],
 
-        ), width=12, md=6
+        ), width=12, md=6, className="py-2 py-xl-0"
     )
     return distance_distribution_box
 
@@ -322,7 +322,7 @@ def get_layout():
                             get_distance_distrubution_box(),
                             get_expected_distance_box()
                         ],
-                        className="py-2"
+                        className="py-1 py-xl-2"
 
                     ),
                     dbc.Row(
@@ -343,7 +343,6 @@ def get_layout():
         ],
         style={
             'width': '100%',  # Full width
-            'padding': '20px'  # Optional: adds some spacing
         },
     )
     return layout
@@ -364,15 +363,10 @@ layout = get_layout()
     State("page-wide-seqid", "data")
 )
 def update_sequence_selection(_, comp_finish, user_id, seqid):
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
+    headers = DB.get_finished_headers(user_id)
 
-    cursor.execute("SELECT DISTINCT header FROM jobs WHERE jobs.status = ? AND jobs.user_id = ?;", ("finished", user_id))
-    hashes = [row[0] for row in cursor.fetchall()]
-
-    conn.close()
     seq_value = seqid if seqid is not None else dash.no_update
-    return hashes, seq_value
+    return headers, seq_value
 
 
 def make_ruler(length, interval=10):
@@ -400,19 +394,8 @@ def make_ruler(length, interval=10):
 def update_ij_selection(header, user_id):
     if header is None:
         raise dash.exceptions.PreventUpdate
-    conn = sqlite3.connect(DATABASE_FILE)
-    conn.row_factory = sqlite3.Row
+    result = DB.get_submission_for_user_header(user_id, header)
 
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    SELECT submissions.length, submissions.hash , submissions.sequence, submissions.mfe
-FROM jobs
-JOIN submissions ON jobs.hash = submissions.hash
-WHERE jobs.user_id = ? AND jobs.header = ?;
-""", (user_id, header))
-    result = cursor.fetchone()
-    print(list(result))
     d = list(range(1, result["length"]+1))
     marks, numbers = make_ruler(result["length"])
 
@@ -441,8 +424,8 @@ WHERE jobs.user_id = ? AND jobs.header = ?;
 def update_structures_table(md_hash):
     if md_hash is None:
         raise dash.exceptions.PreventUpdate
-    rows, length = get_structures_and_length_for_hash(DATABASE_FILE, bytes.fromhex(md_hash))
-    data = [{"id": row["id"],"Count": row["Count"], "Structure": bytes_to_structure(row["structure"], length)} for row in rows]
+    rows, length = DB.get_structures_and_length_for_hash(bytes.fromhex(md_hash))
+    data = [{"id": row["id"],"Count": row["num_samples"], "Structure": bytes_to_structure(bytes(row["structure"]), length)} for row in rows]
     return data, False
 
 
@@ -458,7 +441,7 @@ def plot_expected_distance(md_hash, switch):
     if md_hash is None:
         raise dash.exceptions.PreventUpdate
     md_hash = bytes.fromhex(md_hash)
-    matrix = matrix_from_hash(DATABASE_FILE, md_hash)
+    matrix, _ = DB.matrix_from_hash(md_hash, return_mfe=True)
     colorscale = [COLORS["green"], COLORS["blue"]]
     fig = expected_median_distance_maxtrix(matrix, colorscale=colorscale)
     fig.update_traces(colorbar=dict(
@@ -498,14 +481,12 @@ def plot_histo(seq_hash, i, j, switch):
     if seq_hash is None or i is None:
         return dash.no_update
     seq_hash = bytes.fromhex(seq_hash)
-    if j is None:
-        matrix, mfe = matrix_from_hash(DATABASE_FILE, seq_hash, return_mfe=True)
+    matrix, mfe = DB.matrix_from_hash(seq_hash, return_mfe=True)
 
+    if j is None:
         fig = plot_distances_with_running_j(matrix, i-1, mfe=mfe)
         fig.update_layout(legend=dict(orientation="h"))
     else:
-        matrix = matrix_from_hash(DATABASE_FILE, seq_hash)
-
         fig = distance_histo_from_matrix(matrix, i-1, j-1)
     fig.update_layout({"margin": {"b": 20, "r": 10, "t": 10, "l": 10}})
     if not switch:
