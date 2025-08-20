@@ -16,3 +16,4 @@ dependencies:
   - versioneer
   - dash-bio
   - pyyaml
+  - sqlalchemy
