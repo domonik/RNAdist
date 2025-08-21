@@ -74,7 +74,7 @@ def get_navbar():
 
                 dbc.Collapse(
                     [
-                        dbc.NavItem(dbc.NavLink(f"{page['name']}", href=page["relative_path"], id={"type": f"nav-item", "index": idx}), className="p-1") for
+                        dbc.NavItem(dbc.NavLink(f"{page['name']}", href=page["relative_path"], id={"type": f"nav-item", "index": idx}), className="p-1 nav-link-white") for
                         idx, page in enumerate(dash.page_registry.values())
                     ],
                     is_open=False,

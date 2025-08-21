@@ -1,8 +1,24 @@
+a {
+  color: #00a082 !important; }
+  a:hover, a:focus {
+    color: #00a082 !important;
+    text-decoration: underline; }
+
+.nav-link-white {
+  color: white !important; }
+  .nav-link-white:hover, .nav-link-white:focus {
+    color: white !important;
+    text-decoration: none; }
+
 [data-bs-theme="dark"] {
-  --bs-ufr-navbar: #2c3450; }
+  --bs-ufr-navbar: #2c3450;
+  --bs-link-color-rgb: 73, 253, 13;
+  --bs-info-bg: #5e2455; }
 
 [data-bs-theme="light"] {
-  --bs-ufr-navbar: #344a9a; }
+  --bs-ufr-navbar: #344a9a;
+  --bs-link-color-rgb: 52, 74, 154;
+  --bs-info-bg: rgba(245, 194, 237, 0.3); }
 
 .ufr-navbar {
   background-color: var(--bs-ufr-navbar) !important; }

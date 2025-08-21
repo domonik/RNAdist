@@ -21,7 +21,7 @@ def welcome_layout(text):
                     [
                         html.Div(
                             [
-                                dcc.Markdown(text, dangerously_allow_html=True, ),
+                                dcc.Markdown(text, dangerously_allow_html=True, mathjax=True),
                             ]
                         )
                     ]
