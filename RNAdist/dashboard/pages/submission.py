@@ -2,10 +2,11 @@ import time
 
 import RNA
 import dash
-from dash import callback, html, clientside_callback, Input, Output, dcc, dash_table, State, Patch
+from dash import callback, html, clientside_callback, Input, Output, dcc, dash_table, State, Patch, ALL, ctx
 import dash_bootstrap_components as dbc
 from RNAdist.dashboard import MAX_SEQ_LENGTH, CONFIG
 from RNAdist.sampling.ed_sampling import distance_histogram
+from RNAdist.dashboard.backends import celery
 from RNAdist.plots.sampling_plots import distance_histo_from_matrix
 import sqlite3
 import numpy as np
@@ -68,11 +69,26 @@ def get_submissions_table():
                                     'backgroundColor': 'var(--bs-tertiary-bg)',
                                 },
                                 {
-                                    'if': {'column_id': 'Header'},
-                                    'color': 'var(--bs-secondary)',   # use Bootstrap link color variable
+                                    'if': {
+                                        'column_id': 'Header',
+                                        'filter_query': '{Status} = "finished"'  # only style if status is finished
+                                    },
+                                    'color': 'var(--bs-secondary)',   # Bootstrap link color variable
                                     'textDecoration': 'underline',
                                     'cursor': 'pointer',
-                                }
+                                },
+                                {
+                                    "if": {"state": "active"},
+                                    "backgroundColor": "inherit !important",
+                                    "border": "inherit !important",
+                                    "color": "red"
+                                },
+                                {
+                                    "if": {"column_id": "Header", "filter_query": '{Status} = "finished"'},
+                                    "color": "var(--bs-secondary)",
+                                    "textDecoration": "underline",
+                                    "cursor": "pointer",
+                                },
 
                             ],
                             style_header={
@@ -98,6 +114,7 @@ def get_submissions_table():
                                 'overflow': 'hidden',
                                 'textOverflow': 'ellipsis',
                                 'whiteSpace': 'nowrap',
+                                "userSelect": "none"
                             },
                         ),
 
@@ -309,6 +326,8 @@ def check_valid_input(sequence, temperature, bpspan, user_id, header):
 
 )
 def submit_sequence(n_clicks, sequence, header, user_id, temperature, max_bp_span, is_open):
+    print("triggered:", ctx.triggered_id)
+
     if n_clicks is None:
         raise dash.exceptions.PreventUpdate
 
@@ -346,37 +365,58 @@ def submit_sequence(n_clicks, sequence, header, user_id, temperature, max_bp_spa
     return [header, fields, sequence], is_open, dash.no_update
 
 
+
+def _process_sequence_inline(submitted_job, user_id):
+    """Same code as your Celery task, for local execution without Redis."""
+    DB.database_cleanup()
+    header, md_dict, sequence = submitted_job
+    logger.info(f"started processing sequence: {header}-{user_id}")
+
+    RNA.init_rand(42)
+    md = RNA.md(**md_dict)
+    fc = RNA.fold_compound(sequence, md)
+    _, md_hash = hash_model_details(md, sequence)
+    try:
+        DB.set_status(md_hash, "running", user_id, header)
+        histograms, samples = distance_histogram(fc, 10000, return_samples=True)
+        DB.compress_and_insert_into_submissions(sequence, histograms, samples, fc, md)
+        DB.set_status(md_hash, "finished", user_id, header)
+    except Exception as e:
+        DB.set_status(md_hash, "failed", user_id, header)
+        raise e
+    logger.info(f"FINISHED long running task {header}-{user_id}")
+    return True
+
+if CONFIG["REDIS"]["URL"]:
+    @celery.task(bind=True)
+    def process_sequence_task(self, submitted_job, user_id):
+        _process_sequence_inline(submitted_job, user_id)
+        return True
+
+else:
+    process_sequence_task = _process_sequence_inline
+
 @callback(
     output=Output("sequence-computation-finished", "data"),
     inputs=Input("submitted-job", "data"),
     state=[
         State("user_id", "data"),
     ],
-    background=True,
-    prevent_initial_call=True
+    running=[
+        (Output("submit-sequence", "disabled"), True, False),
+    ] if not CONFIG["REDIS"]["URL"] else None,
+    background=True if not CONFIG["REDIS"]["URL"] else False,
+    prevent_initial_call="initial_duplicate",
+    allow_duplicate=True,
 )
 def process_sequence(submitted_job, user_id):
-    logger.info("STARTED long running task")
-
+    print("triggered:", ctx.triggered_id, submitted_job)
     if submitted_job is None:
         return dash.no_update
-    DB.database_cleanup()
-    header, md_dict, sequence = submitted_job
-    RNA.init_rand(42)
-    md = RNA.md(**md_dict)
-    fc = RNA.fold_compound(sequence, md)
-    _, md_hash = hash_model_details(md, sequence)
-    try:
-
-        DB.set_status(md_hash, "running", user_id, header)
-        histograms, samples = distance_histogram(fc, 10000, return_samples=True)
-        DB.compress_and_insert_into_submissions(sequence, histograms, samples, fc, md)
-        DB.set_status(md_hash, "finished", user_id, header)
-    except Exception as e:
-        print("RUNNING")
-        DB.set_status(md_hash, "failed", user_id, header)
-        raise e
-    logger.info(f"FINISHED long running task")
+    if CONFIG["REDIS"]["URL"]:
+        async_result = process_sequence_task.delay(submitted_job, user_id)
+    else:
+        process_sequence_task(submitted_job, user_id)
     return True
 
 @callback(
@@ -390,12 +430,10 @@ def process_sequence(submitted_job, user_id):
 )
 def display_status(n, user_id, _, _2):
     status = DB.get_jobs_of_user(user_id)
-    logger.info(f"status: {status}")
     table = []
     tooltips = []
     all_finished = True
     for row in status:
-        logger.info(row)
         job_id = str(row["job_hash"].hex())
         state = row["status"]
         if state != "finished":
@@ -411,7 +449,6 @@ def display_status(n, user_id, _, _2):
             "Sequence": {"value": seq, "type": "text"}  # tooltip shows full sequence on hover
         })
         row = {"Status": state, "Job ID": job_id, "Header": row["header"], "ModelDetails": model_details, "Sequence": seq}
-        print(row)
         table.append(row)
 
     interval_disabled = all_finished
@@ -423,6 +460,7 @@ def display_status(n, user_id, _, _2):
     Output("page-wide-seqid", "data"),
     Output('url', 'pathname'),
     Output("not-finished-modal", "is_open"),
+    Output('submissions-table', 'active_cell'),
     Input('submissions-table', 'active_cell'),
     State('submissions-table', 'data'),
 )
@@ -436,6 +474,6 @@ def on_row_select(active_cell, data):
     if header_value is None:
         raise dash.exceptions.PreventUpdate
     if status != "finished":
-        return dash.no_update, dash.no_update, True
+        return dash.no_update, dash.no_update, True, None
 
-    return header_value, "visualization", dash.no_update
+    return header_value, "visualization", dash.no_update, None

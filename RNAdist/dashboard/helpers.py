@@ -257,7 +257,6 @@ class Database:
     def set_status(self, hash_value, status, user_id, header):
         """Insert or update a job's status."""
         with self.engine.begin() as conn:
-            logger.info(f"Setting status: {hash_value} to {status}")
             conn.execute(
                 text("""
                      INSERT INTO jobs (hash, status, user_id, header)
