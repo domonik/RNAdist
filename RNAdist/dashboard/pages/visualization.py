@@ -487,7 +487,8 @@ def plot_histo(seq_hash, i, j, switch):
         fig = plot_distances_with_running_j(matrix, i-1, mfe=mfe)
         fig.update_layout(legend=dict(orientation="h"))
     else:
-        fig = distance_histo_from_matrix(matrix, i-1, j-1)
+        fig = distance_histo_from_matrix(matrix, i-1, j-1, vertical_spacing=0, row_heights=[0.8, 0.2])
+        fig.update_layout(showlegend=False)
     fig.update_layout({"margin": {"b": 20, "r": 10, "t": 10, "l": 10}})
     if not switch:
         fig.update_layout(DARK_LAYOUT)

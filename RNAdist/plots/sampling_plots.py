@@ -3,6 +3,8 @@ import numpy as np
 import re
 import time
 
+from plotly.subplots import make_subplots
+
 
 def empty_figure(annotation: str = None):
     fig = go.Figure()
@@ -39,18 +41,52 @@ def empty_figure(annotation: str = None):
     )
     return fig
 
-def distance_histo_from_matrix(distances, i, j, color:str ="#00a082"):
-    fig = go.Figure()
+def distance_histo_from_matrix(distances, i, j, color:str ="#00a082", **kwargs):
+    total_counts = distances[0, 0, 0]
+
+    hist = distances[i, j]
+    q1 = histogram_quantile(hist, 0.25, total_counts)
+    median = histogram_quantile(hist, 0.5, total_counts)
+    q3 = histogram_quantile(hist, 0.75, total_counts)
+    iqr = q3 - q1
+    d_min = hist.nonzero()[0].min()
+    d_max = hist.nonzero()[0].max()
+    lower_whisker = max(d_min, q1 - 1.5 * iqr)
+    upper_whisker = min(d_max, q3 + 1.5 * iqr)
+    x = np.arange(hist.shape[-1])
+    weighted_sum = np.sum(hist * x)
+    ed = weighted_sum / total_counts
+
+    fig = make_subplots(rows=2, shared_xaxes=True, **kwargs)
     fig.add_trace(
         go.Bar(
-            x=np.arange(distances.shape[-1]),
-            y=distances[i, j] / distances[i, j].sum(),
+            x=x,
+            y=hist / hist.sum(),
             marker=dict(color=color),
-        )
+            name="Histogram",
+        ),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Box(
+            lowerfence=[float(lower_whisker)],
+            q1=[float(q1)],
+            median=[float(median)],
+            q3=[float(q3)],
+            upperfence=[float(upper_whisker)],
+            mean=[float(ed)],
+            name=f'Box',
+            marker=dict(color=color),
+            y=["Distribution"],
+            boxpoints=False  # hide individual points
+        ),
+        row=2, col=1
     )
     fig.update_layout(
-        xaxis=dict(title="Distance [nt]"),
-        yaxis=dict(title="Probability")
+        xaxis2=dict(title="Distance [nt]", showgrid=True),
+        xaxis=dict(showgrid=True),
+        yaxis=dict(title="Probability", showgrid=True),
+        yaxis2=dict(showticklabels=False),
     )
     return fig
 
