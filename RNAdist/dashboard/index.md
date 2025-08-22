@@ -3,6 +3,7 @@
 This is the RNAdist Webserver used to calculate nucleotide distances on the ensemble of RNA secondary structures.
 
 ## What does it do
+
 The thermodynamic ensemble of RNA secondary structures refers to the collection of all possible conformations an RNA 
 molecule can adopt, each associated with a specific probability determined by its free energy.
 
@@ -14,7 +15,9 @@ By sampling structures from the RNA thermodynamic ensemble, one can compute the 
 $i$ and $j$ across the sampled graphs. This generates a distribution of distances, reflecting how often different spatial 
 separations occur in the ensemble and providing insights into the flexibility and connectivity of the RNA molecule.
 
+also [Watch the Video](#demo)
 
+ 
 ## How to use
 Use the Navbar at the top to enter your session token. All computations will be associated with this token, so make 
 sure to save it if you want to access your data later.
