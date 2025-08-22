@@ -76,16 +76,20 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             let preservedMargin = fig.layout && fig.layout.margin ? fig.layout.margin : {};
 
             // Force axis labels to push margins
-            let xaxis = { ...fig.layout.xaxis, automargin: true };
-            let yaxis = { ...fig.layout.yaxis, automargin: true };
+            let axes = {};
+            for (let key in fig.layout) {
+                if (key.startsWith("xaxis") || key.startsWith("yaxis")) {
+                    axes[key] = { ...fig.layout[key], automargin: true };
+                }
+            }
 
             return {
                 ...fig,
                 layout: {
-                    ...newLayout,
+                    ...fig.layout,   // keep subplot structure
+                    ...newLayout,    // apply theme changes
                     margin: preservedMargin,
-                    xaxis: xaxis,
-                    yaxis: yaxis
+                    ...axes          // restore all subplot axes with automargin
                 }
             };
         },

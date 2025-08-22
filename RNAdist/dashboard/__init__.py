@@ -28,23 +28,23 @@ COLORS = {
     "pink": "#f5c2ed"
 }
 
+COMMON_LAYOUT = {
+    "xaxis": {"showline": False, "mirror": False, "zeroline": False},
+    "yaxis": {"showline": False, "mirror": False, "zeroline": False },
+}
+
 LAYOUT = {
     "template": "plotly_white",
     'paper_bgcolor': 'rgba(0,0,0,0)',
     'plot_bgcolor': 'rgb(219, 219, 219)',
     "font": {"color": "black", "size": 16},
+} | COMMON_LAYOUT
 
-
-}
 DARK_LAYOUT = {
     "template": "plotly_white",
     'paper_bgcolor': 'rgba(0,0,0,0)',
     'plot_bgcolor': 'rgba(0,0,0,0)',
     "font": {"color": "white", "size": 16},
 
-}
+} | COMMON_LAYOUT
 
-COMMON_LAYOUT = {
-    "xaxis": {"showline": True, "mirror": True, },
-    "yaxis": {"showline": True, "mirror": True, },
-}
