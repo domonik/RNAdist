@@ -29,6 +29,26 @@ def welcome_layout(text):
 
             ],
             width=12, lg=6, className="py-1"
+        ),
+        dbc.Col(
+            [
+                dbc.Card(
+                    [
+                        html.Div(
+                            [
+                                html.H1("Demo", id="demo"),
+                                html.Video(
+                                    src="/assets/RNACompressed.mp4",
+                                    controls=True,
+                                    style={"width": "100%", "border-radius": "10px", "border": "1px solid var(--bs-color)"},
+                                ),
+                            ]
+                        )
+                    ]
+                    , className="shadow p-2", style={"font-size": "20px"})
+
+            ],
+            width=12, lg=6, className="py-1"
         )
     ]
 
