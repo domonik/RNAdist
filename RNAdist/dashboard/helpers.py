@@ -51,7 +51,12 @@ class Database:
     def delete_unfinished_jobs(self):
         with self.engine.connect() as conn:
             conn.execute(
-                text("DELETE FROM jobs WHERE status != 'finished';")
+                text("""
+                     DELETE FROM submissions
+                     WHERE hash IN (
+                         SELECT hash FROM jobs WHERE status != 'finished'
+                         );
+                     """)
             )
             conn.commit()
 
@@ -424,7 +429,7 @@ class Database:
             header TEXT NOT NULL,
             UNIQUE (hash, user_id),
             UNIQUE (user_id, header),
-            FOREIGN KEY (hash) REFERENCES submissions(hash)
+            FOREIGN KEY (hash) REFERENCES submissions(hash) ON DELETE CASCADE
         );
         """
 
@@ -434,7 +439,7 @@ class Database:
             hash {blob_type} NOT NULL,
             structure {blob_type} NOT NULL,
             num_samples INTEGER NOT NULL,
-            FOREIGN KEY (hash) REFERENCES submissions(hash),
+            FOREIGN KEY (hash) REFERENCES submissions(hash) ON DELETE CASCADE,
             UNIQUE(hash, structure)
         );
         """
