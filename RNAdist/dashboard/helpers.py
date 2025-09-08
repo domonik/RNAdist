@@ -102,8 +102,7 @@ class Database:
         with self.engine.begin() as conn:
             conn.execute(
                 text("""
-                     UPDATE jobs
-                     SET status = 'deleted'
+                     DELETE FROM jobs
                      WHERE hash IN (
                          SELECT hash FROM submissions
                          WHERE created_at < :cutoff
@@ -144,7 +143,7 @@ class Database:
                     params = {f"h{i}": h for i, h in enumerate(hashes_to_delete)}
 
                     conn.execute(
-                        text(f"UPDATE jobs SET status = 'deleted' WHERE hash IN ({placeholders})"),
+                        text(f"DELETE FROM jobs WHERE hash IN ({placeholders})"),
                         params
                     )
                     conn.execute(
